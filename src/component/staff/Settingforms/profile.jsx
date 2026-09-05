@@ -66,9 +66,9 @@ export const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen  md:p-8">
-      <div className="max-w-6xl mx-auto bg-white rounded-2xl  overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 md:p-8">
+    <div className="w-full bg-slate-50/40 p-3 sm:p-5 lg:p-6">
+      <div className="mx-auto w-full max-w-6xl overflow-hidden rounded-xl bg-white">
+        <div className="grid grid-cols-1 gap-5 p-4 sm:p-5 lg:grid-cols-3 lg:p-6">
           
           {/* Left Column - Profile & Skills */}
           <div className="lg:col-span-1 space-y-8">

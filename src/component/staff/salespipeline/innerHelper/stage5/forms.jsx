@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -14,11 +14,14 @@ import {
   User,
   Users,
 } from "lucide-react";
+
+// import { NepaliDatePicker } from "nepali-datepicker-reactjs";
+// import "nepali-datepicker-reactjs/dist/index.css";
 import Select from "react-select";
 import { useGet } from "../../../../hooks/useGet"; // update path if needed
 import { UseAdd } from "../../../../hooks/useadd";
 import { ValidateStyle } from "../../../../../data/data";
-import { SuccessNotify,waitingNotify } from "../../../../hotToaster";
+import { SuccessNotify, waitingNotify } from "../../../../hotToaster";
 
 const editableFields = [
   {
@@ -56,6 +59,13 @@ const editableFields = [
     type: "text",
     icon: BadgeCheck,
     placeholder: "PAN-987654",
+  },
+  {
+    name: "date",
+    label: "Date",
+    type: "date",
+    icon: BadgeCheck,
+    placeholder: "Choose Date.",
   },
   {
     name: "address",
@@ -147,9 +157,16 @@ const editableFields = [
     icon: Users,
     placeholder: "50",
   },
+  {
+    name: "discount",
+    label: "Discount",
+    type: "number",
+    icon: Hash,
+    placeholder: "0",
+  },
 ];
 
-const isEmptyValue = (value) => {
+const isEmptyValue = (value, field) => {
   if (value === null || value === undefined) return true;
   if (typeof value === "string" && value.trim() === "") return true;
   if (Array.isArray(value) && value.length === 0) return true;
@@ -162,6 +179,9 @@ const isEmptyValue = (value) => {
     return true;
   }
 
+  // For discount field, 0 is not considered empty
+  if (field === "discount" && value === 0) return false;
+
   return false;
 };
 
@@ -169,13 +189,16 @@ const getDisplayValue = (field, value) => {
   if (field === "industyType") {
     return Array.isArray(value) ? value.join(", ") : value || "";
   }
-
+  if (field === "discount") {
+    return value ?? "0";
+  }
+  console.log('value===', value)
   return value ?? "";
 };
 
 const normalizeValue = (field, value) => {
-  if (field === "totalEducator" || field === "totalEmp_learners") {
-    return value === "" ? "" : Number(value);
+  if (field === "totalEducator" || field === "totalEmp_learners" || field === "discount") {
+    return value === "" ? 0 : Number(value);
   }
 
   if (field === "industyType") {
@@ -189,6 +212,7 @@ const normalizeValue = (field, value) => {
 };
 
 export const ContractForms = ({ id }) => {
+
   const fontStyle = { fontFamily: "'Roboto Slab', serif" };
 
   const [organizations, setOrganizations] = useState([]);
@@ -200,21 +224,29 @@ export const ContractForms = ({ id }) => {
   const { getOnlyOrgDetails_, } = useGet();
   const { update_Only_OrgDetails } = UseAdd();
 
-  useEffect(() => {
-    if (!id?.mainID) return;
 
+  const mainID = useMemo(() => id?.mainID, [id?.mainID]);
+
+  useEffect(() => {
+    if (!mainID) return;
     getOnlyOrgDetails_.mutate(
       { parms: { _id: id?.mainID } },
+
       {
+
         onSuccess: (data) => {
           setOrganizations(data?.data?.organizationDetails || []);
+          console.log('new date in db:======', data?.data?.organizationDetails)
         },
+
         onError: (err) => {
           console.error("Error fetching organization details:", err);
         },
       }
     );
-  }, [id?.mainID]);
+  }, [mainID]);
+
+
 
   useEffect(() => {
     return () => {
@@ -224,7 +256,7 @@ export const ContractForms = ({ id }) => {
 
   const getEmptyFields = (org) => {
     return editableFields
-      .filter((field) => isEmptyValue(org?.[field.name]))
+      .filter((field) => isEmptyValue(org?.[field.name], field.name))
       .map((field) => field.label);
   };
 
@@ -320,9 +352,10 @@ export const ContractForms = ({ id }) => {
   // if (saveStatus?.[0] === "waiting") {
 
   // }
+  console.log("organizations state:", organizations);
   const handleChange = (index, field, rawValue) => {
     const value = normalizeValue(field, rawValue);
-
+    console.log('checking ', index, field, rawValue)
     const nextOrganization = {
       ...organizations[index],
       [field]: value,
@@ -339,7 +372,12 @@ export const ContractForms = ({ id }) => {
       [`${index}.${field}`]: true,
     }));
 
-    scheduleAutoSave(index, nextOrganization);
+    // For date field, skip waiting status and go directly to saving
+    if (field === "date") {
+      saveOrganization(index, nextOrganization);
+    } else {
+      scheduleAutoSave(index, nextOrganization);
+    }
   };
 
   const renderSaveStatus = (index) => {
@@ -489,8 +527,7 @@ export const ContractForms = ({ id }) => {
                   {editableFields.map((field) => {
                     const Icon = field.icon;
                     const key = `${index}.${field.name}`;
-                    const hasError =
-                      touched[key] && isEmptyValue(org?.[field.name]);
+                    const hasError = touched[key] && isEmptyValue(org?.[field.name], field.name);
 
                     return (
                       <label key={field.name} className="flex flex-col gap-2">
@@ -499,51 +536,59 @@ export const ContractForms = ({ id }) => {
                           {field.label}
                         </span>
 
-                        {field.type === "select" ? (
-                          <div className="w-full">
-                            <Select
-                              name={field.name}
-                              isMulti={field.multiple}
-                              options={field.options}
-                              placeholder={`Select ${field.label}`}
-                              styles={ValidateStyle(false, false, "25px")}
-
-                              value={
-                                field.multiple
-                                  ? field.options?.filter((option) =>
-                                    Array.isArray(org?.[field.name])
-                                      ? org?.[field.name]?.includes(option.value)
-                                      : false
-                                  )
-                                  : field.options?.find(
-                                    (option) =>
-                                      option.value === getDisplayValue(field.name, org?.[field.name])
-                                  ) || null
+                        {field.type === "date" ? (
+                          // <></>
+                          <input
+                            type="datetime-local"
+                            value={org?.[field.name] || ""}
+                            onChange={(e) => {
+                              console.log("Selected DateTime:", e.target.value);
+                              handleChange(index, field.name, e.target.value);
+                            }}
+                            className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${hasError
+                              ? "border-red-400 focus:border-red-500"
+                              : "border-slate-300 focus:border-amber-500"
+                              }`}
+                          />
+                        ) : field.type === "select" ? (
+                          <Select
+                            name={field.name}
+                            isMulti={field.multiple}
+                            options={field.options}
+                            placeholder={`Select ${field.label}`}
+                            styles={ValidateStyle(false, false, "25px")}
+                            value={
+                              field.multiple
+                                ? field.options?.filter((option) =>
+                                  Array.isArray(org?.[field.name])
+                                    ? org?.[field.name]?.includes(option.value)
+                                    : false
+                                )
+                                : field.options?.find(
+                                  (option) =>
+                                    option.value === getDisplayValue(field.name, org?.[field.name])
+                                ) || null
+                            }
+                            onChange={(option) => {
+                              if (field.multiple) {
+                                const values = option ? option.map((item) => item.value) : [];
+                                handleChange(index, field.name, values);
+                              } else {
+                                handleChange(index, field.name, option?.value || "");
                               }
-
-                              onChange={(option) => {
-                                if (field.multiple) {
-                                  const values = option ? option.map((item) => item.value) : [];
-                                  handleChange(index, field.name, values);
-                                } else {
-                                  handleChange(index, field.name, option?.value || "");
-                                }
-                              }}
-                            />
-                          </div>
+                            }}
+                          />
                         ) : (
                           <input
                             type={field.type}
                             name={field.name}
+                            min={field.name === "discount" ? 0 : null}
                             value={getDisplayValue(field.name, org?.[field.name])}
                             placeholder={field.placeholder}
-                            onChange={(e) =>
-                              handleChange(index, field.name, e.target.value)
-                            }
-                            className={`w-full rounded-lg border h-[48px] bg-white px-3 
-      py-2.5 text-sm outline-none transition-colors ${hasError
-                                ? "border-red-400 focus:border-red-500"
-                                : "border-slate-200 focus:border-amber-500"
+                            onChange={(e) => handleChange(index, field.name, e.target.value)}
+                            className={`w-full rounded-lg border h-[48px] bg-white px-3 py-2.5 text-sm outline-none transition-colors ${hasError
+                              ? "border-red-400 focus:border-red-500"
+                              : "border-slate-200 focus:border-amber-500"
                               }`}
                           />
                         )}

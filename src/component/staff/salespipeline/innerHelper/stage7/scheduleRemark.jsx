@@ -20,6 +20,7 @@ import {
   BriefcaseBusiness,
   Download,
 } from "lucide-react";
+import { downloadHolidayExcel, readExcelFile } from "../../../../../data/data";
 
 const notificationThemes = [
   {
@@ -158,6 +159,8 @@ export function ScheduleRemark() {
   const [holidayList, setHolidayList] = useState(initialHolidayList);
   const [openHolidayFile, setOpenHolidayFile] = useState(false);
   const [openFilter, setOpenFilter] = useState(false);
+  const [holidayFile, setHolidayFile] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState({ message: "", error: "" });
   const [searchText, setSearchText] = useState("");
   const [searchFromDateTime, setSearchFromDateTime] = useState("");
   const [searchToDateTime, setSearchToDateTime] = useState("");
@@ -166,11 +169,80 @@ export function ScheduleRemark() {
   const scrollAreaRef = useRef(null);
   const notificationRefs = useRef({});
 
-  const handleHolidayFileUpload = () => { }// Placeholder for file upload handler
-  
-  // const  clearSearch = () => { }
-const downloadHolidayScheduleSample=()=>{}
-const downloadWorkingScheduleSample=()=>{}
+  const acceptedHolidayExtensions = [".xlsx", ".xls"];
+
+  const validateHolidayFile = (file) => {
+    if (!file) return "No file selected.";
+
+    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    if (!acceptedHolidayExtensions.includes(extension)) {
+      return "Only .xlsx and .xls files are accepted.";
+    }
+
+    return "";
+  };
+
+  const uploadHolidayFile = (file) => {
+
+    if (!file) {
+      setUploadStatus({ message: "", error: "No file available to upload." });
+      return;
+    }
+
+    setUploadStatus({ message: `Uploading ${file.name}...`, error: "" });
+
+    console.log("Upload schedule file:", file);
+    setUploadStatus({ message: `Uploaded ${file.name} successfully.`, error: "" });
+  };
+
+  const processHolidayFile = (file) => {
+    const error = validateHolidayFile(file);
+    if (error) {
+      setHolidayFile(null);
+      setUploadStatus({ message: "", error });
+      return;
+    }
+
+    setHolidayFile(file);
+    uploadHolidayFile(file);
+    console.log("Selected file:", file);
+
+    // alert(`Selected file: ${file ? file.name : "No file selected"}`);
+  };
+
+  useEffect(() => {
+    const senDholiday = async () => {
+      if (!holidayFile) return;
+      const result = await readExcelFile(holidayFile);
+
+      console.log("Excel Data:", result);
+    }
+    senDholiday();
+  }, [holidayFile]);
+  // use this way for loding 
+//   {uploadHolidayMutation.isPending && (
+//   <p className="text-amber-500 text-[12px]">
+//     Uploading...
+//   </p>
+// )}
+
+  function handleHolidayFileUpload(event) {
+    const file = event.target.files?.[0];
+    console.log("Selected file:", file);
+    processHolidayFile(file);
+  }
+
+  const handleHolidayDropFile = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const file = event.dataTransfer.files?.[0];
+    processHolidayFile(file);
+  };
+
+  const downloadHolidayScheduleSample = downloadHolidayExcel;
+
+
   const [rejectBox, setRejectBox] = useState({
     itemId: null,
     reason: "",
@@ -445,9 +517,7 @@ const downloadWorkingScheduleSample=()=>{}
             <Timer size={17} className="text-amber-500" />
           </span>
 
-          <span className="text-[14px] font-semibold text-black sm:text-sm">
-            Working Schedule
-          </span>
+
         </div>
 
         <div className="flex items-center gap-2" onClick={() => { setOpenHolidayFile(true) }}>
@@ -471,7 +541,7 @@ const downloadWorkingScheduleSample=()=>{}
                       Upload Schedule File
                     </h3>
                     <p className="text-[11px] font-medium text-slate-500">
-                      Upload holiday or working schedule excel file
+                      Upload holiday Schedule excel file only.
                     </p>
                   </div>
                 </div>
@@ -488,32 +558,16 @@ const downloadWorkingScheduleSample=()=>{}
               {/* Body */}
               <div className="space-y-4 p-4">
                 {/* Dropdown */}
-                <div>
-                  <label className="mb-1.5 block text-[12px] font-semibold text-slate-700">
-                    Select Schedule Type
-                  </label>
 
-                  <select
-                    defaultValue=""
-                    className="h-10 w-full rounded border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                  >
-                    <option value="" disabled>
-                      Choose schedule type
-                    </option>
-                    <option value="holiday_schedule">Holiday Schedule</option>
-                    <option value="working_schedule">Working Schedule</option>
-                  </select>
-                </div>
 
                 {/* Upload Area */}
                 <label
                   htmlFor="holidayScheduleFile"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
+                  onDragOver={(e) => {
                     e.preventDefault();
-                    // use your drop function here
-                    // handleHolidayDropFile(e);
+                    e.dataTransfer.dropEffect = "copy";
                   }}
+                  onDrop={handleHolidayDropFile}
                   className="flex min-h-[170px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/40 px-4 py-6 text-center transition hover:border-amber-400 hover:bg-amber-50"
                 >
                   <span className="mb-3 rounded-full bg-white p-3 shadow-sm">
@@ -540,6 +594,20 @@ const downloadWorkingScheduleSample=()=>{}
                     className="hidden"
                   />
                 </label>
+
+                {holidayFile && (
+                  <p className="mt-2 text-[12px] text-slate-700">
+                    Selected file: <span className="font-semibold">{holidayFile.name}</span>
+                  </p>
+                )}
+
+                {uploadStatus.message && (
+                  <p className="mt-2 text-[12px] text-emerald-600">{uploadStatus.message}</p>
+                )}
+
+                {uploadStatus.error && (
+                  <p className="mt-2 text-[12px] text-red-500">{uploadStatus.error}</p>
+                )}
               </div>
 
               {/* Footer */}
@@ -552,16 +620,6 @@ const downloadWorkingScheduleSample=()=>{}
                   >
                     <CalendarDays size={13} />
                     Holiday Sample
-                    <Download size={12} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={downloadWorkingScheduleSample}
-                    className="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded border border-blue-200 bg-white px-3 text-[12px] font-semibold text-blue-600 transition hover:border-blue-500 hover:bg-blue-500 hover:text-white"
-                  >
-                    <BriefcaseBusiness size={13} />
-                    Working Sample
                     <Download size={12} />
                   </button>
                 </div>

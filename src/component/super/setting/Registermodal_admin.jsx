@@ -1,661 +1,676 @@
-// RegisterModal.jsx
-import {
-  X, User, Building, Mail, Phone, Lock, KeyRound, ChevronRight,
-  Loader2, CircleAlert
-} from "lucide-react";
-import React, { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
+import {
+    X, User, Mail, Phone, Lock, KeyRound, ChevronRight,
+    Loader2, Map, MapPin, Briefcase, Shield, Navigation, Edit, Wand2
+} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import Select from "react-select";
+import { waitingNotify, ErrorNotify, SuccessNotify } from "../../hotToaster";
+import {useGet } from "../../hooks/useGet";
+import { UseAdd } from "../../hooks/useadd";
+import { UseDelete } from "../../hooks/useDelete";
 
-// --------------------- helpers ---------------------
-const createOptions = (data, field) =>
-  data?.data?.filter((item) => item?.[field]).map((item) => ({
-    value: item._id,
-    label: item[field],
-  })) || [];
+// Deleteadmin_
+// Inline Style Objects for Roboto Slab
+const fontLight = { fontFamily: "'Roboto Slab', serif", fontWeight: 300 };
+const fontBold = { fontFamily: "'Roboto Slab', serif", fontWeight: 700 };
 
-const fullNameOptions = (data) =>
-  data?.data?.map((item) => ({
-    value: item._id,
-    label: `${item.firstName || ""} ${item.lastName || ""}`.trim(),
-  })) || [];
-
-// --------------------- Initial States ---------------------
-const initialStaffState = {
-  fullName: "",
-  userName: "",
-  role: "",
-  position: "",
-  personalEmail: "",
-  personalPhone: "",
-  employee_id: "",
-  password: "",
-  confirmPassword: "",
+// Dependent Data Mapping - Provinces & Districts of Nepal
+const provinceDistricts = {
+    "Koshi Province": ["Bhojpur", "Dhankuta", "Ilam", "Jhapa", "Khotang", "Morang", "Okhaldhunga", "Panchthar", "Sankhuwasabha", "Solukhumbu", "Sunsari", "Taplejung", "Terhathum", "Udayapur"],
+    "Madhesh Province": ["Bara", "Dhanusha", "Mahottari", "Parsa", "Rautahat", "Saptari", "Sarlahi", "Siraha"],
+    "Bagmati Province": ["Bhaktapur", "Chitwan", "Dhading", "Dolakha", "Kathmandu", "Kavrepalanchok", "Lalitpur", "Makwanpur", "Nuwakot", "Ramechhap", "Rasuwa", "Sindhuli", "Sindhupalchok"],
+    "Gandaki Province": ["Baglung", "Gorkha", "Kaski", "Lamjung", "Manang", "Mustang", "Myagdi", "Nawalpur", "Parbat", "Syangja", "Tanahun"],
+    "Lumbini Province": ["Arghakhanchi", "Banke", "Bardiya", "Dang", "Eastern Rukum", "Gulmi", "Kapilvastu", "Palpa", "Pyuthan", "Rolpa", "Rupandehi", "Western Nawalparasi"],
+    "Karnali Province": ["Dailekh", "Dolpa", "Humla", "Jajarkot", "Jumla", "Kalikot", "Mugu", "Salyan", "Surkhet", "Western Rukum"],
+    "Sudurpashchim Province": ["Achham", "Baitadi", "Bajhang", "Bajura", "Dadeldhura", "Darchula", "Doti", "Kailali", "Kanchanpur"]
 };
 
-const initialClientState = {
-  organizationName: "",
-  email: "",
-  phone: "",
-  password: "",
-  confirmPassword: "",
+// Auto-fill Mapping for Province Number
+const provinceNumbers = {
+    "Koshi Province": 1,
+    "Madhesh Province": 2,
+    "Bagmati Province": 3,
+    "Gandaki Province": 4,
+    "Lumbini Province": 5,
+    "Karnali Province": 6,
+    "Sudurpashchim Province": 7
 };
 
-// --------------------- Staff Form ---------------------
-const StaffForm = ({
-  staffData,
-  onSelectChange,
-  onInputChange,
-  roleOptions,
-  firstNameOptions,
-  customSelectStyles,
-  onSubmit,
-  loading,
-}) => {
-  return (
-    <>
-      {/* Full Name */}
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-slate-700 flex items-center gap-1">
-          Select Full Name <span className="text-red-500">*</span>
-        </label>
-        <Select
-          options={firstNameOptions}
-          value={firstNameOptions?.find((opt) => opt.value === staffData.fullName)}
-          onChange={(selected) => onSelectChange(selected, "fullName", "staff")}
-          className="react-select-container"
-          classNamePrefix="select"
-          placeholder="Select employee full name..."
-          isClearable
-          isSearchable
-          styles={customSelectStyles}
-        />
-      </div>
+const provinceOptions = Object.keys(provinceDistricts).map(prov => ({ value: prov, label: prov }));
+const statusOptions = [{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }];
+const roleOptions = [{ value: "admin", label: "Admin" }];
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-5">
-        {/* User Name */}
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-slate-700 flex items-center gap-1">
-            User Name
-          </label>
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-              <User size={20} />
-            </div>
-            <input
-              type="text"
-              name="userName"
-              value={staffData.userName}
-              readOnly
-              className="w-full py-3.5 pl-12 pr-4 rounded-xl border
-               border-slate-300 outline-none text-sm font-medium
-                bg-slate-50 text-slate-600 cursor-not-allowed"
-              placeholder="Auto-filled from Full Name selection"
-            />
-          </div>
-        </div>
 
-        {/* Role */}
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-slate-700 flex items-center gap-1">
-            Role <span className="text-red-500">*</span>
-          </label>
-          <Select
-            options={roleOptions}
-            value={roleOptions.find((opt) => opt.value === staffData.role)}
-            onChange={(selected) => onSelectChange(selected, "role", "staff")}
-            className="react-select-container"
-            classNamePrefix="select"
-            placeholder="Select a role..."
-            styles={customSelectStyles}
-          />
-        </div>
-      </div>
 
-      {/* Position */}
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-slate-700 flex items-center gap-1">
-          Position <span className="text-red-500">*</span>
-        </label>
-        <div className="relative">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-            <User size={20} />
-          </div>
-          <input
-            type="text"
-            name="position"
-            value={staffData.position}
-            readOnly
-            className="w-full py-3.5 pl-12 pr-4 rounded-xl border border-slate-300 outline-none text-sm font-medium bg-slate-50 text-slate-600 cursor-not-allowed"
-            placeholder="Auto Filled from Full Name selection"
-          />
-        </div>
-      </div>
 
-      {/* Personal Email */}
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-slate-700 flex items-center gap-1">
-          Personal Email
-        </label>
-        <div className="relative">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-            <Mail size={20} />
-          </div>
-          <input
-            type="email"
-            name="personalEmail"
-            value={staffData.personalEmail || ""}
-            readOnly
-            className="w-full py-3.5 pl-12 pr-4 rounded-xl border border-slate-300 outline-none text-sm font-medium bg-slate-50 text-slate-600 cursor-not-allowed"
-            placeholder="Auto-filled from selection"
-          />
-        </div>
-      </div>
-
-      {/* Personal Phone */}
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-slate-700 flex items-center gap-1">
-          Personal Phone
-        </label>
-        <div className="relative">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-            <Phone size={20} />
-          </div>
-          <input
-            type="tel"
-            name="personalPhone"
-            value={staffData.personalPhone || ""}
-            readOnly
-            className="w-full py-3.5 pl-12 pr-4 rounded-xl border border-slate-300 outline-none text-sm font-medium bg-slate-50 text-slate-600 cursor-not-allowed"
-            placeholder="Auto-filled from selection"
-          />
-        </div>
-      </div>
-
-      {/* Password fields */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-slate-700">
-            Password <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-              <Lock size={20} />
-            </div>
-            <input
-              type="password"
-              name="password"
-              value={staffData.password}
-              readOnly
-              onChange={(e) => onInputChange(e, "staff")}
-              className="w-full py-3.5 pl-12 pr-4 rounded-xl border border-slate-300 outline-none text-sm font-medium bg-white"
-              placeholder="Enter password"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-slate-700">
-            Confirm Password <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-              <Lock size={20} />
-            </div>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={staffData.password}
-              readOnly
-              onChange={(e) => onInputChange(e, "staff")}
-              className="w-full py-3.5 pl-12 pr-4 rounded-xl border border-slate-300 outline-none text-sm font-medium bg-slate-50 text-slate-600 cursor-not-allowed"
-              placeholder="Confirm password"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Submit */}
-      <div className="pt-2">
-        <button
-          type="submit"
-          onClick={onSubmit}
-          disabled={loading}
-          className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-4 px-4 text-base rounded-xl hover:from-amber-600 hover:to-amber-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg hover:shadow-xl active:shadow-md group font-['Roboto_Slab']"
-        >
-          {loading ? (
-            <span className="flex items-center justify-center">
-              <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-              Registering...
-            </span>
-          ) : (
-            <span className="flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-              Create Account
-              <ChevronRight className="w-5 h-5 ml-2 transform group-hover:translate-x-1 transition-transform duration-300" />
-            </span>
-          )}
-        </button>
-        <p className="text-slate-500 text-xs text-center mt-3 flex items-center justify-center gap-1">
-          <Lock className="w-3 h-3 flex-shrink-0" />
-          Your data is securely encrypted
-        </p>
-      </div>
-    </>
-  );
+// --- Validation Helpers ---
+const isValidEmail = (email) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
 };
 
-// --------------------- Client Form ---------------------
-const ClientForm = ({
-  clientData,
-  onInputChange,
-  onSubmit,
-  loading,
-}) => {
-  return (
-    <>
-      {/* Org Name */}
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-slate-700 flex items-center gap-1">
-          Client / Organization Name <span className="text-red-500">*</span>
-        </label>
-        <div className="relative">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-            <Building size={20} />
-          </div>
-          <input
-            type="text"
-            name="organizationName"
-            value={clientData.organizationName}
-            onChange={(e) => onInputChange(e, "client")}
-            className="w-full py-3.5 pl-12 pr-4 rounded-xl border border-slate-300 outline-none text-sm font-medium bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-            placeholder="Acme Corporation"
-          />
-        </div>
-      </div>
-
-      {/* Org Email */}
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-slate-700 flex items-center gap-1">
-          Organization Email Address <span className="text-red-500">*</span>
-        </label>
-        <div className="relative">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-            <Mail size={20} />
-          </div>
-          <input
-            type="email"
-            name="email"
-            value={clientData.email}
-            onChange={(e) => onInputChange(e, "client")}
-            className="w-full py-3.5 pl-12 pr-4 rounded-xl border border-slate-300 outline-none text-sm font-medium bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-            placeholder="contact@organization.com"
-          />
-        </div>
-      </div>
-
-      {/* Password fields */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-slate-700">
-            Password <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-              <Lock size={20} />
-            </div>
-            <input
-              type="password"
-              name="password"
-              value={clientData.password}
-              onChange={(e) => onInputChange(e, "client")}
-              className="w-full py-3.5 pl-12 pr-4 rounded-xl border border-slate-300 outline-none text-sm font-medium bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-              placeholder="Enter password"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-slate-700">
-            Confirm Password <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-              <Lock size={20} />
-            </div>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={clientData.confirmPassword}
-              onChange={(e) => onInputChange(e, "client")}
-              className="w-full py-3.5 pl-12 pr-4 rounded-xl border border-slate-300 outline-none text-sm font-medium bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-              placeholder="Confirm password"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Submit */}
-      <div className="pt-2">
-        <button
-          type="submit"
-          onClick={onSubmit}
-          disabled={loading}
-          className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-4 px-4 text-base rounded-xl hover:from-amber-600 hover:to-amber-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg hover:shadow-xl active:shadow-md group font-['Roboto_Slab']"
-        >
-          {loading ? (
-            <span className="flex items-center justify-center">
-              <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-              Registering...
-            </span>
-          ) : (
-            <span className="flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-              Create Account
-              <ChevronRight className="w-5 h-5 ml-2 transform group-hover:translate-x-1 transition-transform duration-300" />
-            </span>
-          )}
-        </button>
-        <p className="text-slate-500 text-xs text-center mt-3 flex items-center justify-center gap-1">
-          <Lock className="w-3 h-3 flex-shrink-0" />
-          Your data is securely encrypted
-        </p>
-      </div>
-    </>
-  );
+const isValidPhone = (phone) => {
+    // Removes spaces/hyphens, allows optional '+' at the start, requires 10 to 15 digits
+    const cleaned = phone.replace(/[\s-]/g, '');
+    const regex = /^\+?[0-9]{10,15}$/;
+    return regex.test(cleaned);
 };
+// --------------------------
 
-// --------------------- Parent Modal ---------------------
-export const RegisterModal_Admin = ({ onClose, onSuccess }) => {
-  const [activeTab, setActiveTab] = useState("staff");
+export const RegisterModal_Admin = ({ onClose, onSuccess, editData = false }) => {
+    const isEditMode = !!editData;
 
-  // Separate states for staff and client
-  const [staffData, setStaffData] = useState(initialStaffState);
-  const [clientData, setClientData] = useState(initialClientState);
+    // --------------------- Initial State ---------------------
+    const [formData, setFormData] = useState({
+        provinceName: null,
+        Prvince: null,
+        localLevelName: "",
+        wardNo: "",
+        toleName: "",
+        districts: [],
+        fullName: null,
+        designation: "",
+        jobRole: "",
+        personalMobile: "",
+        personalEmail: "",
+        username: "",
+        officeEmail: "",
+        officeMobile: "",
+        password: "",
+        confirmPassword: "",
+        status: statusOptions[0],
+        role: roleOptions[0],
+        lat: "",
+        lng: ""
+    });
+    const { Createadmin_ } = UseAdd();
+    const {getAllRecruitment_} = useGet();
 
-  // Dummy recruitment data
-  const dummyRecruitmentData = {
-    data: [
-      {
-        _id: "1",
-        firstName: "John",
-        lastName: "Doe",
-        personalEmail: "john.doe@example.com",
-        personalMobile: "+1234567890",
-        jobRole: "Senior HR",
-        designation: "HR Manager",
-      },
-      {
-        _id: "2",
-        firstName: "Jane",
-        lastName: "Smith",
-        personalEmail: "jane.smith@example.com",
-        personalMobile: "+1234567891",
-        jobRole: "Recruiter",
-        designation: "Recruitment Specialist",
-      },
-      {
-        _id: "3",
-        firstName: "Michael",
-        lastName: "Johnson",
-        personalEmail: "michael.johnson@example.com",
-        personalMobile: "+1234567892",
-        jobRole: "HR Coordinator",
-        designation: "HR Coordinator",
-      },
-      {
-        _id: "4",
-        firstName: "Sarah",
-        lastName: "Williams",
-        personalEmail: "sarah.williams@example.com",
-        personalMobile: "+1234567893",
-        jobRole: "Director",
-        designation: "HR Director",
-      },
-    ],
-  };
 
-  const recruitmentData = dummyRecruitmentData;
+    const { Deleteadmin_ } = UseDelete();
+    const [staffOptions, setStaffOptions] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [isAutoFilled, setIsAutoFilled] = useState(false);
+    const [geoBlocked, setGeoBlocked] = useState(false);
 
-  // Options
-  const firstNameOptions = useMemo(() => fullNameOptions(recruitmentData), [recruitmentData]);
-  const designationOptions = useMemo(() => createOptions(recruitmentData, "designation"), [recruitmentData]);
-  const positionOptions = designationOptions;
 
-  const roleOptions = useMemo(
-    () => [{ value: "staff", label: "Staff", icon: "👤" }],
-    []
-  );
+    const getAllRecruitmentData = () => {
+        getAllRecruitment_.mutate(null, {
+            onSuccess: (response) => {
+                const fetchedData = response?.data?.data || response?.data || response || [];
+                const recruitmentOptions = Array.isArray(fetchedData)
+                    ? fetchedData
+                        .filter((recruitment) => recruitment?.isCreated === false)
+                        .map((recruitment) => {
+                        const personal = recruitment.personal || {};
+                        const contact = recruitment.contact || {};
+                        const employment = recruitment.employment || {};
+                        const fullName = [personal.firstName, personal.middleName, personal.lastName]
+                            .filter(Boolean)
+                            .join(" ");
+                        const provinceName = employment.province
+                            ? `${employment.province.charAt(0).toUpperCase()}${employment.province.slice(1)} Province`
+                            : "";
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+                        return {
+                            value: recruitment._id,
+                            label: fullName,
+                            personal,
+                            details: {
+                                designation: employment.department || "",
+                                jobRole: employment.jobPosition || "",
+                                personalEmail: contact.personalEmail || "",
+                                officeEmail: contact.officeEmail || "",
+                                personalMobile: contact.personalMobile || "",
+                                officeMobile: contact.officeMobile || "",
+                                provinceName: provinceName
+                                    ? { value: provinceName, label: provinceName }
+                                    : null,
+                                districts: employment.district
+                                    ? [{ value: employment.district, label: employment.district }]
+                                    : [],
+                                department: employment.department || "",
+                                jobPosition: employment.jobPosition || "",
+                                province: employment.province || "",
+                                district: employment.district || ""
+                            }
+                        };
+                        })
+                    : [];
 
-  // Function to reset forms
-  const resetForms = () => {
-    setStaffData(initialStaffState);
-    setClientData(initialClientState);
-  };
+                setStaffOptions(recruitmentOptions);
+            },
+            onError: (error) => {
+                console.error("Fetch Error:", error);
+                ErrorNotify(error?.response?.data?.message || "Failed to load recruitment data.");
+            }
+        });
+    };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    alert('Form submitted successfully!');
-    console.log("Submitting form with data:", { staffData, clientData, activeTab });
+    useEffect(() => {
+        getAllRecruitmentData();
+    }, []);
 
-    // Reset form after submission
-    resetForms();
+    // --------------------- Helper: Generate Username ---------------------
+    const generateUsername = (nameOption) => {
+        const baseName = nameOption ? nameOption.label.replace(/\s+/g, '').toLowerCase() : "admin";
+        const randomNum = Math.floor(1000 + Math.random() * 9000);
+        const specialChars = "!@#$_*";
+        const randomSpecial = specialChars.charAt(Math.floor(Math.random() * specialChars.length));
+        return `${baseName}${randomNum}${randomSpecial}`;
+    };
 
-    // Call onSuccess callback if provided
-    if (onSuccess) {
-      onSuccess();
-    }
-  };
+    // --------------------- Edit Mode & Initialization ---------------------
+    useEffect(() => {
+        if (isEditMode && editData) {
+            setFormData({
+                provinceName: { value: editData.provinceName, label: editData.provinceName },
+                Prvince: editData.Prvince || null,
+                localLevelName: editData.localLevelName || "",
+                wardNo: editData.wardNo || "",
+                toleName: editData.toleName || "",
+                districts: editData.districts ? editData.districts.split(',').map(d => ({ value: d.trim(), label: d.trim() })) : [],
+                fullName: { value: editData.fullName, label: editData.fullName },
+                designation: editData.designation || "",
+                jobRole: editData.jobRole || "",
+                personalMobile: editData.personalMobile || "",
+                personalEmail: editData.personalEmail || "",
+                username: editData.username || "",
+                officeEmail: editData.officeEmail || "",
+                officeMobile: editData.officeMobile || "",
+                password: "",
+                confirmPassword: "",
+                status: statusOptions.find(s => s.value === editData.status) || statusOptions[0],
+                role: roleOptions.find(r => r.value === editData.role) || roleOptions[0],
+                lat: editData.lat || "",
+                lng: editData.lng || ""
+            });
+            setIsAutoFilled(true);
+        }
+    }, [editData, isEditMode]);
 
-  const handleInputChange = (e, type = activeTab) => {
-    const { name, value } = e.target;
+    // --------------------- System Geolocation & Default Credentials ---------------------
+    const fetchLocation = () => {
+        if (!("geolocation" in navigator)) return;
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setGeoBlocked(false);
+                setFormData((prev) => ({
+                    ...prev,
+                    lat: position.coords.latitude.toFixed(6),
+                    lng: position.coords.longitude.toFixed(6)
+                }));
+            },
+            (error) => {
+                if (error.code === 1) setGeoBlocked(true);
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    };
 
-    if (type === "staff") {
-      setStaffData((prev) => ({ ...prev, [name]: value }));
-    } else {
-      setClientData((prev) => ({ ...prev, [name]: value }));
-    }
-  };
+    useEffect(() => {
+        if (!isEditMode) {
+            fetchLocation();
 
-  function generatePWDigit() {
-    // Generate a number between 0 and 9999, pad with zeros to make 4 digits
-    const pw = Math.floor(1000 + Math.random() * 9000);
-    return pw.toString();
-  }
+            const randomUser = generateUsername(null);
+            const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#";
+            let randomPw = "";
+            for (let i = 0; i < 8; i++) {
+                randomPw += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            setFormData(prev => ({
+                ...prev,
+                username: randomUser,
+                password: randomPw,
+                confirmPassword: randomPw
+            }));
+        }
+    }, [editData, isEditMode]);
 
-  function generateUserNameDigit() {
-    // Generate a number between 0 and 9999, pad with zeros to make 4 digits
-    const pw = Math.floor(1000 + Math.random() * 9000);
-    return pw.toString();
-  }
-
-  const handleSelectChange = (selectedOption, fieldName, type = activeTab) => {
-    if (type === "staff" && fieldName === "fullName" && selectedOption) {
-      const selectedRecord = recruitmentData?.data?.find((item) => item._id === selectedOption.value);
-      console.log("Selected Record for Full Name:", selectedRecord);
-      if (selectedRecord) {
-        setStaffData((prev) => ({
-          ...prev,
-          fullName: selectedOption.label,
-          personalEmail: selectedRecord.personalEmail || "",
-          personalPhone: selectedRecord.personalMobile || "",
-          position: `${selectedRecord.jobRole || ""} - ${selectedRecord.designation || ""}`.trim(),
-          userName: `${selectedRecord.firstName.toLowerCase() || ""}${selectedRecord.lastName.toLowerCase() || ""}${generateUserNameDigit()}`.trim(),
-          employee_id: selectedRecord._id || "",
-          password: `${selectedRecord.firstName.toLowerCase() || ""}${generatePWDigit()}`.trim(),
-          confirmPassword: `${selectedRecord.firstName.toLowerCase() || ""}${generatePWDigit()}`.trim(), // Auto-fill confirm password too
+    // --------------------- Dynamic Options (Nepal Geo) ---------------------
+    const currentDistrictOptions = useMemo(() => {
+        if (!formData.provinceName) return [];
+        return provinceDistricts[formData.provinceName.value].map(district => ({
+            value: district,
+            label: district
         }));
-      }
-      return;
-    }
+    }, [formData.provinceName]);
 
-    if (type === "staff") {
-      setStaffData((prev) => ({
-        ...prev,
-        [fieldName]: selectedOption ? selectedOption.value : "",
-      }));
-    } else {
-      setClientData((prev) => ({
-        ...prev,
-        [fieldName]: selectedOption ? selectedOption.value : "",
-      }));
-    }
-  };
+    // --------------------- Handlers ---------------------
+    const handleFullNameSelect = (selectedOption) => {
+        if (!selectedOption) {
+            setFormData(prev => ({
+                ...prev, fullName: null, designation: "", jobRole: "", personalEmail: "", personalMobile: "", provinceName: null, Prvince: null, districts: [], localLevelName: "", username: "", password: "", confirmPassword: ""
+            }));
+            setIsAutoFilled(false);
+            return;
+        }
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    setError("");
-    resetForms();
-  };
+        const details = selectedOption.details || {};
+        const provNameValue = details.provinceName ? details.provinceName.value : null;
 
-  // ✅ make select styles reusable
-  const customSelectStyles = {
-    control: (base, state) => ({
-      ...base,
-      backgroundColor: "white",
-      borderColor: state.isFocused ? "#f59e0b" : "#cbd5e1",
-      borderRadius: "0.75rem",
-      padding: "4px 8px",
-      minHeight: "56px",
-      fontSize: "14px",
-      fontWeight: "500",
-      boxShadow: state.isFocused ? "0 0 0 2px rgba(245, 158, 11, 0.1)" : "none",
-      "&:hover": { borderColor: "#f59e0b" },
-    }),
-    option: (base, state) => ({
-      ...base,
-      backgroundColor: state.isSelected ? "#f59e0b" : state.isFocused ? "#fef3c7" : "white",
-      color: state.isSelected ? "white" : "#1e293b",
-      padding: "12px 16px",
-      fontSize: "14px",
-      fontWeight: "500",
-      "&:active": { backgroundColor: "#fbbf24" },
-    }),
-    menu: (base) => ({
-      ...base,
-      borderRadius: "0.75rem",
-      border: "1px solid #e2e8f0",
-      boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-      overflow: "hidden",
-    }),
-    placeholder: (base) => ({ ...base, color: "#94a3b8", fontSize: "14px", fontWeight: "500" }),
-    dropdownIndicator: (base) => ({
-      ...base,
-      color: "#94a3b8",
-      padding: "8px",
-      "&:hover": { color: "#f59e0b" },
-    }),
-    indicatorSeparator: () => ({ display: "none" }),
-    valueContainer: (base) => ({ ...base, padding: "0 8px" }),
-  };
+        setFormData(prev => ({
+            ...prev,
+            fullName: selectedOption,
+            designation: details.designation || "",
+            jobRole: details.jobRole || "",
+            personalMobile: details.personalMobile || "",
+            personalEmail: details.personalEmail || "",
+            officeEmail: details.officeEmail || "",
+            officeMobile: details.officeMobile || "",
+            provinceName: details.provinceName || null,
+            Prvince: provNameValue ? provinceNumbers[provNameValue] : null,
+            districts: details.districts || [],
+            localLevelName: details.localLevelName || "",
+            username: generateUsername(selectedOption)
+        }));
 
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.65 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
-        className="fixed inset-0 bg-black/60 w-full z-50 flex justify-center p-3 backdrop-blur-md"
-      >
-        <div className="bg-gradient-to-br from-white to-slate-50 rounded-2xl shadow-2xl w-full max-w-md sm:max-w-lg lg:max-w-xl border border-slate-200">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="p-1.5 sm:p-2 bg-amber-100 rounded-lg">
-                  {activeTab === "staff" ? (
-                    <User className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
-                  ) : (
-                    <Building className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
-                  )}
-                </div>
-                <div>
-                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 font-['Roboto_Slab']">
-                    Register
-                    <span className="text-amber-500 ml-2">
-Admin
-                    </span>
-                  </h2>
-                  <p className="text-slate-500 text-xs sm:text-sm mt-0.5 flex items-center gap-1">
-                    <KeyRound className="w-3 h-3 flex-shrink-0" />
-                    Create new account
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-amber-50 rounded-xl transition-all duration-300 hover:scale-105 border border-slate-200 group"
-              >
-                <X className="w-5 h-5 text-slate-500 group-hover:text-amber-500" />
-              </button>
-            </div>
+        setIsAutoFilled(true);
+    };
 
-            {/* Tabs */}
-           
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
+    };
 
-            {/* Form */}
-            <form
-              onSubmit={handleSubmit}
-              className="p-4 sm:p-6 space-y-5 max-h-[65vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
+    const handleSelectChange = (selectedOption, fieldName) => {
+        if (fieldName === "provinceName") {
+            setFormData((prev) => ({
+                ...prev,
+                provinceName: selectedOption,
+                Prvince: selectedOption ? provinceNumbers[selectedOption.value] : null,
+                districts: []
+            }));
+        } else if (fieldName === "districts") {
+            setFormData((prev) => ({ ...prev, districts: selectedOption }));
+        } else {
+            setFormData((prev) => ({ ...prev, [fieldName]: selectedOption }));
+        }
+    };
+
+    // --------------------- 2-Second Auto-Generator ---------------------
+    const handleAutoGenerate = () => {
+        setIsGenerating(true);
+        setTimeout(() => {
+            const randomUser = generateUsername(formData.fullName);
+            const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#";
+            let randomPw = "";
+            for (let i = 0; i < 8; i++) {
+                randomPw += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            setFormData(prev => ({
+                ...prev,
+                username: randomUser,
+                password: randomPw,
+                confirmPassword: randomPw,
+            }));
+            setIsGenerating(false);
+        }, 2000);
+    };
+
+    // --------------------- API Submit & Strict Validation ---------------------
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        // Target Selection Validations
+        if (!formData.fullName) return ErrorNotify("Please select a Full Name.");
+        if (!formData.designation?.trim()) return ErrorNotify("Department is required.");
+        if (!formData.jobRole?.trim()) return ErrorNotify("Job Role is required.");
+        
+        // Email & Phone Format Validations
+        if (!formData.personalMobile?.trim() || !isValidPhone(formData.personalMobile)) return ErrorNotify("Please enter a valid Personal Mobile number.");
+        if (!formData.personalEmail?.trim() || !isValidEmail(formData.personalEmail)) return ErrorNotify("Please enter a valid Personal Email address.");
+        if (!formData.officeEmail?.trim() || !isValidEmail(formData.officeEmail)) return ErrorNotify("Please enter a valid Office Email address.");
+        if (!formData.officeMobile?.trim() || !isValidPhone(formData.officeMobile)) return ErrorNotify("Please enter a valid Office Mobile number.");
+
+        // Geography Validations
+        if (!formData.Prvince) return ErrorNotify("Province Number is required.");
+        if (!formData.provinceName) return ErrorNotify("Province Name is required.");
+        if (!formData.districts || formData.districts.length === 0) return ErrorNotify("At least one District is required.");
+        if (!formData.localLevelName?.trim()) return ErrorNotify("Local Level is required.");
+        if (!formData.wardNo?.trim()) return ErrorNotify("Ward No is required.");
+        if (!formData.toleName?.trim()) return ErrorNotify("Tole Name is required.");
+
+        // Auth Validations
+        if (!formData.username?.trim()) return ErrorNotify("Username is required.");
+        if (!isEditMode) {
+            if (!formData.password?.trim()) return ErrorNotify("Password is required.");
+            if (!formData.confirmPassword?.trim()) return ErrorNotify("Confirm Password is required.");
+        }
+        if (!formData.role) return ErrorNotify("Role Assignment is required.");
+        if (!formData.status) return ErrorNotify("Account Status is required.");
+        if ((!isEditMode || formData.password) && formData.password !== formData.confirmPassword) {
+            return ErrorNotify("Password and Confirm Password do not match!");
+        }
+
+        setLoading(true);
+        waitingNotify(isEditMode ? "Updating record..." : "Registering record...");
+
+        const payload = {
+            ...formData,
+            fullName: formData.fullName.label,
+            provinceName: formData.provinceName.value,
+            districts: formData.districts.map(d => d.value).join(", "),
+            status: formData.status.value,
+            role: formData.role.value,
+            lat: Number(formData.lat) || null,
+            lng: Number(formData.lng) || null,
+            wardNo: formData.wardNo,
+            toleName: formData.toleName,
+            password: formData.password,
+            confirmPassword: formData.confirmPassword
+        };
+
+        try {
+            // FIXED API mutation error tracking and response message logic
+            Createadmin_.mutate(
+                { payload }, 
+                {
+                    onSuccess: (res) => {
+                        console.log("Success:", res);
+                        // Using 'res' instead of the undefined 'response'
+                        SuccessNotify(res?.data?.message || res?.message || "Operation successful!");
+                        if (onSuccess) onSuccess(true);
+                        onClose();
+                    },
+                    onError: (err) => {
+                        // Fixed duplicate 'onSuccess' to 'onError' to correctly handle failures
+                        console.error("API Error:", err.response);
+                        ErrorNotify(err.response?.data?.message || err?.message || "Failed to process the request.");
+                    },
+                    onSettled: () => {
+                        setLoading(false);
+                    }
+                }
+            );
+        } catch (err) {
+            console.error("Submission Catch Error:", err);
+            ErrorNotify(err.response?.data?.message || "Something went wrong during submission.");
+            setLoading(false);
+        } 
+    };
+
+    // --------------------- Styles ---------------------
+    const customSelectStyles = {
+        control: (base, state) => ({
+            ...base, backgroundColor: state.isDisabled ? "#f8fafc" : "white", borderColor: state.isFocused ? "#f59e0b" : "#cbd5e1", borderRadius: "0.75rem", padding: "2px 6px", minHeight: "46px", fontSize: "13px", boxShadow: state.isFocused ? "0 0 0 2px rgba(245, 158, 11, 0.15)" : "none", "&:hover": { borderColor: state.isDisabled ? "#cbd5e1" : "#f59e0b" }, cursor: state.isDisabled ? "not-allowed" : "default"
+        }),
+        option: (base, state) => ({ ...base, backgroundColor: state.isSelected ? "#f59e0b" : state.isFocused ? "#fef3c7" : "white", color: state.isSelected ? "white" : "#1e293b", fontSize: "13px" }),
+        multiValue: (base) => ({ ...base, backgroundColor: "#fef3c7", borderRadius: "6px" }),
+        multiValueLabel: (base) => ({ ...base, color: "#d97706", fontSize: "12px", fontWeight: "600" }),
+    };
+
+    const inputClass = "w-full py-2.5 pl-11 pr-4 rounded-xl border border-slate-300 outline-none text-sm bg-white hover:border-amber-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15 transition-all";
+    const disabledInputClass = "w-full py-2.5 pl-11 pr-4 rounded-xl border border-slate-200 outline-none text-sm bg-slate-100 text-slate-500 cursor-not-allowed opacity-90 font-medium";
+
+    return (
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }}
+                className="fixed inset-0 bg-slate-900/50 w-full z-50 flex items-center justify-center p-3 backdrop-blur-sm"
             >
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm flex items-start gap-2">
-                  <CircleAlert className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  {error}
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl border border-slate-200 flex flex-col max-h-[90vh]">
+
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-5 border-b border-slate-100 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-blue-50 rounded-xl border border-blue-100 text-blue-600">
+                                {isEditMode ? <Edit className="w-6 h-6" /> : <MapPin className="w-6 h-6" />}
+                            </div>
+                            <div>
+                                <h2 className="text-xl text-slate-800" style={fontBold}>
+                                    {isEditMode ? "Edit" : "Register"} <span className="text-blue-600">Admin Account</span>
+                                </h2>
+                                <p className="text-slate-500 text-xs mt-0.5 flex items-center gap-1" style={fontLight}>
+                                    <KeyRound className="w-3 h-3" /> Credentials will generate automatically
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Quick Action Buttons Header */}
+                        <div className="flex items-center gap-3">
+                            <button onClick={onClose} className="p-2 cursor-pointer hover:bg-slate-50 rounded-xl transition-all border border-transparent hover:border-slate-200 text-slate-400 hover:text-slate-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Form Body - Grid Organization */}
+                    <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+
+                        {/* Target Selection & Personal Details */}
+                        <div className="space-y-4">
+                            <h3 className="flex items-center gap-2 text-sm text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-2" style={fontBold}>
+                                <span className="p-1 rounded bg-amber-50 text-amber-500"><User size={14} /></span>
+                                Target Selection & Details
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                <div className="space-y-1.5 lg:col-span-3">
+                                    <label className="text-xs text-slate-600" style={fontBold}> Full Name: <span className="text-red-500">*</span></label>
+                                    <Select
+                                        options={staffOptions}
+                                        value={formData.fullName}
+                                        onChange={handleFullNameSelect}
+                                        placeholder="Select Target Name to Auto-Fill..."
+                                        styles={customSelectStyles}
+                                        isDisabled={isEditMode}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Department <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500 bg-amber-50 p-1 rounded-md"><Briefcase size={14} /></div>
+                                        <input type="text" name="designation" value={formData.designation} onChange={handleInputChange} disabled={isAutoFilled} className={isAutoFilled ? disabledInputClass : inputClass} placeholder="Select name first..." style={fontLight} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Job Role <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500 bg-amber-50 p-1 rounded-md"><Briefcase size={14} /></div>
+                                        <input type="text" name="jobRole" value={formData.jobRole} onChange={handleInputChange} disabled={isAutoFilled} className={isAutoFilled ? disabledInputClass : inputClass} placeholder="Select name first..." style={fontLight} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Personal Mobile <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500 bg-amber-50 p-1 rounded-md"><Phone size={14} /></div>
+                                        <input type="tel" name="personalMobile" value={formData.personalMobile} onChange={handleInputChange} disabled={isAutoFilled} className={isAutoFilled ? disabledInputClass : inputClass} placeholder="Select name first..." style={fontLight} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Personal Email <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500 bg-amber-50 p-1 rounded-md"><Mail size={14} /></div>
+                                        <input type="email" name="personalEmail" value={formData.personalEmail} onChange={handleInputChange} disabled={isAutoFilled} className={isAutoFilled ? disabledInputClass : inputClass} placeholder="Select name first..." style={fontLight} />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Regional Allocation (Nepal Geo) */}
+                        <div className="space-y-4">
+                            <h3 className="flex items-center gap-2 text-sm text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-2" style={fontBold}>
+                                <span className="p-1 rounded bg-blue-50 text-blue-500"><Map size={14} /></span>
+                                Regional Allocation
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600 flex justify-between" style={fontBold}>
+                                        Province No. <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 bg-blue-50 p-1 rounded-md"><MapPin size={14} /></div>
+                                        <input type="text" value={formData.Prvince || ""} disabled className={disabledInputClass} placeholder="Auto-mapped" style={fontLight} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Province Name <span className="text-red-500">*</span></label>
+                                    <Select options={provinceOptions} value={formData.provinceName} onChange={(opt) => handleSelectChange(opt, "provinceName")} placeholder="Select Province..." styles={customSelectStyles} isDisabled={isAutoFilled} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Districts (Multi Select) <span className="text-red-500">*</span></label>
+                                    <Select isMulti options={currentDistrictOptions} value={formData.districts} onChange={(opt) => handleSelectChange(opt, "districts")} placeholder="Select Districts..." styles={customSelectStyles} isDisabled={!formData.provinceName || isAutoFilled} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Local Level <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 bg-blue-50 p-1 rounded-md"><MapPin size={14} /></div>
+                                        <input type="text" name="localLevelName" value={formData.localLevelName} onChange={handleInputChange}  className={inputClass} placeholder="Enter Local Level" style={fontLight} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Ward No <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 bg-blue-50 p-1 rounded-md"><MapPin size={14} /></div>
+                                        <input type="text" name="wardNo" value={formData.wardNo} onChange={handleInputChange} className={inputClass} placeholder="Enter Ward No" style={fontLight} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Tole Name <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 bg-blue-50 p-1 rounded-md"><MapPin size={14} /></div>
+                                        <input type="text" name="toleName" value={formData.toleName} onChange={handleInputChange} className={inputClass} placeholder="Enter Tole Name" style={fontLight} />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Office Contact Information */}
+                        <div className="space-y-4 p-5 bg-teal-50/30 border border-teal-100 rounded-xl">
+                            <h3 className="flex items-center gap-2 text-sm text-teal-800 uppercase tracking-wide border-b border-teal-100 pb-2" style={fontBold}>
+                                <span className="p-1 rounded bg-teal-100 text-teal-600"><Briefcase size={14} /></span>
+                                Office Contact Information (Editable)
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Office Email <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 bg-teal-50 p-1 rounded-md"><Mail size={14} /></div>
+                                        <input type="email" name="officeEmail" value={formData.officeEmail} onChange={handleInputChange} className={inputClass} placeholder="office@company.com" style={fontLight} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Office Mobile <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 bg-teal-50 p-1 rounded-md"><Phone size={14} /></div>
+                                        <input type="tel" name="officeMobile" value={formData.officeMobile} onChange={handleInputChange} className={inputClass} placeholder="+977 98XXXXXXXX" style={fontLight} />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Manual / Auto Credentials */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                <h3 className="flex items-center gap-2 text-sm text-slate-800 uppercase tracking-wide" style={fontBold}>
+                                    <span className="p-1 rounded bg-orange-50 text-orange-500"><Lock size={14} /></span>
+                                    Authentication Credentials
+                                </h3>
+                                {/* Auto-Generate Button Moved Here */}
+                                <button
+                                    type="button"
+                                    onClick={handleAutoGenerate}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200 rounded-lg text-xs transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                                    style={fontBold}
+                                >
+                                    {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                                    {isGenerating ? "Generating..." : "Regenerate"}
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Username <span className="text-red-500">*</span></label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 bg-orange-50 p-1 rounded-md"><User size={14} /></div>
+                                        <input type="text" name="username" value={formData.username} onChange={handleInputChange} disabled={isAutoFilled} className={isAutoFilled ? disabledInputClass : inputClass} placeholder="Enter Username" style={fontLight} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Password {!isEditMode && <span className="text-red-500">*</span>}</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 bg-orange-50 p-1 rounded-md"><Lock size={14} /></div>
+                                        <input type="password" name="password" value={formData.password} onChange={handleInputChange} disabled={isAutoFilled} className={isAutoFilled ? disabledInputClass : inputClass} placeholder={isEditMode ? "Leave blank to keep current" : "••••••••"} style={fontLight} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Confirm Password {!isEditMode && <span className="text-red-500">*</span>}</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 bg-orange-50 p-1 rounded-md"><Lock size={14} /></div>
+                                        <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleInputChange} disabled={isAutoFilled} className={isAutoFilled ? disabledInputClass : inputClass} placeholder={isEditMode ? "Leave blank to keep current" : "••••••••"} style={fontLight} />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* System Properties & Geolocation */}
+                        <div className="space-y-4">
+                            <h3 className="flex items-center gap-2 text-sm text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-2" style={fontBold}>
+                                <span className="p-1 rounded bg-indigo-50 text-indigo-500"><Shield size={14} /></span>
+                                System Properties & Geolocation
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Role Assignment <span className="text-red-500">*</span></label>
+                                    <Select options={roleOptions} value={formData.role} onChange={(opt) => handleSelectChange(opt, "role")} styles={customSelectStyles} isDisabled={isAutoFilled} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600" style={fontBold}>Account Status <span className="text-red-500">*</span></label>
+                                    <Select options={statusOptions} value={formData.status} onChange={(opt) => handleSelectChange(opt, "status")} styles={customSelectStyles} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600 flex justify-between" style={fontBold}>
+                                        Latitude
+                                        <span className="text-[10px] text-green-500 font-normal">Auto-fetched</span>
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 bg-indigo-50 p-1 rounded-md"><Navigation size={14} /></div>
+                                        <input type="text" value={formData.lat} disabled className={disabledInputClass} placeholder="Fetching..." style={fontLight} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-600 flex justify-between" style={fontBold}>
+                                        Longitude
+                                        <span className="text-[10px] text-green-500 font-normal">Auto-fetched</span>
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 bg-indigo-50 p-1 rounded-md"><Navigation size={14} /></div>
+                                        <input type="text" value={formData.lng} disabled className={disabledInputClass} placeholder="Fetching..." style={fontLight} />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </form>
+
+                    {/* Footer / Submit */}
+                    <div className="p-5 border-t  border-slate-100 bg-slate-50 rounded-b-2xl shrink-0">
+                        <button
+                            type="button" // Changed to type="button" to prevent native form submission overlap with custom onClick logic
+                            onClick={handleSubmit}
+                            disabled={loading || isGenerating}
+                            className="w-full cursor-pointer bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3.5 px-4 text-sm rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-md hover:shadow-lg group"
+                            style={fontBold}
+                        >
+                            {loading ? (
+                                <span className="flex items-center justify-center">
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    {isEditMode ? "Updating Details..." : "Registering..."}
+                                </span>
+                            ) : (
+                                <span className="flex items-center justify-center group-hover:scale-[1.02] transition-transform">
+                                    {isEditMode ? "Save Changes" : "Create Account"}
+                                    <ChevronRight className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform" />
+                                </span>
+                            )}
+                        </button>
+                    </div>
+
                 </div>
-              )}
-
-             
-                <StaffForm
-                  staffData={staffData}
-                  onSelectChange={handleSelectChange}
-                  onInputChange={handleInputChange}
-                  roleOptions={roleOptions}
-                  firstNameOptions={firstNameOptions}
-                  customSelectStyles={customSelectStyles}
-                  onSubmit={handleSubmit}
-                  loading={loading}
-                />
-              
-            </form>
-        </div>
-      </motion.div>
-    </AnimatePresence>
-  );
-};
-
-// Register Skeleton
-export const RegisterSkeleton = () => {
-  const skeletonClass = "bg-slate-200 animate-pulse rounded-xl";
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.65 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className="fixed inset-0 bg-black/60 z-50 flex justify-center p-3 backdrop-blur-md"
-    >
-      <div className="bg-gradient-to-br from-white to-slate-50 rounded-2xl shadow-2xl w-full max-w-md sm:max-w-lg lg:max-w-xl border border-slate-200 p-6 space-y-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-slate-200 animate-pulse" />
-          <div className="flex-1 space-y-2">
-            <div className="w-3/4 h-5 rounded bg-slate-200 animate-pulse" />
-            <div className="w-1/2 h-3 rounded bg-slate-200 animate-pulse" />
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <div className="flex-1 h-10 rounded bg-slate-200 animate-pulse" />
-          <div className="flex-1 h-10 rounded bg-slate-200 animate-pulse" />
-        </div>
-        <div className="space-y-4">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className="w-full h-12 sm:h-14 lg:h-16 rounded-xl bg-slate-200 animate-pulse" />
-          ))}
-        </div>
-        <div className="w-full h-12 sm:h-14 lg:h-16 rounded-xl bg-slate-200 animate-pulse mt-4" />
-      </div>
-    </motion.div>
-  );
+            </motion.div>
+        </AnimatePresence>
+    );
 };

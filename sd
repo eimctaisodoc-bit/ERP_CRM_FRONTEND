@@ -1,0 +1,52 @@
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/package.json b/package.json[m
+[1mindex 2f02c13..6b7e879 100644[m
+[1m--- a/package.json[m
+[1m+++ b/package.json[m
+[36m@@ -20,29 +20,41 @@[m
+     "@tanstack/react-query": "^5.90.12",[m
+     "apexcharts": "^5.3.6",[m
+     "axios": "^1.13.2",[m
+[32m+[m[32m    "docx": "^9.7.1",[m
+[32m+[m[32m    "docx-preview": "^0.3.7",[m
+[32m+[m[32m    "dompurify": "^3.4.8",[m
+     "framer-motion": "^12.23.26",[m
+[32m+[m[32m    "html-to-pdfmake": "^2.5.33",[m
+[32m+[m[32m    "html2canvas": "^1.4.1",[m
+[32m+[m[32m    "html2canvas-pro": "^2.0.2",[m
+[32m+[m[32m    "jspdf": "^4.2.1",[m
+[32m+[m[32m    "jszip": "^3.10.1",[m
+     "lucide-react": "^0.562.0",[m
+     "nepali-date-converter": "^3.4.0",[m
+[32m+[m[32m    "nepali-datepicker-reactjs": "^1.1.9",[m
+[32m+[m[32m    "pdfmake": "^0.3.8",[m
+     "preact": "^10.28.2",[m
+[31m-    "react": "^19.2.0",[m
+[32m+[m[32m    "react": "^18.3.1",[m
+     "react-apexcharts": "^1.9.0",[m
+     "react-big-calendar": "^1.19.4",[m
+     "react-data-table-component": "^7.7.0",[m
+[31m-    "react-dom": "^19.2.0",[m
+[32m+[m[32m    "react-dom": "^18.3.1",[m
+     "react-hot-toast": "^2.6.0",[m
+     "react-loader-spinner": "^8.0.0",[m
+     "react-router-dom": "^7.11.0",[m
+     "react-select": "^5.10.2",[m
+     "react-spinners": "^0.17.0",[m
+     "react-tabs": "^6.1.0",[m
+[32m+[m[32m    "react-to-print": "^3.3.0",[m
+     "socket.io-client": "^4.8.3",[m
+     "tailwindcss": "^4.1.18",[m
+[31m-    "temporal-polyfill": "^0.3.0"[m
+[32m+[m[32m    "temporal-polyfill": "^0.3.0",[m
+[32m+[m[32m    "xlsx-js-style": "^1.2.0"[m
+   },[m
+   "devDependencies": {[m
+     "@eslint/js": "^9.39.1",[m
+[31m-    "@types/react": "^19.2.5",[m
+[31m-    "@types/react-dom": "^19.2.3",[m
+[32m+[m[32m    "@types/react": "^18.3.12",[m
+[32m+[m[32m    "@types/react-dom": "^18.3.1",[m
+     "@vitejs/plugin-react-swc": "^4.2.2",[m
+     "eslint": "^9.39.1",[m
+     "eslint-plugin-react-hooks": "^7.0.1",[m

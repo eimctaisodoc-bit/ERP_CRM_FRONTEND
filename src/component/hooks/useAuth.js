@@ -5,43 +5,43 @@ import { socket } from "../../socket_client/scoket";
 
 export const useAuth = () => {
 
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-  const isHomePage = location.pathname === '/'
-  // console.log(isHomePage)
-  const useMe = useQuery({
-    queryKey: ["me"],
-    queryFn: getMe,
-    retry: false,
-    staleTime: 0,
-    enabled: !isHomePage,
-    refetchOnReconnect: true, // automatically refetch after network loss
-    refetchOnWindowFocus: true,
-  });
-
-
-  const login = useMutation({
-    mutationFn: loginUser,
-    onSuccess: (data) => {
-      queryClient.setQueryData(["auth-user"], data.user);
-    },
-  });
-
-  // 🚪 Logout
-  const logout = useMutation({
-    mutationFn: logoutUser,
-    onSuccess: () => {
-      queryClient.removeQueries({ queryKey: ["me"] });
-      queryClient.clear(); // clear all cached data
-      // socket.disconnect()
-    },
-  });
+  const isHomePage = location.pathname === '/'
+  // console.log(isHomePage)
+  const useMe = useQuery({
+    queryKey: ["me"],
+    queryFn: getMe,
+    retry: false,
+    staleTime: 0,
+    enabled: !isHomePage,
+    refetchOnReconnect: true, // automatically refetch after network loss
+    refetchOnWindowFocus: true,
+  });
 
 
-  return {
-    useMe,
-    isAuthLoading: useMe.isLoading,
-    login,
-    logout,
-  };
+  const login = useMutation({
+    mutationFn: loginUser,
+   onSuccess: (data) => {
+      queryClient.setQueryData(["auth-user"], data.user);
+    },
+  });
+
+  // 🚪 Logout
+  const logout = useMutation({
+    mutationFn: logoutUser,
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ["me"] });
+      queryClient.clear(); // clear all cached data
+      // socket.disconnect()
+    },
+  });
+
+
+  return {
+    useMe,
+    isAuthLoading: useMe.isLoading,
+    login,
+    logout,
+  };
 };

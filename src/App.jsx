@@ -23,14 +23,22 @@ import { Admin_sales } from './component/admin/sales/Admin_sales';
 import { DprForm } from './component/staff/task/dprFrom';
 import { I_Icon } from './component/i_icon';
 import { Noti } from './component/staff/notification/notification';
-import {  S_Folder_ } from './component/staff/dms/folder';
+import { S_Folder_ } from './component/staff/dms/folder';
 import { S_A_Setting } from './component/super/setting/setting';
 import { useAuth } from './component/hooks/useAuth';
 import { MainLoader } from './component/loader';
 import Chat from './component/admin/inbox/chat';
 import { Su_Folder_ } from './component/super/dms/folder_';
-import { A_Folder_ } from './component/admin/DMS/folder';
+// import { A_Folder_ } from './component/admin/DMS/folder';
 import { C_Folder_ } from './component/client/dms/folder';
+import { Client_sales } from './component/client/sales/Salesindex';
+import DPR_form from './component/staff/salespipeline/otherUsers/dprForms';
+import ResetPassword from './component/pwReset/ResetPW';
+import GoogleDriveFiles from './component/super/dms/googlesfile';
+import { Sales } from './component/super/sales/sales';
+import { Finance } from './component/super/finance/finance';
+import { HR } from './component/super/hr/hr';
+import { A_folder } from './component/admin/DMS/folder';
 // import { Folder } from 'lucide-react';
 
 function App() {
@@ -52,12 +60,21 @@ function App() {
             <Route path="/super_admin" element={<Dashboard />}>
               <Route index element="" />
               <Route path="report" element={<Admin_Report />} />
+              <Route path="sales" element={<Sales/>} />
+              <Route path="finance" element={<Finance/>} />
+              <Route path="hr" element={<HR/>} />
+
+
+
+
               {/* <Route path="hr" element={<Admin_Hr_Page />} />
           <Route path="tasks" element={<Admin_task_page />} />
           <Route path="sales" element={<SalesPipeline/>}  />
           {/* <Route path="settings" element="hi" /> */}
               {/* <Route path="users" element={<Data_Table />} />  */}
-              <Route path="dms" element={<Su_Folder_/>} />
+
+              {/* <Route path="dms" element={<Su_Folder_ />} /> */}
+              <Route path="dms" element={<GoogleDriveFiles />} />
               <Route path="settings" element={<S_A_Setting />} />
             </Route>
           </Route>
@@ -68,10 +85,12 @@ function App() {
               <Route path="report" element={<Admin_Report />} />
               <Route path="hr" element={<Admin_Hr_Page />} />
               <Route path="tasks" element={<Admin_task_page />} />
+              <Route path="finance" element={<Finance/>} />
               <Route path="settings" element={<A_Setting />} />
               <Route path="inbox" element={<Chat />} />
-              <Route path="sales" element={<Admin_sales />} />
-              <Route path="dms" element={<A_Folder_ />} />
+              <Route path="sales" element={<Sales/> } />
+              {/* <Route path="sales" element={<Admin_sales />} /> */}
+              <Route path="dms" element={<A_folder/>} />
               {/* <Route path="settings" element="hi" /> */}
               <Route path="users" element={<Data_Table />} />
             </Route>
@@ -84,6 +103,7 @@ function App() {
               <Route path="hr" element={<Staff_hr_pages />} />
               <Route path="tasks" element={<Staff_task_page />} />
               <Route path="sales" element={<SalesPipeline />} />
+              <Route path="dpr" element={<DPR_form />} />
               <Route path="users" element={<Data_Table />} />
               <Route path="dms" element={<S_Folder_ />} />
               <Route path="settings" element={<S_Setting />} />
@@ -94,12 +114,19 @@ function App() {
               <Route index path="report" element={<Admin_Report />} />
               {/* <Route path="hr" element={<Client_Hr_Page />} /> */}
               <Route path="users" element={<Data_Table />} />
+              <Route path="sales" element={<Client_sales />} />
+
               <Route path="dms" element={<C_Folder_ />} />
               <Route path="settings" element={<S_Setting />} />
             </Route>
           </Route>
 
         </>
+        <Route
+          path="/reset-password/:token"
+          element={<ResetPassword/>}
+        />
+
 
         <Route path='/date' element={<MyCalendar />} />
         <Route path='/task' element={<Admin_task_page />} />

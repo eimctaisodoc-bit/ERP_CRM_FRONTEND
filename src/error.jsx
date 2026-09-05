@@ -1,6 +1,6 @@
 import React from 'react';
 import { RefreshCcw } from 'lucide-react';
-import errorImage from './assets/404.gif';
+import errorImage from './assest/404.gif';
 
 export const ErrorPage = () => {
   return (

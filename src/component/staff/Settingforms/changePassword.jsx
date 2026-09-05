@@ -58,8 +58,8 @@ export const ChangePassword = () => {
     };
 
     return (
-        <div className="min-h-screen bg-white  ">
-            <div className="p-5 mx-auto">
+        <div className="w-full bg-slate-50/40 p-3 sm:p-5 lg:p-6">
+            <div className="mx-auto w-full max-w-5xl">
                 {/* Header */}
                 <div className="text-center mb-8">
                     <div className="flex justify-center mb-4">
@@ -70,7 +70,7 @@ export const ChangePassword = () => {
                     <h1 className="text-2xl font-bold text-gray-900">Change Password</h1>
                     <p className="text-gray-600 mt-2">Update your account password</p>
                 </div>
-                <div className='grid bg lg:grid-cols-2 md:gird-cols-2 grid-cols-1 gap-2' >
+                <div className='grid grid-cols-1 gap-5 lg:grid-cols-2' >
 
                  
                     <div className="w-auto bg-white rounded-lg shadow p-6 border border-gray-200">

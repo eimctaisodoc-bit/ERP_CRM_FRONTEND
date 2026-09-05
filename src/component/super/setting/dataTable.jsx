@@ -1,567 +1,585 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
-import axios from "axios";
-import * as Icons from "lucide-react";
-// import { RegisterModal } from "./Registermodal";
-import {RegisterModal_Admin} from "./Registermodal_admin";
+import React, { useMemo, useState, useEffect } from "react";
+import {
+    X, User, Mail, Phone, Lock, KeyRound, ChevronRight,
+    Loader2, Map, MapPin, Briefcase, Calendar,
+    CheckCircle, Navigation, Check, Minus, Trash2,
+    Edit3, Search, Plus, BlocksIcon, Power, Users, Shield, ChevronDown, ChevronUp,
+    AlertCircle
+} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import Select from "react-select";
+import { waitingNotify, ErrorNotify, SuccessNotify } from "../../hotToaster";
+import { RegisterModal_Admin } from "./Registermodal_admin";
 
-// ========== UTILS ==========
-const getInitials = (name) => name?.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) || "??";
+import { useGet } from "../../hooks/useGet";
+import { UseDelete } from "../../hooks/useDelete";
+import { useEdit } from "../../hooks/useEdit";
 
-const colors = ["bg-amber-100 text-amber-800", "bg-slate-100 text-slate-800", "bg-emerald-100 text-emerald-800", "bg-blue-100 text-blue-800", "bg-purple-100 text-purple-800", "bg-rose-100 text-rose-800"];
+const fontLight = { fontFamily: "'Roboto Slab', serif", fontWeight: 300 };
+const fontBold = { fontFamily: "'Roboto Slab', serif", fontWeight: 700 };
 
-const getColorIndex = (name) => name?.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length || 0;
-
-const statusConfig = {
-  Present: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  Absent: "bg-rose-100 text-rose-800 border-rose-200",
-  Late: "bg-amber-100 text-amber-800 border-amber-200",
-  "On Leave": "bg-blue-100 text-blue-800 border-blue-200",
-  Holiday: "bg-purple-100 text-purple-800 border-purple-200",
-  Halfday: "bg-orange-100 text-orange-800 border-orange-200",
-  Verified: "bg-green-100 text-green-800 border-green-200",
-  Pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  Restricted: "bg-purple-100 text-purple-800 border-purple-200",
-  Active: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  Inactive: "bg-slate-100 text-slate-800 border-slate-200",
-  Contract: "bg-blue-100 text-blue-800 border-blue-200",
-  Freelance: "bg-purple-100 text-purple-800 border-purple-200",
-  "On Project": "bg-amber-100 text-amber-800 border-amber-200",
-};
-
-const getStatusBadge = (status) => statusConfig[status] || "bg-gray-100 text-gray-800";
-
-const statusShort = { Present: "P", Absent: "A", Active: "Act", Contract: "Con" };
-
-// ========== DATA ==========
-const employeeInfo = {
-  "EMP-101": { name: "John Smith", department: "Engineering", position: "Senior Developer", office: "New York HQ", email: "john.smith@company.com", phone: "+1 (555) 123-4567" },
-  "EMP-102": { name: "Sarah Johnson", department: "Design", position: "UI/UX Designer", office: "Remote", email: "sarah.johnson@company.com", phone: "+1 (555) 234-5678" },
-  "EMP-103": { name: "Michael Chen", department: "Marketing", position: "Marketing Manager", office: "San Francisco", email: "michael.chen@company.com", phone: "+1 (555) 345-6789" },
-  "EMP-104": { name: "Emma Wilson", department: "HR", position: "HR Manager", office: "London", email: "emma.wilson@company.com", phone: "+44 20 7123 4567" },
-};
-
-const clientInfo = {
-  "CLT-201": { name: "Tech Innovations Inc.", company: "Tech Innovations Inc.", industry: "Technology", contact_person: "Robert Brown", email: "robert.brown@techinnovations.com", phone: "+1 (555) 987-6543", notes: "Enterprise client" },
-  "CLT-202": { name: "Global Solutions Ltd.", company: "Global Solutions Ltd.", industry: "Consulting", contact_person: "Lisa Anderson", email: "lisa.anderson@globalsolutions.com", phone: "+44 20 7654 3210", notes: "Long-term partnership" },
-  "CLT-203": { name: "Creative Agency Co.", company: "Creative Agency Co.", industry: "Marketing", contact_person: "David Miller", email: "david.miller@creativeagency.com", phone: "+1 (555) 876-5432", notes: "Monthly retainer" },
-};
-
-const combinedData = [
-  { attendance_id: 1, employee_id: "EMP-101", type: "employee", attendance_date: "2026-01-05", check_in_time: "2026-01-05T09:10:00", check_out_time: "2026-01-05T17:30:00", attendance_mode: "Office", attendance_status: "Present", total_working_hours: "8h 20m", created_at: "2026-01-05T09:10:00", updated_at: "2026-01-05T17:30:00", today_present: true, verified: false, restricted: { restriction_type: "temporary", restriction_date: "2026-02-05", reason: "Late arrival", description: "Arrived 30 min late", approved_by: "Manager A", notes: "Approved with warning" } },
-  { attendance_id: 2, employee_id: "EMP-102", type: "employee", attendance_date: "2026-01-05", check_in_time: "2026-01-05T09:15:00", check_out_time: "2026-01-05T17:25:00", attendance_mode: "Remote", attendance_status: "Verified", total_working_hours: "8h 10m", created_at: "2026-01-05T09:15:00", updated_at: "2026-01-05T17:25:00", today_present: true, verified: true, restricted: null },
-  { attendance_id: 3, employee_id: "EMP-103", type: "employee", attendance_date: "2026-01-05", check_in_time: "2026-01-05T09:20:00", check_out_time: "2026-01-05T17:35:00", attendance_mode: "Office", attendance_status: "Pending", total_working_hours: "8h 15m", created_at: "2026-01-05T09:20:00", updated_at: "2026-01-05T17:35:00", today_present: true, verified: false, restricted: { restriction_type: "permanent", reason: "System malfunction", description: "Manual check-in", approved_by: "Admin", notes: "System issue resolved" } },
-  { attendance_id: 4, employee_id: "EMP-104", type: "employee", attendance_date: "2026-01-05", check_in_time: "2026-01-05T09:05:00", check_out_time: "2026-01-05T17:20:00", attendance_mode: "Office", attendance_status: "Present", total_working_hours: "8h 15m", created_at: "2026-01-05T09:05:00", updated_at: "2026-01-05T17:20:00", today_present: false, verified: false, restricted: null },
-  { attendance_id: 5, employee_id: "CLT-201", type: "client", attendance_date: "2026-01-05", status: "Active", project_status: "In Progress", project_value: "$50,000", project_start_date: "2025-12-01", created_at: "2025-12-01T09:00:00", updated_at: "2026-01-05T14:30:00", today_present: true, verified: true, restricted: null },
-  { attendance_id: 6, employee_id: "CLT-202", type: "client", attendance_date: "2026-01-05", status: "Contract", project_status: "Completed", project_value: "$25,000", project_start_date: "2025-11-15", created_at: "2025-11-15T10:00:00", updated_at: "2026-01-04T16:45:00", today_present: true, verified: true, restricted: null },
-  { attendance_id: 7, employee_id: "CLT-203", type: "client", attendance_date: "2026-01-05", status: "On Project", project_status: "Planning", project_value: "$15,000", project_start_date: "2026-01-15", created_at: "2025-12-20T11:30:00", updated_at: "2026-01-05T10:15:00", today_present: false, verified: false, restricted: { restriction_type: "under_review", reason: "Contract negotiation", description: "Under legal review", approved_by: "Legal Team", notes: "Awaiting approval" } },
-];
-
-// ========== COMPONENTS ==========
-
-// Avatar Component
-const Avatar = ({ name, size = 10, mobileSize = 8 }) => (
-  <div className={`flex items-center justify-center rounded-full ${colors[getColorIndex(name)]} font-semibold w-${mobileSize} h-${mobileSize} sm:w-${size} sm:h-${size}`}>
-    <span className="text-xs sm:text-sm">{getInitials(name)}</span>
-  </div>
+// ========== CUSTOM CHECKBOX ==========
+const CustomCheckboxRender = ({ checked, indeterminateStatus, onChange }) => (
+    <div className="relative inline-block w-4 h-4 sm:w-5 sm:h-5" onClick={(e) => e.stopPropagation()}>
+        <input
+            type="checkbox"
+            checked={checked}
+            onChange={onChange}
+            ref={el => el && (el.indeterminate = indeterminateStatus)}
+            className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+        />
+        <div className={`absolute inset-0 border-2 rounded transition-all flex items-center justify-center ${indeterminateStatus ? "border-blue-500 bg-blue-500" : checked ? "border-blue-500 bg-blue-500" : "border-slate-300 bg-white hover:border-blue-400"}`}>
+            {checked && !indeterminateStatus && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+            {indeterminateStatus && <Minus className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+        </div>
+    </div>
 );
 
-// Status Badge Component
-const StatusBadge = ({ status }) => (
-  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(status)}`}>
-    <span className="hidden sm:inline">{status}</span>
-    <span className="sm:hidden">{statusShort[status] || status?.substring(0, 3)}</span>
-  </span>
-);
-
-// Custom Checkbox
-const CustomCheckbox = ({ checked, indeterminate, onChange }) => (
-  <div className="relative inline-block w-4 h-4 sm:w-5 sm:h-5">
-    <input type="checkbox" checked={checked} onChange={onChange} ref={el => el && (el.indeterminate = indeterminate)} className="absolute w-full h-full opacity-0 cursor-pointer z-10" />
-    <div className={`absolute inset-0 border-2 rounded transition-all ${indeterminate ? "border-amber-500 bg-amber-500" : checked ? "border-amber-500 bg-amber-500" : "border-gray-300 hover:border-amber-400"}`}>
-      {checked && !indeterminate && <Icons.Check className="absolute inset-0 w-full h-full text-white p-0.5" />}
-      {indeterminate && <Icons.Minus className="absolute inset-0 w-full h-full text-white p-0.5" />}
-    </div>
-  </div>
-);
-
-// Tooltip
-const Tooltip = ({ children, text }) => {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative">
-      <div onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)} className="inline-block">{children}</div>
-      {show && <div className="hidden sm:block absolute z-20 px-3 py-2 text-xs font-medium text-white bg-slate-900 rounded-lg shadow-sm bottom-full left-1/2 transform -translate-x-1/2 mb-2 whitespace-nowrap">{text}<div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1"><div className="w-2 h-2 bg-slate-900 rotate-45"></div></div></div>}
-    </div>
-  );
+const getStatusBadge = (isActive) => {
+    return isActive
+        ? "bg-green-100 text-green-700 border-green-200"
+        : "bg-red-100 text-red-700 border-red-200";
 };
 
-// Action Buttons
-const ActionButtons = ({ row, onDelete, onRestrict, onView }) => {
-  const [loading, setLoading] = useState({ delete: false, restrict: false });
-  
-  const handleAction = async (type, fn) => {
-    setLoading(prev => ({ ...prev, [type]: true }));
-    try { await fn(); } finally { setLoading(prev => ({ ...prev, [type]: false })); }
-  };
-
-  return (
-    <div className="flex items-center justify-center space-x-1 sm:space-x-2">
-      <Tooltip text="View"><button className="p-1.5 sm:p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg border border-blue-200 hover:scale-105" onClick={() => onView(row)}><Icons.Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" /></button></Tooltip>
-      <Tooltip text="Delete"><button className="p-1.5 sm:p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg border border-rose-200 hover:scale-105 disabled:opacity-50" onClick={() => handleAction("delete", () => onDelete(row.attendance_id))} disabled={loading.delete}>{loading.delete ? <Icons.Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Icons.Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}</button></Tooltip>
-      {row.restricted ? (
-        <Tooltip text="View Restricted"><button className="p-1.5 sm:p-2 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg border border-purple-200 hover:scale-105" onClick={() => alert(`Restriction: ${row.restricted.reason}`)}><Icons.ShieldAlert className="w-3.5 h-3.5 sm:w-4 sm:h-4" /></button></Tooltip>
-      ) : (
-        <Tooltip text="Restrict"><button className="p-1.5 sm:p-2 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg border border-purple-200 hover:scale-105 disabled:opacity-50" onClick={() => handleAction("restrict", () => onRestrict(row.attendance_id))} disabled={loading.restrict}>{loading.restrict ? <Icons.Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Icons.Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}</button></Tooltip>
-      )}
-    </div>
-  );
+// Custom Role Badge Generator
+const getRoleBadge = (role) => {
+    const r = (role || "").toLowerCase();
+    if (r === 'admin') return "bg-purple-100 text-purple-700 border-purple-200";
+    if (r === 'staff') return "bg-blue-100 text-blue-700 border-blue-200";
+    if (r === 'client') return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    return "bg-slate-100 text-slate-700 border-slate-200";
 };
 
-// Restrict Modal
-const RestrictModal = ({ isOpen, onClose, attendanceId, onSuccess, attendanceRecords }) => {
-  const [form, setForm] = useState({ reason: "", approved_by: "", notes: "", restriction_type: "temporary", restriction_date: "", description: "" });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  
-  const record = attendanceRecords.find(r => r.attendance_id === attendanceId);
-  const emp = record ? (record.type === 'client' ? clientInfo[record.employee_id] : employeeInfo[record.employee_id]) : null;
-
-  useEffect(() => { if (isOpen) { setForm({ reason: "", approved_by: "", notes: "", restriction_type: "temporary", restriction_date: "", description: "" }); setError(""); } }, [isOpen]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setLoading(true); setError("");
-    if (form.restriction_type === "temporary" && !form.restriction_date) { setError("End date required"); setLoading(false); return; }
-    if (!form.description || !form.reason || !form.approved_by) { setError("Fill required fields"); setLoading(false); return; }
-    if (form.restriction_type === "permanent" && !window.confirm("Apply permanent restriction?")) { setLoading(false); return; }
-    try {
-      const res = await axios.post(`/api/attendance/${attendanceId}/restrict`, form);
-      if (res.data.success) { onSuccess(res.data.data); onClose(); } else setError(res.data.message);
-    } catch (err) { setError(err.response?.data?.message || "Error occurred"); } finally { setLoading(false); }
-  };
-
-  if (!isOpen || !record || !emp) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-2 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b sticky top-0 bg-white">
-          <h3 className="text-lg font-semibold text-slate-900">Restrict Record</h3>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><Icons.X className="w-5 h-5" /></button>
-        </div>
-
-        <div className="p-4 sm:p-6 border-b bg-slate-50">
-          <div className="flex items-start space-x-3">
-            <Avatar name={emp.name} size={12} mobileSize={10} />
-            <div>
-              <h4 className="font-semibold">{emp.name}</h4>
-              <p className="text-sm text-slate-600">{emp.position || emp.company}</p>
-            </div>
-          </div>
-          <div className="mt-3 p-3 bg-white rounded-lg border text-sm grid grid-cols-2 gap-2">
-            <div><span className="text-slate-500">Date:</span> {new Date(record.attendance_date).toLocaleDateString()}</div>
-            <div><span className="text-slate-500">Status:</span> <StatusBadge status={record.attendance_status || record.status} /></div>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
-          {error && <div className="p-3 bg-rose-50 text-rose-700 rounded-lg text-sm">{error}</div>}
-          
-          <div>
-            <label className="block text-sm font-medium mb-2">Type *</label>
-            <div className="flex flex-wrap gap-3">
-              {["temporary", "permanent", "under_review"].map(t => (
-                <label key={t} className="flex items-center"><input type="radio" name="restriction_type" value={t} checked={form.restriction_type === t} onChange={e => setForm({...form, restriction_type: e.target.value})} className="mr-2" />{t}</label>
-              ))}
-            </div>
-          </div>
-
-          {form.restriction_type === "temporary" && (
-            <div>
-              <label className="block text-sm font-medium mb-1">End Date *</label>
-              <input type="date" value={form.restriction_date} onChange={e => setForm({...form, restriction_date: e.target.value})} min={new Date().toISOString().split('T')[0]} className="w-full p-2 border rounded-lg" required />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Description *</label>
-            <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full p-2 border rounded-lg" rows="3" required placeholder="Enter description..." />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Reason *</label>
-            <select value={form.reason} onChange={e => setForm({...form, reason: e.target.value})} className="w-full p-2 border rounded-lg" required>
-              <option value="">Select reason</option>
-              <option value="late_arrival">Late Arrival</option>
-              <option value="early_departure">Early Departure</option>
-              <option value="unauthorized_absence">Unauthorized Absence</option>
-              <option value="time_tampering">Time Tampering</option>
-              <option value="policy_violation">Policy Violation</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Approved By *</label>
-            <input type="text" value={form.approved_by} onChange={e => setForm({...form, approved_by: e.target.value})} className="w-full p-2 border rounded-lg" required placeholder="Approver name" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Notes</label>
-            <textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="w-full p-2 border rounded-lg" rows="2" placeholder="Additional notes..." />
-          </div>
-
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
-            <p className="font-medium">Important:</p>
-            <ul className="list-disc pl-4 text-xs">
-              <li>Temporary restrictions auto-expire</li>
-              <li>Permanent restrictions need approval</li>
-              <li>Restricted records cannot be edited</li>
-            </ul>
-          </div>
-
-          <div className="flex justify-end space-x-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg">Cancel</button>
-            <button type="submit" disabled={loading} className="px-4 py-2 text-sm text-white bg-purple-600 hover:bg-purple-700 rounded-lg disabled:opacity-50 flex items-center">
-              {loading ? <><Icons.Loader2 className="w-4 h-4 mr-2 animate-spin" />Applying...</> : <><Icons.ShieldAlert className="w-4 h-4 mr-2" />Apply</>}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// View Details Modal
-const ViewDetailsModal = ({ isOpen, onClose, record }) => {
-  if (!isOpen || !record) return null;
-  
-  const isClient = record.type === 'client';
-  const info = isClient ? clientInfo[record.employee_id] : employeeInfo[record.employee_id];
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-2 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b sticky top-0 bg-white">
-          <h3 className="text-lg font-semibold">{isClient ? 'Client Details' : 'Employee Details'}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><Icons.X className="w-5 h-5" /></button>
-        </div>
-
-        <div className="p-4 sm:p-6">
-          <div className="flex items-start space-x-4 mb-6">
-            <Avatar name={info?.name} size={16} mobileSize={12} />
-            <div>
-              <h4 className="text-xl font-bold">{info?.name}</h4>
-              <p className="text-sm text-slate-600">{isClient ? 'Client' : info?.position}</p>
-              <div className="flex gap-2 mt-2"><StatusBadge status={record.attendance_status || record.status} /></div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h5 className="font-semibold flex items-center"><Icons.User className="w-4 h-4 mr-2" />{isClient ? 'Company' : 'Personal'}</h5>
-              <div className="space-y-2">
-                <div><label className="text-xs text-slate-500">ID</label><p className="text-sm">{record.employee_id}</p></div>
-                {!isClient && <div><label className="text-xs text-slate-500">Department</label><p className="text-sm">{info?.department}</p></div>}
-                {isClient && <div><label className="text-xs text-slate-500">Company</label><p className="text-sm">{info?.company}</p></div>}
-                <div><label className="text-xs text-slate-500">Email</label><p className="text-sm">{info?.email || `${info?.name?.toLowerCase().replace(/\s+/g, ".")}@${isClient ? 'client.com' : 'company.com'}`}</p></div>
-                <div><label className="text-xs text-slate-500">Phone</label><p className="text-sm">{info?.phone || "N/A"}</p></div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h5 className="font-semibold flex items-center"><Icons.Calendar className="w-4 h-4 mr-2" />{isClient ? 'Project' : 'Attendance'}</h5>
-              <div className="space-y-2">
-                <div><label className="text-xs text-slate-500">Date</label><p className="text-sm">{new Date(record.attendance_date).toLocaleDateString()}</p></div>
-                {!isClient ? (
-                  <>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><label className="text-xs text-slate-500">Check-in</label><p className="text-sm">{record.check_in_time ? new Date(record.check_in_time).toLocaleTimeString() : 'N/A'}</p></div>
-                      <div><label className="text-xs text-slate-500">Check-out</label><p className="text-sm">{record.check_out_time ? new Date(record.check_out_time).toLocaleTimeString() : 'N/A'}</p></div>
-                    </div>
-                    <div><label className="text-xs text-slate-500">Hours</label><p className="text-sm">{record.total_working_hours}</p></div>
-                  </>
-                ) : (
-                  <>
-                    <div><label className="text-xs text-slate-500">Project Status</label><p className="text-sm">{record.project_status}</p></div>
-                    <div><label className="text-xs text-slate-500">Value</label><p className="text-sm">{record.project_value}</p></div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 pt-4 border-t">
-            <h5 className="font-semibold flex items-center mb-2"><Icons.FileText className="w-4 h-4 mr-2" />Notes</h5>
-            <div className="bg-slate-50 p-3 rounded-lg"><p className="text-sm">{record.notes || info?.notes || "No notes available"}</p></div>
-          </div>
-        </div>
-
-        <div className="flex justify-end p-4 border-t">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg">Close</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ========== MAIN TABLE ==========
 const Data_Table = () => {
-  const [selected, setSelected] = useState({ selectedRows: [], allSelected: false, indeterminate: false });
-  const [showModal, setShowModal] = useState(false);
-  const [showRestrict, setShowRestrict] = useState(false);
-  const [showView, setShowView] = useState(false);
-  const [viewing, setViewing] = useState(null);
-  const [restricting, setRestricting] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [records, setRecords] = useState(combinedData);
-  const [filtered, setFiltered] = useState(combinedData);
-  const [search, setSearch] = useState("");
-  const [type, setType] = useState("all");
-  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+    // Mutations
+    const { getUserCredit_, getAllBranch_ } = useGet();
+    const { Deleteadmin_, DeleteBranch_ } = UseDelete();
+    const { EditStatus_, SendCredit_, EditBranchStatus_, SendBranchCredit_ } = useEdit();
 
-  useEffect(() => { showModal ? document.body.style.overflow = 'hidden' : document.body.style.overflow = 'unset'; return () => document.body.style.overflow = 'unset'; }, [showModal]);
-  useEffect(() => { const handleResize = () => setWidth(window.innerWidth); window.addEventListener('resize', handleResize); return () => window.removeEventListener('resize', handleResize); }, []);
+    const [showModal, setShowModal] = useState(false);
+    const [selectedAdmin, setSelectedAdmin] = useState(null);
+    const [reFetch, setreFetch] = useState(false);
 
-  // pagination & sorting state
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 10;
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+    const [records, setRecords] = useState([]);
+    const [filtered, setFiltered] = useState([]);
+    const [expandedRowId, setExpandedRowId] = useState(null);
 
-  useEffect(() => { setCurrentPage(1); }, [search, type, filtered]);
+    const [search, setSearch] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 10;
 
-  const sortedFiltered = useMemo(() => {
-    if (!sortConfig.key) return filtered;
-    const sorted = [...filtered];
-    sorted.sort((a, b) => {
-      let res = 0;
-      switch (sortConfig.key) {
-        case 'employee':
-          res = sortByName(a, b);
-          break;
-        case 'department':
-          res = sortByDepartment(a, b);
-          break;
-        case 'date':
-          res = sortByDate(a, b);
-          break;
-        case 'info':
-          res = sortByInfo(a, b);
-          break;
-        default:
-          res = 0;
-      }
-      return sortConfig.direction === 'asc' ? res : -res;
+    // Selection states
+    const [selectedRows, setSelectedRows] = useState([]);
+    const [allSelected, setAllSelected] = useState(false);
+    const [indeterminate, setIndeterminate] = useState(false);
+
+    // Delete Confirmation Modal States
+    const [deleteModalState, setDeleteModalState] = useState({ isOpen: false, ids: [] });
+    const [deleteInputValue, setDeleteInputValue] = useState("");
+    const [deleteInputError, setDeleteInputError] = useState("");
+    const [deleteBranchId, setDeleteBranchId] = useState(null);
+    const [actionLoading, setActionLoading] = useState(null);
+
+    const setActionBusy = (action, rowId) => setActionLoading(`${action}-${rowId}`);
+    const isActionBusy = (action, rowId) => actionLoading === `${action}-${rowId}`;
+
+    const fetchAllRecords = async () => {
+        try {
+            const [usersResponse, branchesResponse] = await Promise.all([
+                getUserCredit_.mutateAsync(null),
+                getAllBranch_.mutateAsync(null)
+            ]);
+            const users = usersResponse?.data?.data || usersResponse?.data || usersResponse || [];
+            const branches = branchesResponse?.data?.data || branchesResponse?.data || branchesResponse || [];
+            const normalizedUsers = Array.isArray(users)
+                ? users.filter(user => (user.role || "").toLowerCase() !== "super_admin")
+                : [];
+            const normalizedBranches = Array.isArray(branches)
+                ? branches.map(branch => ({
+                    ...branch,
+                    fullName: branch.fullName || branch.UserfullName,
+                    role: branch.role || "branch",
+                    districtName: branch.districtName || branch.districts,
+                    localLevel: branch.localLevel || branch.localLevelName,
+                    isActive: branch.status
+                        ? String(branch.status).toLowerCase() === "active"
+                        : true,
+                    isBranch: true
+                }))
+                : [];
+            const combinedRecords = [...normalizedUsers, ...normalizedBranches];
+            setRecords(combinedRecords);
+            setFiltered(combinedRecords);
+        } catch (error) {
+            console.error("Fetch Error:", error);
+            ErrorNotify(error?.response?.data?.message || "Failed to load users and branches.");
+        }
+    };
+
+    useEffect(() => {
+        fetchAllRecords();
+    }, [reFetch]);
+
+    useEffect(() => {
+        const lower = search.toLowerCase();
+        setFiltered(!lower ? records : records.filter(record =>
+            (record.username || "").toLowerCase().includes(lower) ||
+            (record.fullName || "").toLowerCase().includes(lower) ||
+            (record.provinceName || "").toLowerCase().includes(lower) ||
+            (record.officeEmail || "").toLowerCase().includes(lower) ||
+            (record.role || "").toLowerCase().includes(lower)
+        ));
+    }, [records, search]);
+
+useEffect(() => { setCurrentPage(1); }, [search, filtered.length]);
+
+// Sync checkbox UI states accurately
+useEffect(() => {
+    const isAll = selectedRows.length === filtered.length && filtered.length > 0;
+    const isIndeterminate = selectedRows.length > 0 && selectedRows.length < filtered.length;
+    setAllSelected(isAll);
+    setIndeterminate(isIndeterminate);
+}, [selectedRows, filtered]);
+
+const stats = useMemo(() => {
+    let admin = 0, staff = 0, client = 0;
+    records.forEach(user => {
+        const role = (user.role || "").toLowerCase();
+        if (role === "admin") admin++;
+        if (role === "staff") staff++;
+        if (role === "client") client++;
     });
-    return sorted;
-  }, [filtered, sortConfig]);
+    return { total: records.length, admin, staff, client };
+}, [records]);
 
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    return sortedFiltered.slice(start, start + rowsPerPage);
-  }, [sortedFiltered, currentPage]);
+const handleSearch = (term) => {
+    setSearch(term);
+};
 
-  const totalPages = Math.ceil(sortedFiltered.length / rowsPerPage);
+// ----- DELETE HANDLERS & MODAL LOGIC -----
+const triggerDelete = (ids, branchId = null) => {
+    setDeleteModalState({ isOpen: true, ids: Array.isArray(ids) ? ids : [ids] });
+    setDeleteBranchId(branchId);
+    setDeleteInputValue("");
+    setDeleteInputError("");
+};
 
-  const handleSort = (key) => {
-    setSortConfig(prev => {
-      if (prev.key === key) {
-        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
-      }
-      return { key, direction: 'asc' };
-    });
-  };
+const closeDeleteModal = () => {
+    setDeleteModalState({ isOpen: false, ids: [] });
+    setDeleteBranchId(null);
+    setDeleteInputValue("");
+    setDeleteInputError("");
+};
 
-  const filterData = useCallback((searchTerm, typeFilter) => {
-    let filtered = records;
-    if (typeFilter !== "all") filtered = filtered.filter(r => r.type === typeFilter);
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(r => {
-        const info = r.type === 'client' ? clientInfo[r.employee_id] : employeeInfo[r.employee_id];
-        return r.employee_id?.toLowerCase().includes(term) || info?.name?.toLowerCase().includes(term) || (r.type === 'client' ? info?.company?.toLowerCase().includes(term) : info?.department?.toLowerCase().includes(term));
-      });
+const executeDelete = () => {
+    if (deleteInputValue !== "delete") {
+        setDeleteInputError("Not matched. Please type 'delete'.");
+        return;
     }
-    setFiltered(filtered);
-  }, [records]);
 
-  useEffect(() => { filterData(search, type); }, [search, type, filterData]);
+    const deleteMutation = deleteBranchId
+        ? DeleteBranch_
+        : Deleteadmin_;
+    const deletePayload = deleteBranchId
+        ? { id: deleteBranchId }
+        : { ids: deleteModalState.ids };
+    setActionBusy("delete", deleteBranchId || deleteModalState.ids[0]);
 
-  const handleSearch = (term) => { setSearch(term); filterData(term, type); };
-  const handleTypeFilter = (t) => { setType(t); filterData(search, t); };
+    deleteMutation.mutate(deletePayload, {
+        onSuccess: (res) => {
+            setSelectedRows(prev => prev.filter(i => !deleteModalState.ids.includes(i)));
+            SuccessNotify(res?.data?.message || "Successfully deleted.");
+            setreFetch(prev => !prev);
+            closeDeleteModal();
+        },
+        onError: (error) => {
+            console.error("Delete Error:", error);
+            ErrorNotify(error?.response?.data?.message || "Failed to delete.");
+            closeDeleteModal();
+        },
+        onSettled: () => {
+            setActionLoading(null);
+        }
+    });
+};
 
-  const fetchData = async () => {
-    try { setLoading(true); const res = await axios.get("/api/records"); if (res.data.success) { setRecords(res.data.data); setFiltered(res.data.data); } } 
-    catch (error) { console.error("Error:", error); } finally { setLoading(false); }
-  };
+const handleToggleStatus = (e, row) => {
+    e.stopPropagation();
+    if (isActionBusy("status", row._id)) return;
+    const newStatus = !row.isActive;
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this record?")) return;
-    try {
-      const res = await axios.delete(`/api/records/${id}`);
-      if (res.data.success) {
-        const updated = records.filter(r => r.attendance_id !== id);
-        setRecords(updated); setFiltered(updated);
-        setSelected(prev => ({ ...prev, selectedRows: prev.selectedRows.filter(i => i !== id) }));
-      }
-    } catch (error) { console.error("Error:", error); alert("Delete failed"); }
-  };
+    const statusMutation = row.isBranch ? EditBranchStatus_ : EditStatus_;
+    setActionBusy("status", row._id);
+    statusMutation.mutate(
+        {
+            params: { id: row._id },
+            payload: { isActive: newStatus }
+        },
+        {
+            onSuccess: (res) => {
+                    SuccessNotify(res?.data?.message || "Account status updated successfully.");
+                setreFetch(prev => !prev);
+            },
+            onError: (err) => {
+                console.error(err);
+                ErrorNotify(err?.response?.data?.message || "Failed to update user status.");
+            },
+            onSettled: () => {
+                setActionLoading(null);
+            }
+        }
+    );
+};
 
-  const handleRestrictSuccess = (data) => {
-    const updated = records.map(r => r.attendance_id === restricting ? { ...r, restricted: data } : r);
-    setRecords(updated); setFiltered(updated); setShowRestrict(false); setRestricting(null);
-  };
+const handleSendMail = (row) => {
+    if (isActionBusy("credit", row._id)) return;
+    waitingNotify(`Sending credentials to ${row.username}...`);
 
-  const handleRowSelect = (state, row) => {
-    let newSelected = [...selected.selectedRows];
+    const creditMutation = row.isBranch ? SendBranchCredit_ : SendCredit_;
+    setActionBusy("credit", row._id);
+    creditMutation.mutate({
+        params: { id: row._id },
+    }, {
+        onSuccess: (res) => {
+            SuccessNotify(res?.data?.message || `Credentials sent to ${row.officeEmail}`);
+        },
+        onError: (err) => {
+            console.error(err);
+            ErrorNotify(err?.response?.data?.message || "Failed to send credentials.");
+        },
+        onSettled: () => {
+            setActionLoading(null);
+        }
+    });
+};
+
+const handleCreateNew = () => {
+    setSelectedAdmin(null);
+    setShowModal(true);
+};
+
+const handleRowSelect = (e, row) => {
+    if (e) e.stopPropagation();
+
     if (row) {
-      newSelected = newSelected.includes(row.attendance_id) ? newSelected.filter(id => id !== row.attendance_id) : [...newSelected, row.attendance_id];
+        if (row.isBranch) return;
+        setSelectedRows(prev => prev.includes(row._id) ? prev.filter(id => id !== row._id) : [...prev, row._id]);
     } else {
-      newSelected = selected.allSelected || selected.indeterminate ? [] : filtered.map(r => r.attendance_id);
+        if (allSelected || indeterminate) {
+            setSelectedRows([]);
+        } else {
+                setSelectedRows(filtered.filter(r => !r.isBranch).map(r => r._id));
+        }
     }
-    const allSelected = newSelected.length === filtered.length;
-    const indeterminate = newSelected.length > 0 && newSelected.length < filtered.length;
-    setSelected({ selectedRows: newSelected, allSelected, indeterminate });
-  };
+};
 
-  // Custom sort functions
-  const sortByName = (rowA, rowB) => {
-    const isClientA = rowA.type === 'client';
-    const isClientB = rowB.type === 'client';
-    const infoA = isClientA ? clientInfo[rowA.employee_id] : employeeInfo[rowA.employee_id];
-    const infoB = isClientB ? clientInfo[rowB.employee_id] : employeeInfo[rowB.employee_id];
-    return (infoA?.name || '').localeCompare(infoB?.name || '');
-  };
+const handleRowExpand = (rowId) => {
+    setExpandedRowId(currentId => currentId === rowId ? null : rowId);
+};
 
-  const sortByDepartment = (rowA, rowB) => {
-    const infoA = rowA.type === 'client' ? clientInfo[rowA.employee_id] : employeeInfo[rowA.employee_id];
-    const infoB = rowB.type === 'client' ? clientInfo[rowB.employee_id] : employeeInfo[rowB.employee_id];
-    const valueA = rowA.type === 'client' ? infoA?.company || '' : infoA?.department || '';
-    const valueB = rowB.type === 'client' ? infoB?.company || '' : infoB?.department || '';
-    return valueA.localeCompare(valueB);
-  };
+const paginatedData = useMemo(() => filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage), [filtered, currentPage]);
 
-  const sortByDate = (rowA, rowB) => {
-    return new Date(rowA.attendance_date) - new Date(rowB.attendance_date);
-  };
+const StatusBadgeRender = ({ isActive }) => (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider border ${getStatusBadge(isActive)}`}>
+        {isActive ? (
+            <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-600"></span>
+            </span>
+        ) : (
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+        )}
+        {isActive ? "Active" : "InActive"}
+    </span>
+);
 
-  const sortByInfo = (rowA, rowB) => {
-    const valueA = rowA.type === 'client' ? rowA.project_status || '' : rowA.total_working_hours || '';
-    const valueB = rowB.type === 'client' ? rowB.project_status || '' : rowB.total_working_hours || '';
-    return valueA.localeCompare(valueB);
-  };
-
-  // columns removed - manual table rendering will be used instead
-
-
-  const Pagination = ({ rowsPerPage, rowCount, onChangePage, currentPage }) => (
-    <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t">
-      <div className="text-xs sm:text-sm mb-2 sm:mb-0">Showing {Math.min((currentPage-1)*rowsPerPage+1, rowCount)}-{Math.min(currentPage*rowsPerPage, rowCount)} of {rowCount}</div>
-      <div className="flex space-x-1">
-        <button onClick={() => onChangePage(Math.max(1, currentPage-1))} disabled={currentPage===1} className="px-2 py-1 sm:px-3 text-xs sm:text-sm border rounded disabled:opacity-50">Prev</button>
-        {Array.from({ length: Math.min(3, Math.ceil(rowCount/rowsPerPage)) }, (_, i) => i+1).map(p => (
-          <button key={p} onClick={() => onChangePage(p)} className={`px-2 py-1 sm:px-3 text-xs sm:text-sm border rounded ${currentPage===p ? 'bg-amber-600 text-white' : ''}`}>{p}</button>
-        ))}
-        <button onClick={() => onChangePage(Math.min(Math.ceil(rowCount/rowsPerPage), currentPage+1))} disabled={currentPage===Math.ceil(rowCount/rowsPerPage)} className="px-2 py-1 sm:px-3 text-xs sm:text-sm border rounded disabled:opacity-50">Next</button>
-      </div>
-    </div>
-  );
-
-
-  return (
-    <div className="p-2 sm:p-4 md:p-6 bg-white rounded-lg shadow-sm">
-      <div className="flex flex-col lg:flex-row justify-between mb-4 gap-3">
-        <h2 className="text-lg sm:text-xl font-bold truncate" style={{ fontFamily: "'Roboto Slab', serif", fontWeight: 600 }}>Employee & Client Records</h2>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-         
-          <div className="relative flex-1">
-            <Icons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input type="text" value={search} onChange={e => handleSearch(e.target.value)} className="pl-9 pr-4 py-2 border border-slate-200
-             focus:border-amber-500 rounded-lg w-full text-sm" placeholder="Search... any" />
-          </div>
-          <button onClick={() => { setViewing(null); setShowModal(true); }} className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center text-sm">
-            <Icons.Plus className="w-4 h-4 mr-1" /> Register
-          </button>
+return (
+    <div className="p-4 sm:p-6 bg-white rounded-2xl shadow-sm border border-slate-100 w-full relative">
+        {/* Header Section */}
+        <div className="flex flex-col lg:flex-row justify-between mb-6 gap-4 border-b border-slate-100 pb-5">
+            <div>
+                <h2 className="text-xl sm:text-2xl text-slate-800" style={fontBold}>
+                    System <span className="text-blue-600">Users</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-1" style={fontLight}>Manage your organizational roles and system access.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 items-center">
+                <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input type="text" value={search} onChange={e => handleSearch(e.target.value)} className="pl-9 pr-4 py-2.5 border border-slate-200 bg-slate-50 focus:bg-white hover:border-blue-400 focus:border-blue-500 rounded-xl w-full text-sm outline-none transition-all shadow-sm" placeholder="Search users..." style={fontLight} />
+                </div>
+                <button onClick={handleCreateNew} className="w-full  cursor-pointer sm:w-auto px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-800 text-white rounded-xl flex items-center justify-center text-sm shadow-md transition-all whitespace-nowrap" style={fontBold}>
+                    <Plus className="w-4 h-4 mr-1.5" /> Register User
+                </button>
+            </div>
         </div>
-      </div>
 
-      <div className="mb-3 text-xs sm:text-sm text-slate-500">
-        Showing {sortedFiltered.length} of {records.length} records
-        {search && <span className="text-amber-600 ml-2">• "{search.substring(0,15)}..."</span>}
-      </div>
+        {/* Statistics Dashboard */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center space-x-4">
+                <div className="p-3 bg-slate-200 text-slate-700 rounded-lg"><Users className="w-5 h-5" /></div>
+                <div>
+                    <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Total Users</p>
+                    <h3 className="text-xl text-slate-800" style={fontBold}>{stats.total}</h3>
+                </div>
+            </div>
+            <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl flex items-center space-x-4">
+                <div className="p-3 bg-purple-200 text-purple-700 rounded-lg"><Shield className="w-5 h-5" /></div>
+                <div>
+                    <p className="text-[11px] text-purple-600 font-bold uppercase tracking-wider">Admins</p>
+                    <h3 className="text-xl text-purple-900" style={fontBold}>{stats.admin}</h3>
+                </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-center space-x-4">
+                <div className="p-3 bg-blue-200 text-blue-700 rounded-lg"><Briefcase className="w-5 h-5" /></div>
+                <div>
+                    <p className="text-[11px] text-blue-600 font-bold uppercase tracking-wider">Staff</p>
+                    <h3 className="text-xl text-blue-900" style={fontBold}>{stats.staff}</h3>
+                </div>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-center space-x-4">
+                <div className="p-3 bg-emerald-200 text-emerald-700 rounded-lg"><User className="w-5 h-5" /></div>
+                <div>
+                    <p className="text-[11px] text-emerald-600 font-bold uppercase tracking-wider">Clients</p>
+                    <h3 className="text-xl text-emerald-900" style={fontBold}>{stats.client}</h3>
+                </div>
+            </div>
+        </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-100">
-        <table className="min-w-full divide-y divide-slate-200 font-['Roboto_Slab']">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                <CustomCheckbox checked={selected.allSelected} indeterminate={selected.indeterminate} onChange={handleRowSelect} />
-              </th>
-              <th onClick={() => handleSort('employee')} className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">EMPLOYEE/CLIENT</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">TYPE</th>
-              <th onClick={() => handleSort('department')} className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">DEPARTMENT/COMPANY</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">ACTIVE</th>
-              <th onClick={() => handleSort('date')} className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">DATE</th>
-              <th onClick={() => handleSort('info')} className="cursor-pointer px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">INFO</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-slate-200">
-            {paginatedData.length > 0 ? (
-              paginatedData.map(r => {
-                const isClient = r.type === 'client';
-                const info = isClient ? clientInfo[r.employee_id] : employeeInfo[r.employee_id];
-                return (
-                  <tr key={r.attendance_id}>
-                    <td className="px-4 py-2">
-                      <CustomCheckbox checked={selected.selectedRows.includes(r.attendance_id)} onChange={() => handleRowSelect(null, r)} />
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <Avatar name={info?.name} size={10} mobileSize={8} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2">
-                            <p className="text-xs sm:text-sm font-semibold truncate">{info?.name}</p>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${isClient ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>{isClient ? 'Client' : 'Emp'}</span>
-                          </div>
-                          <p className="text-xs text-slate-500 truncate">{isClient ? info?.company : info?.department}</p>
-                        </div>
-                        {r.restricted && <Icons.ShieldAlert className="w-3 h-3 sm:w-4 sm:h-4 text-purple-500 shrink-0" />}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2"><span className={`text-xs px-2 py-1 uppercase rounded-full ${r.type === 'client' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>{r.type}</span></td>
-                    <td className="px-4 py-2"><span className="text-xs">{isClient ? info?.company : info?.department}</span></td>
-                    <td className="px-4 py-2"><div className="flex items-center"><div className={`w-2 h-2 rounded-full mr-1 ${r.today_present ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} /><span className="text-xs">{r.today_present ? "Yes" : "No"}</span></div></td>
-                    <td className="px-4 py-2">{new Date(r.attendance_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</td>
-                    <td className="px-4 py-2"><span className="text-sm font-medium">{isClient ? r.project_status : r.total_working_hours}</span></td>
-                    <td className="px-4 py-2">
-                      <ActionButtons row={r} onDelete={handleDelete} onRestrict={setRestricting} onView={setViewing} />
-                    </td>
-                  </tr>
-                );
-              })
+        {/* Table Section */}
+        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm w-full">
+            {getUserCredit_.isPending || getAllBranch_.isPending ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                    <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-4" />
+                    <span className="text-sm text-slate-500 font-medium">Loading user data...</span>
+                </div>
             ) : (
-              <tr>
-                <td colSpan="8" className="py-12 text-center text-slate-400">No records found</td>
-              </tr>
+                <table className="min-w-full divide-y divide-slate-200 cursor-default">
+                    <thead className="bg-slate-50">
+                        <tr>
+                            <th className="px-5 py-4 w-12 text-left whitespace-nowrap">
+                                <CustomCheckboxRender checked={allSelected} indeterminateStatus={indeterminate} onChange={(e) => handleRowSelect(e, null)} />
+                            </th>
+                            <th className="px-5 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">PROFILE</th>
+                            <th className="px-5 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">ROLE</th>
+                            <th className="px-5 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">LOCATION</th>
+                            <th className="px-5 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">POSITION</th>
+                            <th className="px-5 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">CONTACT INFO</th>
+                            <th className="px-5 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">STATUS</th>
+                            <th className="px-5 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-100">
+                        {paginatedData.map(r => (
+                            <React.Fragment key={r._id}>
+                            <tr
+                                onClick={() => handleRowExpand(r._id)}
+                                className={`hover:bg-blue-50/40 transition-colors cursor-pointer ${selectedRows.includes(r._id) ? 'bg-blue-50/20' : ''}`}
+                            >
+                                <td className="px-5 py-3 w-12 whitespace-nowrap">
+                                    <CustomCheckboxRender checked={selectedRows.includes(r._id)} indeterminateStatus={false} onChange={(e) => handleRowSelect(e, r)} />
+                                </td>
+                                <td className="px-5 py-3 whitespace-nowrap">
+                                    <div className="flex items-center space-x-3">
+                                        {expandedRowId === r._id ? <ChevronUp className="w-4 h-4 text-blue-500" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="text-sm text-slate-800 truncate" style={fontBold}>{r.fullName || r.username || "Unknown"}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="px-5 py-3 whitespace-nowrap">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest border ${getRoleBadge(r.role)}`}>
+                                        {r.role || "N/A"}
+                                    </span>
+                                </td>
+                                <td className="px-5 py-3 whitespace-nowrap">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs text-slate-800" style={fontBold}>{r.provinceName || "N/A"}</span>
+                                        <span className="text-[11px] text-slate-500" style={fontLight}>{r.districtName}, {r.localLevel}</span>
+                                    </div>
+                                </td>
+                                <td className="px-5 py-3 whitespace-nowrap">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs text-slate-800" style={fontBold}>{r.designation || "N/A"}</span>
+                                        <span className="text-[11px] text-slate-500" style={fontLight}>{r.jobRole || "N/A"}</span>
+                                    </div>
+                                </td>
+                                <td className="px-5 py-3 whitespace-nowrap">
+                                    <div className="flex flex-col space-y-1">
+                                        <div className="flex items-center gap-1.5 text-[11px] text-slate-600" style={fontLight}>
+                                            <Mail size={12} className="text-amber-500 shrink-0" /> <span className="truncate">{r.officeEmail || "N/A"}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-[11px] text-slate-600" style={fontLight}>
+                                            <Phone size={12} className="text-orange-500 shrink-0" /> {r.officeMobile || "N/A"}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="px-5 py-3 whitespace-nowrap">
+                                    <StatusBadgeRender isActive={r.isActive} />
+                                </td>
+                                <td className="px-5 py-3 whitespace-nowrap">
+                                    <div className="flex items-center space-x-2">
+                                        <button
+                                            title={`Mark as ${r.isActive ? 'InActive' : 'Active'}`}
+                                            disabled={actionLoading !== null}
+                                            className={`p-1.5 cursor-pointer rounded-lg border transition-all shadow-sm ${r.isActive ? 'bg-green-50 hover:bg-green-100 border-green-100' : 'bg-slate-50 hover:bg-slate-100 border-slate-200'}`}
+                                            onClick={(e) => handleToggleStatus(e, r)}
+                                        >
+                                            {isActionBusy("status", r._id) ? <Loader2 className="w-4 h-4 text-blue-500 animate-spin" /> : <Power className={`w-4 h-4 ${r.isActive ? 'text-green-600 animate-pulse' : 'text-slate-500'}`} />}
+                                        </button>
+
+                                        <button
+                                            title="Send Credentials"
+                                            disabled={actionLoading !== null}
+                                            className="p-1.5 cursor-pointer bg-amber-50 text-amber-500 hover:bg-amber-100 rounded-lg border border-amber-100 transition-all shadow-sm"
+                                            onClick={(e) => { e.stopPropagation(); handleSendMail(r); }}
+                                        >
+                                            {isActionBusy("credit", r._id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                                        </button>
+
+                                        <button
+                                            title="Delete User"
+                                            disabled={actionLoading !== null}
+                                            className="p-1.5 cursor-pointer bg-orange-50 text-orange-500 hover:bg-orange-100 rounded-lg border border-orange-100 transition-all shadow-sm"
+                                            onClick={(e) => { e.stopPropagation(); triggerDelete(r._id, r.isBranch ? r._id : null); }}
+                                        >
+                                            {isActionBusy("delete", r._id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {expandedRowId === r._id && (
+                                <tr className="bg-blue-50/30">
+                                    <td colSpan="8" className="px-8 py-5">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4 text-xs">
+                                            <div><span className="text-slate-500">Full Name</span><p className="text-slate-800 font-semibold">{r.fullName || "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Username</span><p className="text-slate-800 font-semibold">{r.username || "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Department</span><p className="text-slate-800 font-semibold">{r.designation || "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Job Role</span><p className="text-slate-800 font-semibold">{r.jobRole || "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Personal Email</span><p className="text-slate-800 font-semibold">{r.personalEmail || "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Personal Mobile</span><p className="text-slate-800 font-semibold">{r.personalMobile || "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Office Email</span><p className="text-slate-800 font-semibold">{r.officeEmail || "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Office Mobile</span><p className="text-slate-800 font-semibold">{r.officeMobile || "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Province</span><p className="text-slate-800 font-semibold">{r.provinceName || "N/A"} ({r.province ?? r.Prvince ?? "N/A"})</p></div>
+                                            <div><span className="text-slate-500">Districts</span><p className="text-slate-800 font-semibold">{r.districts || r.districtName || r.district || "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Local Level</span><p className="text-slate-800 font-semibold">{r.localLevelName || r.localLevel || "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Ward / Tole</span><p className="text-slate-800 font-semibold">{r.wardNo || "N/A"} / {r.toleName || "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Coordinates</span><p className="text-slate-800 font-semibold">{r.lat ?? "N/A"}, {r.lng ?? "N/A"}</p></div>
+                                            <div><span className="text-slate-500">Record Type</span><p className="text-slate-800 font-semibold">{r.isBranch ? "Branch" : "User"}</p></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                            </React.Fragment>
+                        ))}
+                        {paginatedData.length === 0 && (
+                            <tr>
+                                <td colSpan="8" className="px-5 py-10 text-center text-slate-500" style={fontLight}>No users found.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             )}
-          </tbody>
-        </table>
-      </div>
-      {sortedFiltered.length > rowsPerPage && (
-        <Pagination rowsPerPage={rowsPerPage} rowCount={sortedFiltered.length} onChangePage={setCurrentPage} currentPage={currentPage} />
-      )}
-
-      {selected.selectedRows.length > 0 && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 sm:hidden">
-          <Icons.Check className="w-4 h-4" /><span>{selected.selectedRows.length} selected</span>
         </div>
-      )}
 
-      {showModal && <RegisterModal_Admin onClose={() => setShowModal(false)} />}
-      <RestrictModal isOpen={showRestrict} onClose={() => { setShowRestrict(false); setRestricting(null); }} attendanceId={restricting} onSuccess={handleRestrictSuccess} attendanceRecords={records} />
-      <ViewDetailsModal isOpen={showView} onClose={() => { setShowView(false); setViewing(null); }} record={viewing} />
+        {/* Floating Action Bar for Bulk Delete */}
+        <AnimatePresence>
+            {selectedRows.length > 0 && (
+                <motion.div
+                    initial={{ y: 50, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 50, opacity: 0 }}
+                    className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-5 py-2.5 rounded-xl shadow-2xl flex items-center space-x-3 z-40 border border-slate-700" style={fontBold}
+                >
+                    <div className="bg-blue-500 p-1 rounded-full"><Check className="w-3 h-3 text-white" strokeWidth={3} /></div>
+                    <span className="text-sm">{selectedRows.length} Users Selected</span>
+                    <div className="w-px h-4 bg-slate-600 mx-1"></div>
+                    <button onClick={() => triggerDelete(selectedRows)} className="flex cursor-pointer items-center gap-1.5 text-xs text-red-400 hover:text-red-300 uppercase tracking-wider transition-colors font-bold">
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                    </button>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
+        {/* DELETE CONFIRMATION MODAL */}
+        <AnimatePresence>
+            {deleteModalState.isOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-red-50/50">
+                            <h3 className="text-lg cursor-pointer text-red-600 flex items-center gap-2" style={fontBold}>
+                                <AlertCircle className="w-5 h-5 text-red-500" />
+                                Confirm Deletion
+                            </h3>
+                            <button onClick={closeDeleteModal} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md hover:bg-slate-100">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-6">
+                            <p className="text-sm text-slate-600 mb-4 leading-relaxed" style={fontLight}>
+                                You are about to delete {deleteModalState.ids.length > 1 ? `${deleteModalState.ids.length} records` : 'this record'}. This action cannot be undone.
+                                <br /><br />
+                                Please type <strong className="text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded">delete</strong> below to confirm.
+                            </p>
+
+                            <input
+                                type="text"
+                                value={deleteInputValue}
+                                onChange={(e) => {
+                                    setDeleteInputValue(e.target.value);
+                                    if (deleteInputError) setDeleteInputError("");
+                                }}
+                                placeholder="Type delete here..."
+                                className={`w-full px-4 py-2.5 border rounded-xl text-sm outline-none transition-all shadow-sm ${deleteInputError ? 'border-red-400 focus:border-red-500 bg-red-50 text-red-700' : 'border-slate-200 focus:border-red-400 bg-slate-50 focus:bg-white text-slate-700'}`}
+                                autoFocus
+                            />
+
+                            {/* Error Message */}
+                            <div className="min-h-[20px] mt-2">
+                                {deleteInputError && (
+                                    <p className="text-xs cursor-pointer text-red-500 flex items-center gap-1.5" style={fontBold}>
+                                        <X className="w-3.5 h-3.5 bg-red-100 rounded-full p-0.5" />
+                                        {deleteInputError}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-end gap-3 p-5 border-t border-slate-100 bg-slate-50">
+                            <button
+                                onClick={closeDeleteModal}
+                                className="px-4 py-2 cursor-pointer text-sm text-slate-600 hover:text-slate-800 hover:bg-slate-200 bg-slate-100 rounded-xl transition-all"
+                                style={fontBold}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={executeDelete}
+                                disabled={actionLoading !== null}
+                                className="px-5 py-2 text-sm cursor-pointer text-white bg-red-500 hover:bg-red-600 shadow-sm shadow-red-500/20 rounded-xl transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                                style={fontBold}
+                            >
+                                {actionLoading !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {actionLoading !== null ? "Deleting..." : "OK"}
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+
+        {showModal && <RegisterModal_Admin onClose={() => setShowModal(false)} onSuccess={() => { setreFetch(prev => !prev) }} initialData={selectedAdmin} editData={!!selectedAdmin} />}
     </div>
-  );
+);
 };
 
 export default Data_Table;

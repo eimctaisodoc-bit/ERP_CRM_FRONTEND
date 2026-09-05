@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, UserPlus, Briefcase, Building2, Info } from "lucide-react";
+import { X, UserPlus, Briefcase, Building2, Info, ChevronDown, ChevronUp, Trash2, Plus, MapPin, ArrowRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Select from "react-select";
 import { getInputClass, ValidateStyle } from "../../../data/data";
@@ -60,7 +60,6 @@ const LeadChannel = [
     { label: "Instrgram", value: "instagram" },
     { label: "Youtube", value: "youtube" },
     { label: "In-Person Meeting", value: "in_person_meeting" },
-
 ];
 
 const organizationType = [
@@ -94,34 +93,45 @@ const servicesInterested = [
     { label: "Third Party Audits", value: "third_party_audits", color: "#000000" },
 ];
 
-const provinceOptions = [
-    { label: "1", value: "1" },
-    { label: "2", value: "2" },
-    { label: "3", value: "3" },
-    { label: "4", value: "4" },
-    { label: "5", value: "5" },
-    { label: "6", value: "6" },
-    { label: "7", value: "7" },
+const provinceNumberOptions = [
+    { label: "Province 1", value: "1" },
+    { label: "Province 2", value: "2" },
+    { label: "Province 3", value: "3" },
+    { label: "Province 4", value: "4" },
+    { label: "Province 5", value: "5" },
+    { label: "Province 6", value: "6" },
+    { label: "Province 7", value: "7" },
 ];
 
-const BranchName = [
-    { label: "Kathmandu", value: "kathmandu" },
-    { label: "Lalitpur", value: "lalitpur" },
-    { label: "Bhaktapur", value: "bhaktapur" },
-    { label: "Pokhara", value: "pokhara" },
-    { label: "Itahari", value: "itahari" },
-    { label: "Hetauda", value: "hetauda" },
-    { label: "Biratnagar", value: "biratnagar" },
-    { label: "Dharan", value: "dharan" },
-    { label: "Butwal", value: "butwal" },
-    { label: "Chitwan (Bharatpur)", value: "chitwan" },
-    { label: "Nepalgunj", value: "nepalgunj" },
-    { label: "Dhangadhi", value: "dhangadhi" },
-    { label: "Birgunj", value: "birgunj" },
-    { label: "Janakpur", value: "janakpur" },
-    { label: "Ghorahi (Dang)", value: "ghorahi" },
-    { label: "Birendranagar (Surkhet)", value: "birendranagar" },
+const provinceNumberToName = {
+    "1": { label: "Koshi", value: "Koshi" },
+    "2": { label: "Madhesh", value: "Madhesh" },
+    "3": { label: "Bagmati", value: "Bagmati" },
+    "4": { label: "Gandaki", value: "Gandaki" },
+    "5": { label: "Lumbini", value: "Lumbini" },
+    "6": { label: "Karnali", value: "Karnali" },
+    "7": { label: "Sudurpashchim", value: "Sudurpashchim" }
+};
+
+const provinceOptions = [
+    { label: "Koshi", value: "Koshi" },
+    { label: "Madhesh", value: "Madhesh" },
+    { label: "Bagmati", value: "Bagmati" },
+    { label: "Gandaki", value: "Gandaki" },
+    { label: "Lumbini", value: "Lumbini" },
+    { label: "Karnali", value: "Karnali" },
+    { label: "Sudurpashchim", value: "Sudurpashchim" },
 ];
+
+const provinceDistricts = {
+    "Koshi": ["Bhojpur", "Dhankuta", "Ilam", "Jhapa", "Khotang", "Morang", "Okhaldhunga", "Panchthar", "Sankhuwasabha", "Solukhumbu", "Sunsari", "Taplejung", "Terhathum", "Udayapur"],
+    "Madhesh": ["Bara", "Dhanusha", "Mahottari", "Parsa", "Rautahat", "Saptari", "Sarlahi", "Siraha"],
+    "Bagmati": ["Bhaktapur", "Chitwan", "Dhading", "Dolakha", "Kathmandu", "Kavrepalanchok", "Lalitpur", "Makwanpur", "Nuwakot", "Ramechhap", "Rasuwa", "Sindhuli", "Sindhupalchok"],
+    "Gandaki": ["Baglung", "Gorkha", "Kaski", "Lamjung", "Manang", "Mustang", "Myagdi", "Nawalpur", "Parbat", "Syangja", "Tanahun"],
+    "Lumbini": ["Arghakhanchi", "Banke", "Bardiya", "Dang", "Eastern Rukum", "Gulmi", "Kapilvastu", "Palpa", "Pyuthan", "Rolpa", "Rupandehi"],
+    "Karnali": ["Dailekh", "Dolpa", "Humla", "Jajarkot", "Jumla", "Kalikot", "Mugu", "Salyan", "Surkhet", "Western Rukum"],
+    "Sudurpashchim": ["Achham", "Baitadi", "Bajhang", "Bajura", "Dadeldhura", "Darchula", "Doti", "Kailali", "Kanchanpur"]
+};
 
 const industries = [
     { label: "IT", value: "it", color: "#3b82f6" },
@@ -139,6 +149,21 @@ const industries = [
     { label: "Financial Services", value: "finance", color: "#14b8a6" },
 ];
 
+const employeeRangeOptions = [
+    { label: "0-50 employees", value: "0-50", maximum: 50 },
+    { label: "50-200 employees", value: "50-200", maximum: 200 },
+    { label: "200-500 employees", value: "200-500", maximum: 500 },
+    { label: "500-700 employees", value: "500-700", maximum: 700 },
+    { label: "700-1000 employees", value: "700-1000", maximum: 1000 },
+    { label: "1000-1500 employees", value: "1000-1500", maximum: 1500 },
+    { label: "Custom entry", value: "custom" },
+];
+
+const freeEmailDomains = [
+    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
+    "icloud.com", "aol.com", "protonmail.com", "mail.com", "zoho.com"
+];
+
 const initialLeadData = {
     leadType: null,
     leadSource: null,
@@ -147,8 +172,10 @@ const initialLeadData = {
     assignedSalesRep: "",
     ProductInterested: [],
     notes: "",
-    branch: null,
+    localLevel: null,
+    provinceNumber: null,
     province: null,
+    district: null,
     salesManager: "",
     note_comments: "",
 };
@@ -159,14 +186,27 @@ const initialOrgData = {
     industyType: [],
     registrationNumber: "",
     vatPan: "",
-    address: "",
+    provinceNumber: null,
+    province: null,
+    district: null,
+    localLevel: null,
+
+    orgTelephone: "",
+    orgEmail: "",
     totalEmp_learners: "",
+    employeeRange: null,
     totalEducator: "",
+    fromGrade: "",
+    toGrade: "",
     contactPersonName: "",
     role: null,
     contactPersonNumber: "",
     contactPersonEmail: "",
+    alternativeContacts: []
 };
+
+const commonInputStyles = "w-full p-2.5 sm:p-3 text-sm bg-slate-50/50 border border-slate-200 rounded-lg focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all placeholder-slate-400";
+const errorInputStyles = "w-full p-2.5 sm:p-3 text-sm bg-red-50/50 border border-red-300 rounded-lg focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all placeholder-red-300";
 
 const LeadForm = ({ onClose }) => {
     const { addOrgLeadDetails } = UseAdd();
@@ -196,8 +236,10 @@ const LeadForm = ({ onClose }) => {
         "assignedSalesRep",
         "ProductInterested",
         "notes",
-        "branch",
+        "provinceNumber",
         "province",
+        "district",
+        "localLevel",
         "salesManager",
     ];
 
@@ -205,14 +247,6 @@ const LeadForm = ({ onClose }) => {
         "organizationName",
         "organizationType",
         "industyType",
-        "registrationNumber",
-        "vatPan",
-        "address",
-        "totalEmp_learners",
-        "contactPersonName",
-        "role",
-        "contactPersonNumber",
-        "contactPersonEmail",
     ];
 
     const setTabErrors = (tab, name, error) => {
@@ -264,8 +298,20 @@ const LeadForm = ({ onClose }) => {
             }
         }
 
-        if (!error && name === "contactPersonNumber" && !isEmpty(value)) {
-            if (!/^\d{7,15}$/.test(String(value).trim())) {
+        if (!error && name === "orgEmail" && !isEmpty(value)) {
+            const email = String(value).trim();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                error = "Enter a valid email";
+            } else {
+                const domain = email.split('@')[1];
+                if (freeEmailDomains.includes(domain.toLowerCase())) {
+                    error = "Please enter a private company domain";
+                }
+            }
+        }
+
+        if (!error && (name === "contactPersonNumber" || name === "orgTelephone") && !isEmpty(value)) {
+            if (!/^\+?\d{7,15}$/.test(String(value).trim())) {
                 error = "Enter a valid contact number";
             }
         }
@@ -274,6 +320,18 @@ const LeadForm = ({ onClose }) => {
             if (!/^\d+$/.test(String(value).trim())) {
                 error = "Enter a valid number";
             }
+        }
+
+        if (!error && name === "employeeRange" && !isEducationService && isEmpty(value)) {
+            error = "Select an employee range";
+        }
+
+        if (!error && name === "totalEmp_learners" && !isEducationService && orgData.employeeRange?.value === "custom" && isEmpty(value)) {
+            error = "Enter the employee count";
+        }
+
+        if (!error && name === "totalEmp_learners" && isEducationService && isEmpty(value)) {
+            error = "Enter the total learners";
         }
 
         if (!error && name === "totalEducator" && !isEducationService) {
@@ -292,21 +350,7 @@ const LeadForm = ({ onClose }) => {
     };
 
     const validateLead = () => {
-        const fields = [
-            "leadType",
-            "leadSource",
-            "leadChannel",
-            "campaignName",
-            "assignedSalesRep",
-            "ProductInterested",
-            "notes",
-            "branch",
-            "province",
-            "salesManager",
-            "note_comments",
-        ];
-
-        const errors = fields.map((field) =>
+        const errors = requiredLeadFields.map((field) =>
             validateField(field, leadData[field], "lead")
         );
         return !errors.some(Boolean);
@@ -314,23 +358,16 @@ const LeadForm = ({ onClose }) => {
 
     const validateOrg = () => {
         const fields = [
-            "organizationName",
-            "organizationType",
-            "industyType",
-            "registrationNumber",
-            "vatPan",
-            "address",
-            "totalEmp_learners",
-            "totalEducator",
-            "contactPersonName",
-            "role",
-            "contactPersonNumber",
-            "contactPersonEmail",
+            "organizationName", "organizationType", "industyType",
+            "registrationNumber", "vatPan", "address", "orgTelephone", "orgEmail",
+            "totalEmp_learners", "contactPersonName", "role", "contactPersonNumber", "contactPersonEmail"
         ];
 
-        if (!isEducationService) {
-            const index = fields.indexOf("totalEducator");
-            if (index > -1) fields.splice(index, 1);
+        if (isEducationService) {
+            fields.push("totalEducator", "fromGrade", "toGrade");
+        } else {
+            fields.push("employeeRange");
+            if (orgData.employeeRange?.value === "custom") fields.push("totalEmp_learners");
         }
 
         const errors = fields.map((field) =>
@@ -351,10 +388,12 @@ const LeadForm = ({ onClose }) => {
                     ? leadData.ProductInterested.map((item) => item.value)
                     : [],
                 notes: leadData.notes.trim(),
-                branch: leadData.branch?.value || "",
+                provinceNumber: leadData.provinceNumber?.value || "",
                 province: leadData.province?.value || "",
+                district: leadData.district?.value || "",
+                localLevel: typeof leadData.localLevel === 'object' ? leadData.localLevel?.value || "" : leadData.localLevel || "",
                 salesManager: leadData.salesManager.trim(),
-                note_comments: leadData.note_comments.trim(),
+                note_comments: leadData.note_comments?.trim() || "",
             },
             organization: {
                 organizationName: orgData.organizationName.trim(),
@@ -362,19 +401,37 @@ const LeadForm = ({ onClose }) => {
                 industyType: Array.isArray(orgData.industyType)
                     ? orgData.industyType.map((item) => item.value)
                     : [],
+                standard: Array.isArray(leadData.ProductInterested)
+                    ? leadData.ProductInterested.map((item) => item.value)
+                    : [],
                 registrationNumber: orgData.registrationNumber.trim(),
                 vatPan: orgData.vatPan.trim(),
-                address: orgData.address.trim(),
+                provinceNumber: orgData.provinceNumber?.value || "",
+                province: orgData.province?.value || "",
+                district: orgData.district?.value || "",
+                localLevel: typeof orgData.localLevel === 'object' ? orgData.localLevel?.value || "" : orgData.localLevel || "",
+
+                orgTelephone: orgData.orgTelephone.trim(),
+                orgEmail: orgData.orgEmail.trim(),
                 totalEmp_learners: orgData.totalEmp_learners === ""
                     ? null
                     : Number(orgData.totalEmp_learners),
-                totalEducator: orgData.totalEducator === ""
+                employeeRange: isEducationService ? "" : orgData.employeeRange?.value || "",
+                totalEducator: orgData.totalEducator === "" || !isEducationService
                     ? null
                     : Number(orgData.totalEducator),
+                GradeFrom: isEducationService ? orgData.fromGrade.trim() : "",
+                GradeTo: isEducationService ? orgData.toGrade.trim() : "",
                 contactPersonName: orgData.contactPersonName.trim(),
                 role: orgData.role?.value || "",
                 contactPersonNumber: orgData.contactPersonNumber.trim(),
                 contactPersonEmail: orgData.contactPersonEmail.trim(),
+                alternativeContacts: orgData.alternativeContacts.map(c => ({
+                    name: c.name.trim(),
+                    role: c.role?.value || "",
+                    number: c.number.trim(),
+                    email: c.email.trim()
+                }))
             },
         };
     };
@@ -386,6 +443,43 @@ const LeadForm = ({ onClose }) => {
         setOrgErrors({});
         setSubmitError("");
         setActiveTab("lead");
+    };
+
+    const toggleAltContactExpand = (index) => {
+        setOrgData(prev => ({
+            ...prev,
+            alternativeContacts: prev.alternativeContacts.map((c, i) =>
+                i === index ? { ...c, isExpanded: !c.isExpanded } : c
+            )
+        }));
+    };
+
+    const addAlternativeContact = () => {
+        if (orgData.alternativeContacts.length >= 3) return;
+        setOrgData(prev => ({
+            ...prev,
+            alternativeContacts: [
+                ...prev.alternativeContacts,
+                { name: "", role: null, number: "", email: "", isExpanded: true }
+            ]
+        }));
+    };
+
+    const removeAlternativeContact = (index, e) => {
+        e.stopPropagation();
+        setOrgData(prev => ({
+            ...prev,
+            alternativeContacts: prev.alternativeContacts.filter((_, i) => i !== index)
+        }));
+    };
+
+    const handleAltContactChange = (index, field, value) => {
+        setOrgData(prev => ({
+            ...prev,
+            alternativeContacts: prev.alternativeContacts.map((c, i) =>
+                i === index ? { ...c, [field]: value } : c
+            )
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -406,17 +500,18 @@ const LeadForm = ({ onClose }) => {
         }
 
         const payload = normalizePayload();
-        console.log('Payload',payload)
+        console.log("Submitting Payload:", payload);
+
         try {
             await addOrgLeadDetails.mutateAsync(payload);
-            console.log("Submitted payload:", payload);
             resetForm();
-            // onClose?.();
-            SuccessNotify('Lead Created Successfully ')
+            SuccessNotify('Lead Created Successfully');
+
+            if (onClose) onClose();
+            window.location.reload();
+
         } catch (error) {
-            console.error("Error adding lead:", error);
-            ErrorNotify(error?.response?.data?.message ||
-                error?.message)
+            ErrorNotify(error?.response?.data?.message || error?.message)
             setSubmitError(
                 error?.response?.data?.message ||
                 error?.message ||
@@ -427,6 +522,14 @@ const LeadForm = ({ onClose }) => {
 
     const isSubmitting = addOrgLeadDetails?.isPending;
 
+    const districtOptions = leadData.province?.value
+        ? provinceDistricts[leadData.province.value].map(dist => ({ label: dist, value: dist }))
+        : [];
+
+    const orgDistrictOptions = orgData.province?.value
+        ? provinceDistricts[orgData.province.value].map(dist => ({ label: dist, value: dist }))
+        : [];
+
     return (
         <AnimatePresence>
             <motion.div
@@ -434,76 +537,78 @@ const LeadForm = ({ onClose }) => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-50 p-2 sm:p-4"
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4"
             >
                 <button
                     type="button"
                     onClick={onClose}
-                    className="absolute cursor-pointer top-2 sm:top-4 right-2 sm:right-4 md:right-8 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/30 text-white flex justify-center items-center hover:bg-white/50 transition-all hover:rotate-90 z-[60]"
+                    className="absolute top-3 sm:top-6 right-3 sm:right-6 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 text-white flex justify-center items-center hover:bg-white/20 transition-all hover:rotate-90 z-[60] cursor-pointer backdrop-blur-md"
                 >
-                    <X size={20} className="sm:w-6 sm:h-6" />
+                    <X size={24} />
                 </button>
 
                 <motion.div
-                    initial={{ opacity: 0, y: -90, scale: 0.86 }}
+                    initial={{ opacity: 0, y: 30, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -90, scale: 0.98 }}
+                    exit={{ opacity: 0, y: 30, scale: 0.95 }}
                     transition={{ duration: 0.35, ease: "easeOut" }}
                     className="w-full max-w-5xl relative"
                 >
                     <div
-                        className="max-h-[85vh] sm:max-h-[90vh] overflow-y-auto custom-scrollbar rounded-lg sm:rounded-xl"
+                        className="max-h-[85vh] sm:max-h-[90vh] overflow-y-auto custom-scrollbar rounded-xl sm:rounded-2xl"
                         style={{ fontFamily: "'Roboto Slab', serif" }}
                     >
-                        <div className="bg-white rounded-lg sm:rounded-xl shadow-2xl border border-slate-100 overflow-hidden">
-                            <div className="sticky top-0 z-30 bg-gradient-to-r from-amber-500 to-orange-600 p-4 sm:p-6 md:p-8 shadow-sm">
-                                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white flex items-center gap-2 flex-wrap">
-                                    <UserPlus size={24} className="sm:w-7 sm:h-7" /> Create New Lead
+                        <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+                            <div className="sticky top-0 z-30 bg-gradient-to-r from-amber-500 to-orange-600 p-5 sm:p-8 shadow-sm">
+                                <h2 className="text-xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><UserPlus size={24} /></div>
+                                    Create New Lead
                                 </h2>
-                                <p className="text-orange-100 text-xs sm:text-sm mt-2">
-                                    Capture prospect details and organization profile below.
+                                <p className="text-orange-100 text-xs sm:text-sm mt-2 ml-[52px]">
+                                    Capture prospect details, geographical data, and organizational profile.
                                 </p>
                             </div>
 
-                            <div className="sticky top-[84px] sm:top-[104px] md:top-[116px] z-20 flex border-b border-slate-100 bg-slate-50/95 backdrop-blur-sm">
+                            <div className="sticky top-[88px] sm:top-[120px] z-20 flex border-b border-slate-200 bg-slate-50/95 backdrop-blur-md">
                                 <button
                                     type="button"
                                     onClick={() => setActiveTab("lead")}
-                                    className={`flex-1 py-3 sm:py-4 px-3 sm:px-4 md:px-6 text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1 sm:gap-2 flex-wrap ${activeTab === "lead"
-                                        ? "bg-white text-orange-600 border-b-2 border-orange-600"
-                                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                                    className={`flex-1 py-3.5 sm:py-4 px-4 sm:px-6 text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === "lead"
+                                        ? "bg-white text-orange-600 border-b-[3px] border-orange-600"
+                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/50 border-b-[3px] border-transparent"
                                         }`}
                                 >
-                                    <Briefcase size={16} className="sm:w-5 sm:h-5" /> Lead Info
+                                    <Briefcase size={18} /> Lead Info
                                 </button>
 
                                 <button
                                     type="button"
                                     onClick={() => setActiveTab("org")}
-                                    className={`flex-1 py-3 sm:py-4 px-3 sm:px-4 md:px-6 text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1 sm:gap-2 flex-wrap ${activeTab === "org"
-                                        ? "bg-white text-orange-600 border-b-2 border-orange-600"
-                                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                                    className={`flex-1 py-3.5 sm:py-4 px-4 sm:px-6 text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === "org"
+                                        ? "bg-white text-orange-600 border-b-[3px] border-orange-600"
+                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/50 border-b-[3px] border-transparent"
                                         }`}
                                 >
-                                    <Building2 size={16} className="sm:w-5 sm:h-5" /> Organization
+                                    <Building2 size={18} /> Organization
                                 </button>
                             </div>
 
-                            <form className="p-4 sm:p-6 md:p-8" onSubmit={handleSubmit} noValidate>
+                            <form className="p-5 sm:p-8" onSubmit={handleSubmit} noValidate>
                                 {submitError && (
-                                    <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                                        {submitError}
+                                    <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3">
+                                        <Info className="shrink-0 mt-0.5 text-red-500" size={18} />
+                                        <span>{submitError}</span>
                                     </div>
                                 )}
 
                                 {activeTab === "lead" && (
                                     <motion.div
                                         key="lead-tab"
-                                        initial={{ opacity: 0, y: 12 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -12 }}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -10 }}
                                         transition={{ duration: 0.25 }}
-                                        className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6"
+                                        className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6"
                                     >
                                         <div className="flex flex-col gap-1.5 sm:gap-2">
                                             <label className="text-xs sm:text-sm font-semibold text-slate-700">
@@ -513,13 +618,14 @@ const LeadForm = ({ onClose }) => {
                                                 name="leadType"
                                                 value={leadData.leadType}
                                                 options={leadType}
+                                                className="cursor-pointer"
                                                 styles={ValidateStyle(!!leadErrors.leadType)}
                                                 onChange={(option) => {
                                                     handleInputChange(option, "lead", "leadType");
                                                     validateField("leadType", option, "lead");
                                                 }}
                                             />
-                                            {leadErrors.leadType && <p className="mt-1 text-xs text-red-500">{leadErrors.leadType}</p>}
+                                            {leadErrors.leadType && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.leadType}</p>}
                                         </div>
 
                                         <div className="flex flex-col gap-1.5 sm:gap-2">
@@ -530,13 +636,14 @@ const LeadForm = ({ onClose }) => {
                                                 name="leadSource"
                                                 value={leadData.leadSource}
                                                 options={LeadSource}
+                                                className="cursor-pointer"
                                                 styles={ValidateStyle(!!leadErrors.leadSource)}
                                                 onChange={(option) => {
                                                     handleInputChange(option, "lead", "leadSource");
                                                     validateField("leadSource", option, "lead");
                                                 }}
                                             />
-                                            {leadErrors.leadSource && <p className="mt-1 text-xs text-red-500">{leadErrors.leadSource}</p>}
+                                            {leadErrors.leadSource && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.leadSource}</p>}
                                         </div>
 
                                         <div className="flex flex-col gap-1.5 sm:gap-2">
@@ -547,13 +654,14 @@ const LeadForm = ({ onClose }) => {
                                                 name="leadChannel"
                                                 value={leadData.leadChannel}
                                                 options={LeadChannel}
+                                                className="cursor-pointer"
                                                 styles={ValidateStyle(!!leadErrors.leadChannel)}
                                                 onChange={(option) => {
                                                     handleInputChange(option, "lead", "leadChannel");
                                                     validateField("leadChannel", option, "lead");
                                                 }}
                                             />
-                                            {leadErrors.leadChannel && <p className="mt-1 text-xs text-red-500">{leadErrors.leadChannel}</p>}
+                                            {leadErrors.leadChannel && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.leadChannel}</p>}
                                         </div>
 
                                         <div className="flex flex-col gap-1.5 sm:gap-2">
@@ -565,13 +673,11 @@ const LeadForm = ({ onClose }) => {
                                                 name="campaignName"
                                                 value={leadData.campaignName}
                                                 placeholder="e.g. FB_Jan_2026"
-                                                className={`${getInputClass(leadErrors.campaignName, false)}`}
-                                                // className={`p-2 sm:p-3 text-sm bg-slate-50 rounded-md focus:ring-2 focus:ring-amber-500 outline-none ${leadErrors.campaignName ? "border-2 border-red-500" : "border border-slate-100"
-                                                //     }`}
+                                                className={leadErrors.campaignName ? errorInputStyles : commonInputStyles}
                                                 onChange={(e) => handleInputChange(e, "lead")}
                                                 onBlur={(e) => validateField(e.target.name, e.target.value, "lead")}
                                             />
-                                            {leadErrors.campaignName && <p className="mt-1 text-xs text-red-500">{leadErrors.campaignName}</p>}
+                                            {leadErrors.campaignName && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.campaignName}</p>}
                                         </div>
 
                                         <div className="flex flex-col gap-1.5 sm:gap-2">
@@ -583,13 +689,11 @@ const LeadForm = ({ onClose }) => {
                                                 name="assignedSalesRep"
                                                 value={leadData.assignedSalesRep}
                                                 placeholder="Staff Name / ID"
-                                                className={`${getInputClass(leadErrors.assignedSalesRep, false)}`}
-                                                // className={`p-2 sm:p-3 text-sm bg-slate-50 rounded-md focus:ring-2 focus:ring-amber-500 outline-none ${leadErrors.assignedSalesRep ? "border-2 border-red-500" : "border border-slate-100"
-                                                //     }`}
+                                                className={leadErrors.assignedSalesRep ? errorInputStyles : commonInputStyles}
                                                 onChange={(e) => handleInputChange(e, "lead")}
                                                 onBlur={(e) => validateField(e.target.name, e.target.value, "lead")}
                                             />
-                                            {leadErrors.assignedSalesRep && <p className="mt-1 text-xs text-red-500">{leadErrors.assignedSalesRep}</p>}
+                                            {leadErrors.assignedSalesRep && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.assignedSalesRep}</p>}
                                         </div>
 
                                         <div className="flex flex-col gap-1.5 sm:gap-2">
@@ -601,91 +705,138 @@ const LeadForm = ({ onClose }) => {
                                                 value={leadData.ProductInterested}
                                                 options={servicesInterested}
                                                 isMulti
+                                                className="cursor-pointer"
                                                 styles={ValidateStyle(!!leadErrors.ProductInterested, false)}
                                                 onChange={(option) => {
                                                     handleInputChange(option || [], "lead", "ProductInterested");
                                                     validateField("ProductInterested", option || [], "lead");
                                                 }}
                                             />
-                                            {leadErrors.ProductInterested && <p className="mt-1 text-xs text-red-500">{leadErrors.ProductInterested}</p>}
+                                            {leadErrors.ProductInterested && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.ProductInterested}</p>}
                                         </div>
 
-                                        <div className="flex flex-col gap-1.5 sm:gap-2">
-                                            <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                                                Province <span className="text-red-500">*</span>
-                                            </label>
-                                            <Select
-                                                name="province"
-                                                value={leadData.province}
-                                                options={provinceOptions}
-                                                styles={ValidateStyle(!!leadErrors.province, false)}
-                                                onChange={(option) => {
-                                                    handleInputChange(option, "lead", "province");
-                                                    validateField("province", option, "lead");
-                                                }}
-                                            />
-                                            {leadErrors.province && <p className="mt-1 text-xs text-red-500">{leadErrors.province}</p>}
+                                        <div className="sm:col-span-2 border-t border-slate-100 pt-5 mt-2">
+                                            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                                <MapPin size={16} className="text-amber-500" /> Location Details
+                                            </h3>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                                                <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                    <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                                                        Province No. <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <Select
+                                                        name="provinceNumber"
+                                                        value={leadData.provinceNumber}
+                                                        options={provinceNumberOptions}
+                                                        className="cursor-pointer"
+                                                        placeholder="Select No."
+                                                        styles={ValidateStyle(!!leadErrors.provinceNumber, false)}
+                                                        onChange={(option) => {
+                                                            const autoProvince = provinceNumberToName[option.value];
+                                                            setLeadData((prev) => ({
+                                                                ...prev,
+                                                                provinceNumber: option,
+                                                                province: autoProvince,
+                                                                district: null,
+                                                                localLevel: ""
+                                                            }));
+                                                            setLeadErrors((prev) => ({ ...prev, provinceNumber: "", province: "", district: "", localLevel: "" }));
+                                                        }}
+                                                    />
+                                                    {leadErrors.provinceNumber && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.provinceNumber}</p>}
+                                                </div>
+
+                                                <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                    <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                                                        Province Name <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <Select
+                                                        name="province"
+                                                        value={leadData.province}
+                                                        options={leadData.provinceNumber ? [provinceNumberToName[leadData.provinceNumber.value]] : provinceOptions}
+                                                        isDisabled={!leadData.provinceNumber}
+                                                        placeholder={leadData.provinceNumber ? "Select Province" : "Select No. First"}
+                                                        className="cursor-pointer"
+                                                        styles={ValidateStyle(!!leadErrors.province, false)}
+                                                        onChange={(option) => {
+                                                            setLeadData((prev) => ({ ...prev, province: option, district: null, localLevel: "" }));
+                                                            setLeadErrors((prev) => ({ ...prev, province: "", district: "", localLevel: "" }));
+                                                        }}
+                                                    />
+                                                    {leadErrors.province && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.province}</p>}
+                                                </div>
+
+                                                <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                    <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                                                        District <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <Select
+                                                        name="district"
+                                                        value={leadData.district}
+                                                        options={districtOptions}
+                                                        isDisabled={!leadData.province}
+                                                        placeholder={leadData.province ? "Select District" : "Select Province First"}
+                                                        className="cursor-pointer"
+                                                        styles={ValidateStyle(!!leadErrors.district, false)}
+                                                        onChange={(option) => {
+                                                            handleInputChange(option, "lead", "district");
+                                                            validateField("district", option, "lead");
+                                                        }}
+                                                    />
+                                                    {leadErrors.district && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.district}</p>}
+                                                </div>
+
+                                                <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                    <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                                                        Local Level <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        name="localLevel"
+                                                        value={leadData.localLevel || ''}
+                                                        placeholder="Municipality / Metropolitan"
+                                                        className={leadErrors.localLevel ? errorInputStyles : commonInputStyles}
+                                                        onChange={(e) => {
+                                                            const newValue = e.target.value;
+                                                            handleInputChange(newValue, "lead", "localLevel");
+                                                            validateField("localLevel", newValue, "lead");
+                                                        }}
+                                                    />
+                                                    {leadErrors.localLevel && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.localLevel}</p>}
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div className="flex flex-col gap-1.5 sm:gap-2">
-                                            <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                                                Branch Name <span className="text-red-500">*</span>
-                                            </label>
-                                            <Select
-                                                name="branch"
-                                                value={leadData.branch}
-                                                options={BranchName}
-                                                styles={ValidateStyle(!!leadErrors.branch, false)}
-                                                onChange={(option) => {
-                                                    handleInputChange(option, "lead", "branch");
-                                                    validateField("branch", option, "lead");
-                                                }}
-                                            />
-                                            {leadErrors.branch && <p className="mt-1 text-xs text-red-500">{leadErrors.branch}</p>}
-                                        </div>
-
-                                        <div className="flex flex-col gap-1.5 sm:gap-2 col-span-1 sm:col-span-2 w-full">
+                                        <div className="flex flex-col gap-1.5 sm:gap-2 sm:col-span-2 pt-5 border-t border-slate-100">
                                             <label className="text-xs sm:text-sm font-semibold text-slate-700">
                                                 Sales Manager
                                             </label>
-
                                             <input
                                                 type="text"
                                                 name="salesManager"
                                                 value={leadData.salesManager}
-                                                placeholder="Sales manager name"
-                                                className={`${getInputClass(leadErrors.salesManager, false)}`}
-                                                //                                             className="p-2 sm:p-3 text-sm bg-slate-50 
-                                                // rounded-md focus:ring-2 focus:ring-amber-500 
-                                                // w-full outline-none border border-slate-100"
+                                                placeholder="Sales Manager Full Name"
+                                                className={leadErrors.salesManager ? errorInputStyles : commonInputStyles}
                                                 onChange={(e) => handleInputChange(e, "lead")}
                                                 onBlur={(e) => validateField(e.target.name, e.target.value, "lead")}
                                             />
-
-                                            {leadErrors.salesManager && (
-                                                <p className="mt-1 text-xs text-red-500">
-                                                    {leadErrors.salesManager}
-                                                </p>
-                                            )}
+                                            {leadErrors.salesManager && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.salesManager}</p>}
                                         </div>
-
 
                                         <div className="flex flex-col gap-1.5 sm:gap-2 sm:col-span-2">
                                             <label className="text-xs sm:text-sm font-semibold text-slate-700">
                                                 Notes / Comments <span className="text-red-500">*</span>
                                             </label>
                                             <textarea
-                                                rows="3"
+                                                rows="4"
                                                 name="notes"
                                                 value={leadData.notes}
-                                                placeholder="Additional remarks..."
-                                                className={`p-2 sm:p-3 text-sm
-                             bg-slate-50 rounded-md focus:ring-2 focus:ring-amber-500 outline-none ${leadErrors.notes ? "border-2 border-red-500" : "border border-slate-100"
-                                                    }`}
+                                                placeholder="Enter any additional remarks or details here..."
+                                                className={leadErrors.notes ? errorInputStyles : commonInputStyles}
                                                 onChange={(e) => handleInputChange(e, "lead")}
                                                 onBlur={(e) => validateField(e.target.name, e.target.value, "lead")}
                                             />
-                                            {leadErrors.notes && <p className="mt-1 text-xs text-red-500">{leadErrors.notes}</p>}
+                                            {leadErrors.notes && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.notes}</p>}
                                         </div>
                                     </motion.div>
                                 )}
@@ -693,15 +844,15 @@ const LeadForm = ({ onClose }) => {
                                 {activeTab === "org" && (
                                     <motion.div
                                         key="org-tab"
-                                        initial={{ opacity: 0, y: 12 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -12 }}
+                                        initial={{ opacity: 0, x: 10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 10 }}
                                         transition={{ duration: 0.25 }}
                                         className="space-y-6 sm:space-y-8"
                                     >
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                                            <div className="sm:col-span-2 border-l-4 border-amber-500 pl-3 py-1 bg-amber-50/50">
-                                                <h3 className="text-xs sm:text-sm font-bold text-amber-800 uppercase tracking-wider">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
+                                            <div className="sm:col-span-2 border-l-4 border-amber-500 pl-4 py-1.5 bg-amber-50/50 rounded-r-lg">
+                                                <h3 className="text-sm font-bold text-amber-900 uppercase tracking-wider">
                                                     Company Profile
                                                 </h3>
                                             </div>
@@ -715,15 +866,11 @@ const LeadForm = ({ onClose }) => {
                                                     name="organizationName"
                                                     value={orgData.organizationName}
                                                     placeholder="Legal Entity Name"
-                                                    className={`${getInputClass(orgErrors.organizationName, false)}`}
-                                                    //                         className={`p-2 sm:p-3 text-sm
-                                                    //  bg-slate-50 rounded-md focus:ring-2
-                                                    //   focus:ring-amber-500 outline-none ${orgErrors.organizationName ? "border-2 border-red-500" : "border border-slate-100"
-                                                    //                             }`}
+                                                    className={orgErrors.organizationName ? errorInputStyles : commonInputStyles}
                                                     onChange={(e) => handleInputChange(e, "org")}
                                                     onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
                                                 />
-                                                {orgErrors.organizationName && <p className="mt-1 text-xs text-red-500">{orgErrors.organizationName}</p>}
+                                                {orgErrors.organizationName && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.organizationName}</p>}
                                             </div>
 
                                             <div className="flex flex-col gap-1.5 sm:gap-2">
@@ -734,14 +881,15 @@ const LeadForm = ({ onClose }) => {
                                                     name="organizationType"
                                                     value={orgData.organizationType}
                                                     options={organizationType}
+                                                    className="cursor-pointer"
                                                     styles={ValidateStyle(!!orgErrors.organizationType, false)}
-                                                    placeholder="Select Organization Type or Search"
+                                                    placeholder="Select Organization Type"
                                                     onChange={(option) => {
                                                         handleInputChange(option, "org", "organizationType");
                                                         validateField("organizationType", option, "org");
                                                     }}
                                                 />
-                                                {orgErrors.organizationType && <p className="mt-1 text-xs text-red-500">{orgErrors.organizationType}</p>}
+                                                {orgErrors.organizationType && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.organizationType}</p>}
                                             </div>
 
                                             <div className="flex flex-col gap-1.5 sm:gap-2">
@@ -752,152 +900,324 @@ const LeadForm = ({ onClose }) => {
                                                     name="industyType"
                                                     value={orgData.industyType}
                                                     options={industries}
+                                                    className="cursor-pointer"
                                                     styles={ValidateStyle(!!orgErrors.industyType, false)}
                                                     isMulti
-                                                    placeholder="Select Industry Type or Search"
+                                                    placeholder="Select Industry Type"
                                                     onChange={(option) => {
-                                                        handleInputChange(option || [], "org", "industyType");
+                                                        const nextIndustries = option || [];
+                                                        setOrgData((prev) => ({
+                                                            ...prev,
+                                                            industyType: nextIndustries,
+                                                            totalEmp_learners: "",
+                                                            employeeRange: null,
+                                                            totalEducator: "",
+                                                            fromGrade: "",
+                                                            toGrade: "",
+                                                        }));
                                                         validateField("industyType", option || [], "org");
                                                     }}
                                                 />
-                                                {orgErrors.industyType && <p className="mt-1 text-xs text-red-500">{orgErrors.industyType}</p>}
+                                                {orgErrors.industyType && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.industyType}</p>}
+                                            </div>
+
+                                            {/* ORGANIZATION LOCATION BLOCK */}
+                                            <div className="sm:col-span-2 border-t border-slate-100 pt-5 mt-2">
+                                                <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                                    <MapPin size={16} className="text-amber-500" /> Organization Location
+                                                </h3>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                        <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                                                            Province No. <span className="text-slate-400 font-normal">(Optional)</span>
+                                                        </label>
+                                                        <Select
+                                                            name="provinceNumber"
+                                                            value={orgData.provinceNumber}
+                                                            options={provinceNumberOptions}
+                                                            className="cursor-pointer"
+                                                            placeholder="Select No."
+                                                            styles={ValidateStyle(false, false)}
+                                                            onChange={(option) => {
+                                                                const autoProvince = provinceNumberToName[option.value];
+                                                                setOrgData((prev) => ({
+                                                                    ...prev,
+                                                                    provinceNumber: option,
+                                                                    province: autoProvince,
+                                                                    district: null,
+                                                                    localLevel: ""
+                                                                }));
+                                                            }}
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                        <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                                                            Province Name <span className="text-slate-400 font-normal">(Optional)</span>
+                                                        </label>
+                                                        <Select
+                                                            name="province"
+                                                            value={orgData.province}
+                                                            options={orgData.provinceNumber ? [provinceNumberToName[orgData.provinceNumber.value]] : provinceOptions}
+                                                            isDisabled={!orgData.provinceNumber}
+                                                            className="cursor-pointer"
+                                                            placeholder={orgData.provinceNumber ? "Select Province" : "Select No. First"}
+                                                            styles={ValidateStyle(false, false)}
+                                                            onChange={(option) => {
+                                                                setOrgData((prev) => ({ ...prev, province: option, district: null, localLevel: "" }));
+                                                            }}
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                        <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                                                            District <span className="text-slate-400 font-normal">(Optional)</span>
+                                                        </label>
+                                                        <Select
+                                                            name="district"
+                                                            value={orgData.district}
+                                                            options={orgDistrictOptions}
+                                                            isDisabled={!orgData.province}
+                                                            placeholder={orgData.province ? "Select District" : "Select Province First"}
+                                                            className="cursor-pointer"
+                                                            styles={ValidateStyle(false, false)}
+                                                            onChange={(option) => {
+                                                                handleInputChange(option, "org", "district");
+                                                            }}
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                        <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                                                            Local Level <span className="text-slate-400 font-normal">(Optional)</span>
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            name="localLevel"
+                                                            value={orgData.localLevel || ''}
+                                                            placeholder="Municipality / Metropolitan"
+                                                            className={commonInputStyles}
+                                                            onChange={(e) => {
+                                                                handleInputChange(e.target.value, "org", "localLevel");
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <div className="flex flex-col gap-1.5 sm:gap-2">
                                                 <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                                                    Registration Number <span className="text-red-500">*</span>
+                                                    Registration Number <span className="text-slate-400 font-normal">(Optional)</span>
                                                 </label>
                                                 <input
                                                     type="text"
                                                     name="registrationNumber"
                                                     value={orgData.registrationNumber}
                                                     placeholder="e.g. REG123456"
-                                                    className={`${getInputClass(orgErrors.registrationNumber, false)}`}
-                                                    // className={`p-2 sm:p-3 text-sm bg-slate-50 rounded-md focus:ring-2 focus:ring-amber-500 outline-none ${orgErrors.registrationNumber ? "border-2 border-red-500" : "border border-slate-100"
-                                                    //     }`}
+                                                    className={orgErrors.registrationNumber ? errorInputStyles : commonInputStyles}
                                                     onChange={(e) => handleInputChange(e, "org")}
                                                     onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
                                                 />
-                                                {orgErrors.registrationNumber && <p className="mt-1 text-xs text-red-500">{orgErrors.registrationNumber}</p>}
+                                                {orgErrors.registrationNumber && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.registrationNumber}</p>}
                                             </div>
 
                                             <div className="flex flex-col gap-1.5 sm:gap-2">
                                                 <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                                                    VAT / PAN Number <span className="text-red-500">*</span>
+                                                    VAT / PAN Number <span className="text-slate-400 font-normal">(Optional)</span>
                                                 </label>
                                                 <input
                                                     type="text"
                                                     name="vatPan"
                                                     value={orgData.vatPan}
                                                     placeholder="e.g. VAT1234567890"
-                                                    className={`${getInputClass(orgErrors.vatPan, false)}`}
-                                                    // className={`p-2 sm:p-3 text-sm bg-slate-50 rounded-md focus:ring-2 focus:ring-amber-500 outline-none ${orgErrors.vatPan ? "border-2 border-red-500" : "border border-slate-100"
-                                                    //     }`}
+                                                    className={orgErrors.vatPan ? errorInputStyles : commonInputStyles}
                                                     onChange={(e) => handleInputChange(e, "org")}
                                                     onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
                                                 />
-                                                {orgErrors.vatPan && <p className="mt-1 text-xs text-red-500">{orgErrors.vatPan}</p>}
+                                                {orgErrors.vatPan && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.vatPan}</p>}
                                             </div>
 
-                                            <div className="flex flex-col gap-1.5 sm:gap-2 sm:col-span-2">
+
+
+                                            <div className="flex flex-col gap-1.5 sm:gap-2">
                                                 <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                                                    Organization Address <span className="text-red-500">*</span>
+                                                    Organization Telephone <span className="text-slate-400 font-normal">(Optional)</span>
                                                 </label>
                                                 <input
-                                                    type="text"
-                                                    name="address"
-                                                    value={orgData.address}
-                                                    placeholder="Full Street Address, City, Country"
-                                                    className={`${getInputClass(orgErrors.address, false)}`}
-                                                    // className={`p-2 sm:p-3 text-sm bg-slate-50 rounded-md focus:ring-2 focus:ring-amber-500 outline-none ${orgErrors.address ? "border-2 border-red-500" : "border border-slate-100"
-                                                    //     }`}
+                                                    type="tel"
+                                                    name="orgTelephone"
+                                                    value={orgData.orgTelephone}
+                                                    placeholder="+977 1XXXXXXX"
+                                                    className={orgErrors.orgTelephone ? errorInputStyles : commonInputStyles}
                                                     onChange={(e) => handleInputChange(e, "org")}
                                                     onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
                                                 />
-                                                {orgErrors.address && <p className="mt-1 text-xs text-red-500">{orgErrors.address}</p>}
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:col-span-2">
-                                                <div className="flex flex-col gap-1.5 sm:gap-2">
-                                                    <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase">
-                                                        Total Employees/Learners <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        name="totalEmp_learners"
-                                                        value={orgData.totalEmp_learners}
-                                                        className={`${getInputClass(orgErrors.totalEmp_learners, false)}`}
-                                                        // className={`p-2 sm:p-3 text-sm bg-slate-50 rounded-md focus:ring-2 focus:ring-amber-500 outline-none ${orgErrors.totalEmp_learners ? "border-2 border-red-500" : "border border-slate-100"
-                                                        //     }`}
-                                                        placeholder="e.g.:100,200,230......"
-                                                        onChange={(e) => handleInputChange(e, "org")}
-                                                        onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
-                                                    />
-                                                    {orgErrors.totalEmp_learners && <p className="mt-1 text-xs text-red-500">{orgErrors.totalEmp_learners}</p>}
-                                                </div>
-
-                                                <div className="flex flex-col gap-1.5 sm:gap-2">
-                                                    <span className="flex items-center gap-2">
-                                                        <label className={`text-[10px] ${!isEducationService ? "opacity-30" : "opacity-100"} sm:text-xs font-bold text-slate-700 uppercase`}>
-                                                            No. Of totalEducator
-                                                        </label>
-                                                        <span className="relative group flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 transition cursor-pointer">
-                                                            <Info size={12} />
-                                                            <span className="absolute left-6 top-1/2 -translate-y-1/2 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow whitespace-nowrap z-20">
-                                                                Optional. Applicable only for Educational Institutions.
-                                                            </span>
-                                                        </span>
-                                                    </span>
-                                                    <input
-                                                        type="number"
-                                                        name="totalEducator"
-                                                        value={orgData.totalEducator}
-                                                        min="0"
-                                                        className={`${getInputClass(orgErrors.totalEducator, !isEducationService)} `}
-                                                        // className={`${}`}
-                                                        // className={`p-2 sm:p-3 text-sm bg-slate-50 rounded-md focus:ring-2 focus:ring-amber-500 outline-none ${orgErrors.totalEducator ? "border-2 border-red-500" : "border border-slate-100"
-                                                        //     }`}
-                                                        onChange={(e) => handleInputChange(e, "org")}
-                                                        onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
-                                                        placeholder={`${!isEducationService ? "disabled" : "e.g.: 12,23,100...."}`}
-                                                    // disabled={!isEducationService}
-                                                    />
-                                                    {orgErrors.totalEducator && <p className="mt-1 text-xs text-red-500">{orgErrors.totalEducator}</p>}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 pt-4 sm:pt-6 border-t border-slate-100">
-                                            <div className="sm:col-span-2 border-l-4 border-orange-500 pl-3 py-1 bg-orange-50/50">
-                                                <h3 className="text-xs sm:text-sm font-bold text-orange-800 uppercase tracking-wider">
-                                                    Primary Contact Person <span className="text-red-500">*</span>
-                                                </h3>
+                                                {orgErrors.orgTelephone && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.orgTelephone}</p>}
                                             </div>
 
                                             <div className="flex flex-col gap-1.5 sm:gap-2">
                                                 <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                                                    Full Name <span className="text-red-500">*</span>
+                                                    Organization Email <span className="text-slate-400 font-normal">(Optional)</span>
+                                                </label>
+                                                <input
+                                                    type="email"
+                                                    name="orgEmail"
+                                                    value={orgData.orgEmail}
+                                                    placeholder="info@company.com"
+                                                    className={orgErrors.orgEmail ? errorInputStyles : commonInputStyles}
+                                                    onChange={(e) => handleInputChange(e, "org")}
+                                                    onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
+                                                />
+                                                {orgErrors.orgEmail && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.orgEmail}</p>}
+                                            </div>
+
+                                            {isEducationService ? (
+                                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 sm:col-span-2">
+                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                        <label className="text-[11px] sm:text-xs font-bold text-slate-600 uppercase">
+                                                            Total Learners <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            name="totalEmp_learners"
+                                                            min="0"
+                                                            value={orgData.totalEmp_learners}
+                                                            className={orgErrors.totalEmp_learners ? errorInputStyles : commonInputStyles}
+                                                            placeholder="e.g. 150"
+                                                            onChange={(e) => handleInputChange(e, "org")}
+                                                            onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
+                                                        />
+                                                        {orgErrors.totalEmp_learners && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.totalEmp_learners}</p>}
+                                                    </div>
+
+                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                        <label className="text-[11px] sm:text-xs font-bold text-slate-600 uppercase">
+                                                            Total Educators <span className="text-red-500">*</span>
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            name="totalEducator"
+                                                            min="0"
+                                                            value={orgData.totalEducator}
+                                                            className={orgErrors.totalEducator ? errorInputStyles : commonInputStyles}
+                                                            placeholder="e.g. 45"
+                                                            onChange={(e) => handleInputChange(e, "org")}
+                                                            onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
+                                                        />
+                                                        {orgErrors.totalEducator && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.totalEducator}</p>}
+                                                    </div>
+
+                                                    <div className="col-span-1 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2 sm:col-span-2 sm:gap-4">
+                                                        <div className="flex min-w-0 flex-col gap-1.5 sm:gap-2">
+                                                            <label className="text-[11px] sm:text-xs font-bold text-slate-600 uppercase">From Grade <span className="text-red-500">*</span></label>
+                                                            <input
+                                                                type="text"
+                                                                name="fromGrade"
+                                                                value={orgData.fromGrade}
+                                                                className={orgErrors.fromGrade ? errorInputStyles : commonInputStyles}
+                                                                onChange={(e) => handleInputChange(e, "org")}
+                                                                onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
+                                                                placeholder="e.g. Nursery"
+                                                            />
+                                                            {orgErrors.fromGrade && <p className="text-[11px] text-red-500">{orgErrors.fromGrade}</p>}
+                                                        </div>
+
+                                                        <ArrowRight size={20} className="mb-3 text-amber-500" aria-hidden="true" />
+
+                                                        <div className="flex min-w-0 flex-col gap-1.5 sm:gap-2">
+                                                            <label className="text-[11px] sm:text-xs font-bold text-slate-600 uppercase">To Grade <span className="text-red-500">*</span></label>
+                                                            <input
+                                                                type="text"
+                                                                name="toGrade"
+                                                                value={orgData.toGrade}
+                                                                className={orgErrors.toGrade ? errorInputStyles : commonInputStyles}
+                                                                onChange={(e) => handleInputChange(e, "org")}
+                                                                onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
+                                                                placeholder="e.g. Class 12"
+                                                            />
+                                                            {orgErrors.toGrade && <p className="text-[11px] text-red-500">{orgErrors.toGrade}</p>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 sm:col-span-2">
+                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                        <label className="text-[11px] sm:text-xs font-bold text-slate-600 uppercase">Total Employees <span className="text-red-500">*</span></label>
+                                                        <Select
+                                                            value={orgData.employeeRange}
+                                                            options={employeeRangeOptions}
+                                                            className="cursor-pointer"
+                                                            placeholder="Select employee range"
+                                                            styles={ValidateStyle(!!orgErrors.employeeRange, false)}
+                                                            onChange={(option) => {
+                                                                const maximum = option?.maximum;
+                                                                setOrgData((prev) => ({ ...prev, employeeRange: option, totalEmp_learners: option?.value === "custom" ? "" : maximum }));
+                                                                setOrgErrors((prev) => ({ ...prev, employeeRange: "", totalEmp_learners: "" }));
+                                                            }}
+                                                        />
+                                                        {orgErrors.employeeRange && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.employeeRange}</p>}
+                                                    </div>
+                                                    {orgData.employeeRange?.value === "custom" && (
+                                                        <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                            <label className="text-[11px] sm:text-xs font-bold text-slate-600 uppercase">Employee Count <span className="text-red-500">*</span></label>
+                                                            <input
+                                                                type="number"
+                                                                name="totalEmp_learners"
+                                                                min="0"
+                                                                value={orgData.totalEmp_learners}
+                                                                className={orgErrors.totalEmp_learners ? errorInputStyles : commonInputStyles}
+                                                                placeholder="Enter exact employee count"
+                                                                onChange={(e) => handleInputChange(e, "org")}
+                                                                onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
+                                                            />
+                                                            {orgErrors.totalEmp_learners && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.totalEmp_learners}</p>}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6 pt-6 sm:pt-8 border-t border-slate-100 mt-2">
+                                            <div className="sm:col-span-2 border-l-4 border-orange-500 pl-4 py-1.5 bg-orange-50/50 rounded-r-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                                <h3 className="text-sm font-bold text-orange-900 uppercase tracking-wider">
+                                                    Primary Contact Person <span className="text-slate-500 font-normal normal-case tracking-normal">(Optional)</span>
+                                                </h3>
+                                                {orgData.alternativeContacts.length < 3 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={addAlternativeContact}
+                                                        className="text-xs font-bold text-orange-600 hover:text-orange-700 bg-white border border-orange-200 rounded-md px-3 py-1.5 hover:bg-orange-50 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                                                    >
+                                                        <Plus size={14} /> Add Alternative Contact
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                <label className="text-xs sm:text-sm font-semibold text-slate-700">
+                                                    Full Name <span className="text-slate-400 font-normal">(Optional)</span>
                                                 </label>
                                                 <input
                                                     type="text"
                                                     name="contactPersonName"
                                                     value={orgData.contactPersonName}
                                                     placeholder="John Doe"
-                                                    className={`${getInputClass(orgErrors.contactPersonName, false)} `}
+                                                    className={orgErrors.contactPersonName ? errorInputStyles : commonInputStyles}
                                                     onChange={(e) => handleInputChange(e, "org")}
                                                     onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
                                                 />
-                                                {orgErrors.contactPersonName && <p className="mt-1 text-xs text-red-500">{orgErrors.contactPersonName}</p>}
+                                                {orgErrors.contactPersonName && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.contactPersonName}</p>}
                                             </div>
 
                                             <div className="flex flex-col gap-1.5 sm:gap-2">
                                                 <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                                                    Role / Position <span className="text-red-500">*</span>
+                                                    Role / Position <span className="text-slate-400 font-normal">(Optional)</span>
                                                 </label>
                                                 <Select
                                                     name="role"
                                                     value={orgData.role}
                                                     options={BusinessRole}
+                                                    className="cursor-pointer"
                                                     styles={ValidateStyle(!!orgErrors.role, false)}
                                                     placeholder="Select role"
                                                     onChange={(option) => {
@@ -905,50 +1225,132 @@ const LeadForm = ({ onClose }) => {
                                                         validateField("role", option, "org");
                                                     }}
                                                 />
-                                                {orgErrors.role && <p className="mt-1 text-xs text-red-500">{orgErrors.role}</p>}
+                                                {orgErrors.role && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.role}</p>}
                                             </div>
 
                                             <div className="flex flex-col gap-1.5 sm:gap-2">
                                                 <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                                                    Contact Number <span className="text-red-500">*</span>
+                                                    Contact Number <span className="text-slate-400 font-normal">(Optional)</span>
                                                 </label>
                                                 <input
                                                     type="tel"
                                                     name="contactPersonNumber"
                                                     value={orgData.contactPersonNumber}
-                                                    placeholder="9841234567"
-                                                    className={`${getInputClass(orgErrors.contactPersonNumber, false)} `}
+                                                    placeholder="+977 98XXXXXXXX"
+                                                    className={orgErrors.contactPersonNumber ? errorInputStyles : commonInputStyles}
                                                     onChange={(e) => handleInputChange(e, "org")}
                                                     onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
                                                 />
-                                                {orgErrors.contactPersonNumber && <p className="mt-1 text-xs text-red-500">{orgErrors.contactPersonNumber}</p>}
+                                                {orgErrors.contactPersonNumber && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.contactPersonNumber}</p>}
                                             </div>
 
                                             <div className="flex flex-col gap-1.5 sm:gap-2">
                                                 <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                                                    Email Address <span className="text-red-500">*</span>
+                                                    Email Address <span className="text-slate-400 font-normal">(Optional)</span>
                                                 </label>
                                                 <input
                                                     type="email"
                                                     name="contactPersonEmail"
                                                     value={orgData.contactPersonEmail}
-                                                    placeholder="john@organization.com"
-                                                    className={`${getInputClass(orgErrors.contactPersonEmail, false)} `}
+                                                    placeholder="contact@organization.com"
+                                                    className={orgErrors.contactPersonEmail ? errorInputStyles : commonInputStyles}
                                                     onChange={(e) => handleInputChange(e, "org")}
                                                     onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
                                                 />
-                                                {orgErrors.contactPersonEmail && <p className="mt-1 text-xs text-red-500">{orgErrors.contactPersonEmail}</p>}
+                                                {orgErrors.contactPersonEmail && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.contactPersonEmail}</p>}
                                             </div>
+
+                                            {/* Alternative Contact Persons Block */}
+                                            {orgData.alternativeContacts.map((contact, index) => (
+                                                <div key={index} className="col-span-1 sm:col-span-2 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm mt-3">
+                                                    <div
+                                                        className="bg-slate-50 px-4 py-3.5 flex justify-between items-center cursor-pointer hover:bg-slate-100 transition-colors border-b border-slate-100"
+                                                        onClick={() => toggleAltContactExpand(index)}
+                                                    >
+                                                        <span className="text-sm font-bold text-slate-700 flex items-center gap-2 select-none">
+                                                            {contact.isExpanded ? <ChevronUp size={18} className="text-orange-500" /> : <ChevronDown size={18} className="text-slate-400" />}
+                                                            Alternative Contact #{index + 1} {contact.name ? <span className="text-slate-500 font-medium">— {contact.name}</span> : ""}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => removeAlternativeContact(index, e)}
+                                                            className="text-slate-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 transition-colors cursor-pointer"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+
+                                                    <AnimatePresence initial={false}>
+                                                        {contact.isExpanded && (
+                                                            <motion.div
+                                                                initial={{ height: 0, opacity: 0 }}
+                                                                animate={{ height: "auto", opacity: 1 }}
+                                                                exit={{ height: 0, opacity: 0 }}
+                                                                transition={{ duration: 0.25, ease: "easeInOut" }}
+                                                                className="overflow-visible bg-white"
+                                                            >
+                                                                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-5 bg-slate-50/30">
+                                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                                        <label className="text-xs sm:text-sm font-semibold text-slate-700">Full Name</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={contact.name}
+                                                                            placeholder="Full Name"
+                                                                            className={commonInputStyles}
+                                                                            onChange={(e) => handleAltContactChange(index, "name", e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                                        <label className="text-xs sm:text-sm font-semibold text-slate-700">Role / Position</label>
+                                                                        <Select
+                                                                            value={contact.role}
+                                                                            options={BusinessRole}
+                                                                            placeholder="Select role"
+                                                                            className="cursor-pointer"
+                                                                            menuPosition="fixed"
+                                                                            styles={{
+                                                                                ...ValidateStyle(false, false),
+                                                                                menu: (provided) => ({ ...provided, zIndex: 9999 })
+                                                                            }}
+                                                                            onChange={(option) => handleAltContactChange(index, "role", option)}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                                        <label className="text-xs sm:text-sm font-semibold text-slate-700">Contact Number</label>
+                                                                        <input
+                                                                            type="tel"
+                                                                            value={contact.number}
+                                                                            placeholder="Contact Number"
+                                                                            className={commonInputStyles}
+                                                                            onChange={(e) => handleAltContactChange(index, "number", e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                                        <label className="text-xs sm:text-sm font-semibold text-slate-700">Email Address</label>
+                                                                        <input
+                                                                            type="email"
+                                                                            value={contact.email}
+                                                                            placeholder="Email Address"
+                                                                            className={commonInputStyles}
+                                                                            onChange={(e) => handleAltContactChange(index, "email", e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
+                                                </div>
+                                            ))}
                                         </div>
                                     </motion.div>
                                 )}
 
-                                <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-4 mt-8 sm:mt-10 pt-4 sm:pt-6 border-t border-slate-100">
+                                <div className="flex flex-col sm:flex-row justify-end items-center gap-3 sm:gap-4 mt-8 sm:mt-10 pt-5 sm:pt-6 border-t border-slate-200">
                                     <button
                                         type="button"
                                         onClick={onClose}
                                         disabled={isSubmitting}
-                                        className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm border border-slate-200 text-slate-600 rounded-md hover:bg-slate-100 transition-colors font-semibold disabled:opacity-60"
+                                        className="w-full sm:w-auto px-6 py-2.5 sm:py-3 text-sm border-2 border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300 transition-colors font-bold disabled:opacity-60 cursor-pointer"
                                     >
                                         Cancel
                                     </button>
@@ -956,12 +1358,12 @@ const LeadForm = ({ onClose }) => {
                                     <button
                                         type="submit"
                                         disabled={isSubmitting}
-                                        className={`px-6 sm:px-10 py-2.5 sm:py-3 text-xs sm:text-sm font-bold rounded-md transition-all transform ${isSubmitting
+                                        className={`w-full sm:w-auto px-8 py-2.5 sm:py-3 text-sm font-bold rounded-lg transition-all transform cursor-pointer ${isSubmitting
                                             ? "bg-gradient-to-r from-amber-300 to-orange-300 text-white/70 cursor-not-allowed shadow-none opacity-70"
-                                            : "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-amber-200 active:scale-95"
+                                            : "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-amber-500/30 active:scale-[0.98]"
                                             }`}
                                     >
-                                        {isSubmitting ? "Saving..." : "Save Lead & Organization"}
+                                        {isSubmitting ? "Saving Lead Data..." : "Save Lead & Organization"}
                                     </button>
                                 </div>
                             </form>
@@ -972,5 +1374,4 @@ const LeadForm = ({ onClose }) => {
         </AnimatePresence>
     );
 };
-
 export default LeadForm;

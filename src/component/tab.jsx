@@ -4,20 +4,20 @@ import {
 
 } from 'lucide-react';
 // Staff,tabData
-export const Tab_C = ({ content, tab }) => {
+export const Tab_C = ({ content, tab, className = "" }) => {
   const [activeTab, setActiveTab] = useState(0);
 
   // const tabs = AdminTabTitle || StaffTabTitle 
   return (
-    <div className="max-w-6xl mx-auto ">
+    <div className={`mx-auto w-full ${className}`}>
 
       <Tabs
         selectedIndex={activeTab}
         onSelect={(index) => setActiveTab(index)}
-        className="bg-white rounded-2xl  border border-gray-100 overflow-hidden"
+        className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
       >
         <div className="relative  border-b border-gray-100">
-          <TabList className="flex overflow-x-auto no-scrollbar outline-none">
+          <TabList className="flex w-full overflow-x-auto no-scrollbar outline-none">
             {tab?.map((item, index) => {
               const Icon = item.icon;
               const isActive = activeTab === index;
@@ -25,16 +25,16 @@ export const Tab_C = ({ content, tab }) => {
               return (
                 <Tab
                   key={index}
-                  className="flex-1 w-auto  outline-none cursor-pointer relative"
+                  className="relative w-37 flex-none cursor-pointer outline-none sm:w-auto sm:flex-1"
                   selectedClassName="is-selected"
                 >
                   <div className={`
-                    flex items-center justify-center gap-2 py-5 px-4
+                    flex items-center justify-center gap-2 px-4 py-4
                     transition-all duration-300 ease-in-out
                     ${isActive ? 'text-amber-600' : 'text-gray-500 hover:text-amber-500'}
                   `}>
                     <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-                    <span className={`font-semibold  text-sm md:text-base`}>
+                    <span className="whitespace-nowrap text-sm font-semibold md:text-base">
                       {item.title.replace(/_/g, " ")}
                     </span>
                   </div>
@@ -42,8 +42,8 @@ export const Tab_C = ({ content, tab }) => {
                   {/* HR line for active tab */}
                   {isActive && (
                     <div
-                      className={`absolute bottom-0 h-1 bg-gradient-to-r from-amber-400
-                         to-amber-600 transition-all duration-300 ease-out rounded-t-full
+                      className={`absolute bottom-0 h-0.5 bg-linear-to-r from-amber-400
+                         to-amber-600 transition-all duration-300 ease-out
                           ${isActive && 'animate-in'}  `}
                       style={{
                         width: `${100}%`,
@@ -68,7 +68,7 @@ export const Tab_C = ({ content, tab }) => {
           </TabList>
         </div>
 
-        <div className="bg-white">
+        <div className="min-w-0 bg-white">
           {tab?.map((item, index) => {
             const ActiveComponent =
               content?.[item.key] ||

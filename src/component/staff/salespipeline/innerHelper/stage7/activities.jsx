@@ -133,7 +133,8 @@ export const ClientScheduleCalendar = () => {
     const handleWeekChange = (selectedOption) => {
         setSelectedWeekIndex(selectedOption?.value ?? null);
     };
-
+console.log('Selected weeksa',selectedWeekDays);
+console.log('Selected weeksa');
     return (
         <main className="min-h-screen bg-transparent p-4">
             <div className="w-full rounded-sm border border-slate-100 bg-transparent p-3">
@@ -233,7 +234,7 @@ export const ClientScheduleCalendar = () => {
                         <thead>
                             <tr className="bg-slate-900 text-white">
                                 <th className="w-[140px] border border-slate-300 px-2 text-left font-semibold">
-                                    TimeFrame
+                                    TimeFramefddsfsdfds
                                 </th>
 
                                 {selectedWeekDays.map((dayItem) => (
@@ -282,7 +283,7 @@ export const ClientScheduleCalendar = () => {
                                                         className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-bold transition-all duration-200
                   ${dayItem.isToday
                                                                 ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
-                                                                : "bg-slate-100 text-slate-500 group-hover:bg-amber-50 group-hover:text-amber-700"
+                                                                : "bg-slate-100 text-slate-500 group-hover:bg-amber-50 group-hover:text-orange-700"
                                                             }
                 `}
                                                     >
@@ -293,14 +294,14 @@ export const ClientScheduleCalendar = () => {
                                                 </div>
 
                                                 {/* Cell Content Area */}
-                                                {/* <div
+                                                <div
                                                     className={`mt-2 flex-1 rounded-lg border border-dashed transition-all duration-200
                 ${dayItem.isToday
                                                             ? "border-blue-200/70 bg-blue-50/30"
                                                             : "border-transparent group-hover:border-slate-200 group-hover:bg-white/70"
                                                         }
               `}
-                                                ></div> */}
+                                                ></div>
                                             </div>
                                         </td>
                                     ))}

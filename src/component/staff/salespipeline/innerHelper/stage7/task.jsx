@@ -5,10 +5,12 @@ import {
     CalendarRangeIcon,
     LayersIcon,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import Select from "react-select";
 import { ValidateStyle } from "../../../../../data/data";
-import { getBsDisplayData } from "./calendar";
+import { getBsDisplayData, nepaliDays } from "./calendar";
 import { ScheduleRemark } from "./scheduleRemark";
+import JobAssignModal from "./scheduleform";
 
 const timeFrames = [
     "09:00 - 09:30",
@@ -31,16 +33,23 @@ const timeFrames = [
     "05:30 - 06:00",
 ];
 
-export const ClientScheduleCalendar = () => {
-    const [calendarData, setCalendarData] = useState(() => getBsDisplayData());
+const customHolidays = [
+    { date: "2083-02-12", name: "New Year 2083" },
+];
 
+export const ClientScheduleCalendar = () => {
+    // Pass customHolidays to the initial state
+    const [calendarData, setCalendarData] = useState(() => getBsDisplayData(null, customHolidays));
+    const [assignModalOpen, setAssignModalOpen] = useState(false);
+    const [hoveredGridId, setHoveredGridId] = useState(null);
     const [selectedMonthIndex, setSelectedMonthIndex] = useState(null);
     const [selectedWeekIndex, setSelectedWeekIndex] = useState(null);
 
     // Auto update by system date/time
     useEffect(() => {
         const timer = setInterval(() => {
-            setCalendarData(getBsDisplayData());
+            // Pass customHolidays to the interval update
+            setCalendarData(getBsDisplayData(null, customHolidays));
         }, 60 * 1000);
 
         return () => clearInterval(timer);
@@ -69,11 +78,9 @@ export const ClientScheduleCalendar = () => {
         return allMonthsWeeks.map((month) => ({
             value: month.monthIndex,
             label: month.monthName,
-
             monthName: month.monthName,
             monthIndex: month.monthIndex,
             monthNumber: month.monthNumber,
-
             totalDays: month.totalDays,
             isCurrentMonth: month.isCurrentMonth,
         }));
@@ -96,15 +103,12 @@ export const ClientScheduleCalendar = () => {
         return selectedMonthData.weeks.map((week) => ({
             value: week.weekIndex,
             label: `${week.weekName} (${week.range})`,
-
             range: week.range,
             weekName: week.weekName,
             weekIndex: week.weekIndex,
-
             monthName: week.monthName,
             monthIndex: week.monthIndex,
             monthNumber: week.monthNumber,
-
             totalDays: week.totalDays,
             isCurrentWeek: week.isCurrentWeek,
         }));
@@ -115,10 +119,34 @@ export const ClientScheduleCalendar = () => {
             ? selectedWeekIndex
             : selectedMonthData?.currentWeek?.weekIndex || 1;
 
-    const selectedWeekData =
-        selectedMonthData?.weeks?.find((week) => week.weekIndex === activeWeekIndex) ||
+    const rawSelectedWeekData =
+        selectedMonthData?.weeks?.find(
+            (week) => week.weekIndex === activeWeekIndex
+        ) ||
         selectedMonthData?.weeks?.[0] ||
         null;
+
+    const selectedWeekData = rawSelectedWeekData
+        ? {
+            ...rawSelectedWeekData,
+            weeksDay: rawSelectedWeekData.weeksDay.map((dayItem) => {
+                const year = today.bsYear;
+                const month = selectedMonthData.monthNumber;
+                const date = dayItem.date;
+                const fullDate = `${year}-${String(month).padStart(2, "0")}-${String(date).padStart(2, "0")}`;
+
+                return {
+                    ...dayItem,
+                    bsYear: year,
+                    bsMonth: month,
+                    bsMonthName: selectedMonthData.monthName,
+                    bsDate: date,
+                    fullDate,
+                    dayName: dayItem.day,
+                };
+            }),
+        }
+        : null;
 
     const selectedWeekOption =
         weekOptions.find((week) => week.value === selectedWeekData?.weekIndex) ||
@@ -135,28 +163,25 @@ export const ClientScheduleCalendar = () => {
         setSelectedWeekIndex(selectedOption?.value ?? null);
     };
 
+    const handleGridClick = (dayItem, time) => {
+        setAssignModalOpen(true);
+    };
+
     return (
         <main className="min-h-screen bg-transparent py-4">
-            <div className="w-full   bg-transparent p-3">
-                <div c>
-
-                </div>
-
-
+            <div className="w-full bg-transparent p-3">
                 <ScheduleRemark />
+
                 {/* Form Area */}
                 <div className="mt-6 space-y-5">
                     <div className="flex items-center gap-2">
                         <span className="rounded bg-orange-50 p-2">
                             <CalendarDaysIcon size={14} className="text-orange-500" />
                         </span>
-
                         <span className="block font-['Roboto_Slab'] text-base font-semibold text-slate-800">
                             Year / Months / Weeks:
                         </span>
                     </div>
-
-                    {/* Date Summary */}
 
                     {/* Form Row */}
                     <div className="flex w-full flex-col items-end gap-3 md:flex-row md:justify-around">
@@ -216,9 +241,6 @@ export const ClientScheduleCalendar = () => {
                                 onChange={handleWeekChange}
                             />
                         </div>
-
-                        {/* Month Info */}
-
                     </div>
                 </div>
 
@@ -227,27 +249,42 @@ export const ClientScheduleCalendar = () => {
                     <table className="w-full min-w-[900px] border-collapse text-sm">
                         <thead>
                             <tr className="bg-slate-900 text-white">
-                                <th className="w-fit border border-slate-300 px-2 text-left font-semibold">
+                                <th className="w-fit border w-[400px] border-slate-300 px-2 text-left font-semibold">
                                     TimeFrame
                                 </th>
 
-                                {selectedWeekDays.map((dayItem) => (
-                                    <th
-                                        key={`${selectedMonthData?.monthIndex}-${selectedWeekData?.weekIndex}-${dayItem.date}`}
-                                        className={`border border-slate-300 p-1.5 text-center font-semibold ${dayItem.isToday ? "bg-amber-500 text-slate-950" : ""
-                                            }`}
-                                    >
-                                        <div className="text-sm font-bold">{dayItem.dayName}</div>
+                                {selectedWeekDays.map((dayItem) => {
+                                    const isDisabled = dayItem.isHoliday;
 
-                                        {/* <div className="mt-1 text-xs font-medium opacity-90">
-                        {selectedMonthData?.monthName} {dayItem.date}
-                      </div> */}
+                                    return (
+                                        <th
+                                            key={`${selectedMonthData?.monthIndex}-${selectedWeekData?.weekIndex}-${dayItem.date}`}
+                                            className={`
+                                                border border-slate-300  p-1.5 text-center font-semibold
+                                                ${isDisabled
+                                                    ? "bg-red-700 text-white"
+                                                    : dayItem.isToday
+                                                        ? "bg-amber-500 text-slate-950"
+                                                        : ""
+                                                }
+                                            `}
+                                        >
+                                            <div className="text-sm font-bold">
+                                                {nepaliDays[(dayItem?.day) - 1]}
+                                            </div>
 
-                                        <div className="mt-1 text-[10px] font-medium opacity-80">
-                                            Day {dayItem.day}
-                                        </div>
-                                    </th>
-                                ))}
+                                            <div className="mt-1 flex flex-col items-center text-[10px] font-medium opacity-80">
+                                                <span>Day {dayItem.day}</span>
+                                                {/* Show custom holiday name in the header if it exists */}
+                                                {dayItem.isCustomHoliday && (
+                                                    <span className="text-[9px] text-red-200 mt-0.5 max-w-[100px] truncate leading-tight">
+                                                        {dayItem.customHolidayName}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
 
@@ -265,48 +302,110 @@ export const ClientScheduleCalendar = () => {
                                     </td>
 
                                     {/* Calendar Grid Cells */}
-                                    {selectedWeekDays.map((dayItem) => (
-                                        <td
-                                            key={`${time}-${selectedMonthData?.monthIndex}-${dayItem.date}`}
-                                            className={`relative h-20  p-1.5 align-center transition-all duration-200 border border-slate-100`}
-                                        >
-                                            <div className="flex h-full w-full flex-col ">
-                                                {/* Date Badge */}
-                                                <div className="flex items-center justify-between">
-                                                    <span
-                                                        className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-bold transition-all duration-200
-                  ${dayItem.isToday
-                                                                ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
-                                                                : "bg-slate-100 text-slate-500 group-hover:bg-amber-50 group-hover:text-amber-700"
-                                                            }
-                `}
-                                                    >
-                                                        {dayItem.date}
+                                    {selectedWeekDays.map((dayItem, idx) => {
+                                        // Rely on the combined `isHoliday` flag from the updated utility
+                                        const isDisabled = dayItem.isHoliday;
+
+                                        const isHovered = hoveredGridId === `${time}-${selectedMonthData?.monthIndex}-${dayItem.date}`;
+                                        const gridId = `${time}-${selectedMonthData?.monthIndex}-${dayItem.date}`;
+
+                                        return (
+                                            <td
+                                                key={gridId}
+                                                className={`
+                                                    group relative h-20 border border-slate-100 p-1.5 align-center transition-all duration-200
+                                                    ${isDisabled
+                                                        ? "cursor-not-allowed bg-red-100 opacity-60"
+                                                        : "cursor-pointer hover:bg-slate-50"
+                                                    }
+                                                `}
+                                                onClick={() => {
+                                                    if (!isDisabled) {
+                                                        handleGridClick(dayItem, time);
+                                                    }
+                                                }}
+                                                onMouseEnter={() =>
+                                                    !isDisabled && setHoveredGridId(gridId)
+                                                }
+                                                onMouseLeave={() => setHoveredGridId(null)}
+                                            >
+                                                {/* Hover label */}
+                                                {!isDisabled && isHovered && (
+                                                    <span className="absolute left-1 bottom-1 text-[10px] font-medium text-slate-800">
+                                                        + assign
                                                     </span>
+                                                )}
 
-
+                                                <div className="flex h-full w-full flex-col">
+                                                    {/* Date Badge */}
+                                                    <div className="flex items-center justify-between">
+                                                        <span
+                                                            className={`
+                                                                flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-bold transition-all duration-200
+                                                                ${isDisabled && dayItem.isToday
+                                                                    ? "animate-pulse bg-red-700 text-white shadow-sm shadow-red-300" :
+                                                                    isDisabled
+                                                                        ? "bg-red-700 text-white shadow-sm shadow-red-200"
+                                                                        : dayItem.isToday
+                                                                            ? "bg-blue-500 text-white shadow-sm shadow-blue-200"
+                                                                            : "bg-slate-200 text-slate-600 group-hover:bg-amber-50 group-hover:text-amber-700"
+                                                                }
+                                                            `}
+                                                        >
+                                                            {dayItem.date}
+                                                            {isDisabled && (
+                                                                <span className="ml-1 text-[9px] font-normal text-red-100 truncate max-w-[60px]">
+                                                                    ({dayItem.isCustomHoliday ? dayItem.customHolidayName : "Holiday"})
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    </div>
                                                 </div>
-
-                                                {/* Cell Content Area */}
-                                                {/* <div
-                                                    className={`mt-2 flex-1 rounded-lg border border-dashed transition-all duration-200
-                ${dayItem.isToday
-                                                            ? "border-blue-200/70 bg-blue-50/30"
-                                                            : "border-transparent group-hover:border-slate-200 group-hover:bg-white/70"
-                                                        }
-              `}
-                                                ></div> */}
-                                            </div>
-                                        </td>
-                                    ))}
+                                            </td>
+                                        );
+                                    })}
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
-
-
             </div>
+
+            <AnimatePresence>
+                {assignModalOpen && (
+                    <motion.div
+                        className="fixed inset-0 z-50 flex items-center justify-center"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                    >
+                        {/* Soft backdrop */}
+                        <motion.div
+                            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            onClick={() => setAssignModalOpen(false)}
+                        />
+
+                        {/* Modal with spring */}
+                        <motion.div
+                            className="relative z-10"
+                            initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                            transition={{
+                                duration: 0.25,
+                                ease: [0.25, 0.46, 0.45, 0.94],
+                            }}
+                        >
+                            <JobAssignModal onClose={() => setAssignModalOpen(false)} />
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </main>
     );
 };

@@ -52,18 +52,30 @@ export const waitingNotify = (message = "Processing...") => {
     },
   });
 }
+
+export const dismissWaitingNotify = (message = "Processing...") => {
+  toast.dismiss(`warning-${message}`);
+};
 // ✅ Error Toast
-export const ErrorNotify = (message) => {
+export const ErrorNotify = (message, duration = 2500) => {
   toast.error(message || "This didn't work or Invalid.", {
-    duration: 2000,
+    duration,
+    position: "top-right",
     style: {
-      border: "1px solid #713200",
-      padding: "16px",
-      color: "#713200",
+      minWidth: "280px",
+      padding: "14px 16px",
+      borderRadius: "14px",
+      border: "1px solid #fecaca", // Tailwind red-200
+      background: "linear-gradient(135deg, #fef2f2 0%, #ffffff 100%)", // Tailwind red-50 to white
+      color: "#991b1b", // Tailwind red-800
+      fontSize: "14px",
+      fontWeight: "600",
+      boxShadow:
+        "0 10px 25px rgba(220, 38, 38, 0.18), 0 4px 10px rgba(0,0,0,0.06)",
     },
     iconTheme: {
-      primary: "#713200",
-      secondary: "#FFFAEE",
+      primary: "#dc2626", // Tailwind red-600
+      secondary: "#fee2e2", // Tailwind red-100
     },
   });
 };

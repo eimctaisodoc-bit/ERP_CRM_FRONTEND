@@ -1,10 +1,6 @@
 import React from 'react';
 
-/**
- * Advanced Skeleton Component
- * Uses CSS variables for staggered animation timing and refined radial gradients 
- * for a more realistic "shimmer" light sweep.
- */
+
 const Skeleton = ({ className = '', variant = 'rect', index = 0 }) => {
     const baseClasses = "relative overflow-hidden bg-slate-50 border border-slate-200/40";
 
@@ -150,4 +146,5 @@ const Skeleton_ = () => {
     );
 };
 
+export { Skeleton };
 export default Skeleton_;

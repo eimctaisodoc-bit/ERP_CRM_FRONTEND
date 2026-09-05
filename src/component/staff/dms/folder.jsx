@@ -1,1345 +1,890 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
-    FileText,
-    Folder,
-    Star,
-    Search,
-    Grid,
-    List,
-    Share2,
-    Download,
-    HardDrive,
-    FileCode,
-    FileImage,
-    ChevronRight,
-    X,
-    Info,
-    FileVideo,
-    Music,
-    Table,
-    Presentation,
-    FileBox,
-    Trash2Icon,
-    Users,
-    UserPlus,
-    Link2,
-    Mail,
-    Check,
-    Plus,
-    Files,
-    ChevronDown,
+    FileText, Folder, Search, Download, HardDrive, FileVideo, Music, Table,
+    Presentation, FileBox, Trash2Icon, Check, ChevronDown, FolderPlus,
+    UploadCloud, ArrowLeft, ChevronRight, MessageSquare, X, FolderOpen,
+    Loader2, RefreshCw, Share2, MoveRight
 } from "lucide-react";
-import { Circular_ } from "./circular";
-import { Memo_ } from "./memo";
-import DonutChart from "../../chart";
-import { SemiDonut_ } from "./chart";
-import DriveIcon from '../../../../public/driveicon.png'
-import FilesIcon from '../../../../public/files.png'
-import { S_Logs_ } from "./logs";
-import { VideoPlayer } from "./video";
-import { S_FileUpload_ } from "./uploads";
 
-const INITIAL_FILES = [
+// Professional Typography Theme
+const fontLight = { fontFamily: "'Roboto Slab', serif", fontWeight: 300 };
+const fontBold = { fontFamily: "'Roboto Slab', serif", fontWeight: 700 };
+
+const CURRENT_USER_ROLE = "standard user";
+
+const DIRECTORY_USERS = [
+    { id: "u1", name: "Sarah Jenkins (Legal Counsel)" },
+    { id: "u2", name: "Marcus Rossi (Financial Auditor)" },
+    { id: "u3", name: "David Chen (CTO)" },
+    { id: "u4", name: "Emma Watson (HR Operations)" }
+];
+
+const INITIAL_ITEMS = [
     {
-        id: 1,
-        name: "Project_Proposal.pdf",
-        type: "pdf",
-        size: "2.4 MB",
-        modified: "2 hours ago",
-        owner: "Sarah J.",
-        starred: true,
-        description: "Official proposal for the 2024 expansion.",
-        source: "uploaded",
+        id: "f-admin-1",
+        name: "Q1 Financial Statements",
+        type: "folder",
+        parentId: "admin",
+        nepaliDate: "२०८३ वैशाख १०",
+        daysBefore: "2 months ago",
+        description: "Contains all audited balance sheets and tax files for Q1."
     },
     {
-        id: 2,
-        name: "Meeting_Notes.docx",
-        type: "word",
-        size: "1.1 MB",
-        modified: "1 hour ago",
-        owner: "James L.",
-        starred: false,
-        description: "Detailed notes from the stakeholder meeting.",
-        source: "uploaded",
+        id: "f-admin-sample",
+        name: "Sample",
+        type: "folder",
+        parentId: "admin",
+        nepaliDate: "२०८३ जेठ ५",
+        daysBefore: "1 month ago",
+        description: "Sample template folder for administrative operations."
     },
     {
-        id: 3,
-        name: "Budget_2024.xlsx",
-        type: "xlsx",
-        size: "4.2 MB",
-        modified: "3 hours ago",
-        owner: "Finance",
-        starred: true,
-        description: "Full budget breakdown for all departments.",
-        source: "shared",
+        id: "doc-1",
+        name: "Corporate_Tax_Filing_Signed.pdf",
+        type: "file",
+        fileType: "pdf",
+        size: "4.8 MB",
+        parentId: "admin",
+        nepaliDate: "२०८३ असार १",
+        daysBefore: "3 days ago",
+        description: "Verified submission copy signed off by senior financial counsel."
     },
     {
-        id: 4,
-        name: "Readme.txt",
-        type: "txt",
-        size: "12 KB",
-        modified: "Yesterday",
-        owner: "Dev Team",
-        starred: false,
-        description: "Plain text instructions for system setup.",
-        source: "uploaded",
-    },
-    {
-        id: 5,
-        name: "Investors_Pitch.pptx",
-        type: "ppt",
-        size: "18.5 MB",
-        modified: "Feb 22, 2024",
-        owner: "Marketing",
-        starred: true,
-        description: "Visual presentation for the upcoming funding round.",
-        source: "shared",
-    },
-    {
-        id: 6,
-        name: "Hero_Section_v1.png",
-        type: "image",
-        size: "2.1 MB",
-        modified: "Feb 18, 2024",
-        owner: "Design",
-        starred: false,
-        description: "Homepage hero image mockup.",
-        source: "uploaded",
-    },
-    {
-        id: 7,
-        name: "UI_Feedback_Recording.mp4",
-        type: "video",
-        size: "45.0 MB",
-        modified: "Feb 15, 2024",
-        owner: "UX Research",
-        starred: false,
-        description: "Screen recording of user testing session.",
-        source: "shared",
-    },
-    {
-        id: 8,
-        name: "Theme_Music_Demo.mp3",
-        type: "audio",
-        size: "8.4 MB",
-        modified: "Feb 12, 2024",
-        owner: "Audio Lab",
-        starred: false,
-        description: "Original brand theme audio file.",
-        source: "uploaded",
-    },
-    {
-        id: 9,
-        name: "Product_Catalog.jpg",
-        type: "image",
-        size: "3.5 MB",
-        modified: "Feb 10, 2024",
-        owner: "Marketing",
-        starred: false,
-        description: "High-res JPEG of the seasonal catalog.",
-        source: "shared",
-    },
-    {
-        id: 10,
-        name: "Raw_Logs.csv",
-        type: "xlsx",
-        size: "1.2 MB",
-        modified: "Feb 05, 2024",
-        owner: "System",
-        starred: false,
-        description: "Raw exported CSV data logs.",
-        source: "uploaded",
-    },
-    {
-        id: 11,
-        name: "Marketing_Plan_2024.pdf",
-        type: "pdf",
-        size: "3.2 MB",
-        modified: "Mar 05, 2024",
-        owner: "Marketing Team",
-        starred: true,
-        description: "Annual marketing strategy document",
-        sharedBy: "Sophia M.",
-        sharedDate: "Mar 06, 2024",
-        source: "shared",
-    },
-    {
-        id: 12,
-        name: "Product_Roadmap.xlsx",
-        type: "excel",
-        size: "1.9 MB",
-        modified: "Mar 12, 2024",
-        owner: "Product Team",
-        starred: false,
-        description: "Quarterly roadmap planning",
-        sharedBy: "Liam T.",
-        sharedDate: "Mar 13, 2024",
-        source: "shared",
-    },
-    {
-        id: 13,
-        name: "Client_Presentation.pptx",
-        type: "presentation",
-        size: "4.6 MB",
-        modified: "Mar 18, 2024",
-        owner: "Sales Team",
-        starred: true,
-        description: "Presentation for enterprise client",
-        sharedBy: "Olivia R.",
-        sharedDate: "Mar 19, 2024",
-        source: "shared",
-    },
-    {
-        id: 14,
-        name: "Database_Schema.sql",
-        type: "code",
-        size: "0.5 MB",
-        modified: "Mar 22, 2024",
-        owner: "Backend Team",
-        starred: false,
-        description: "Updated database structure",
-        sharedBy: "Noah D.",
-        sharedDate: "Mar 23, 2024",
-        source: "shared",
-    },
-    {
-        id: 15,
-        name: "Brand_Assets.zip",
-        type: "archive",
-        size: "25.7 MB",
-        modified: "Mar 25, 2024",
-        owner: "Design Team",
-        starred: true,
-        description: "Logos and branding materials",
-        sharedBy: "Emma W.",
-        sharedDate: "Mar 26, 2024",
-        source: "shared",
-    },
-    {
-        id: 16,
-        name: "Onboarding_Guide.docx",
-        type: "word",
-        size: "2.1 MB",
-        modified: "Mar 28, 2024",
-        owner: "HR Team",
-        starred: false,
-        description: "Employee onboarding process guide",
-        sharedBy: "Daniel P.",
-        sharedDate: "Mar 29, 2024",
-        source: "shared",
+        id: "f-personal-1",
+        name: "My Drafts",
+        type: "folder",
+        parentId: "you",
+        nepaliDate: "२०८३ असार २",
+        daysBefore: "2 days ago",
+        description: "Personal drafts and work-in-progress files."
     }
 ];
 
-const SHARED_WITH_ME = [
-    {
-        id: 101,
-        name: "Q1_Report.pdf",
-        type: "pdf",
-        size: "3.1 MB",
-        modified: "Jan 15, 2024",
-        owner: "Michael C.",
-        starred: false,
-        description: "Quarterly financial report",
-        sharedBy: "Finance Team",
-        sharedDate: "Jan 16, 2024",
-        source: "shared",
-    },
-    {
-        id: 102,
-        name: "Design_Guidelines.fig",
-        type: "image",
-        size: "12.4 MB",
-        modified: "Feb 01, 2024",
-        owner: "Design Team",
-        starred: true,
-        description: "Figma design system",
-        sharedBy: "Emma W.",
-        sharedDate: "Feb 02, 2024",
-        source: "shared",
-    },
-    {
-        id: 103,
-        name: "API_Docs.md",
-        type: "txt",
-        size: "0.8 MB",
-        modified: "Feb 20, 2024",
-        owner: "Dev Team",
-        starred: false,
-        description: "API documentation",
-        sharedBy: "Alex K.",
-        sharedDate: "Feb 21, 2024",
-        source: "shared",
-    },
-    {
-        id: 104,
-        name: "Marketing_Plan_2024.pdf",
-        type: "pdf",
-        size: "3.2 MB",
-        modified: "Mar 05, 2024",
-        owner: "Marketing Team",
-        starred: true,
-        description: "Annual marketing strategy document",
-        sharedBy: "Sophia M.",
-        sharedDate: "Mar 06, 2024",
-        source: "shared",
-    },
-    {
-        id: 105,
-        name: "Product_Roadmap.xlsx",
-        type: "excel",
-        size: "1.9 MB",
-        modified: "Mar 12, 2024",
-        owner: "Product Team",
-        starred: false,
-        description: "Quarterly roadmap planning",
-        sharedBy: "Liam T.",
-        sharedDate: "Mar 13, 2024",
-        source: "shared",
-    },
-    {
-        id: 106,
-        name: "Client_Presentation.pptx",
-        type: "presentation",
-        size: "4.6 MB",
-        modified: "Mar 18, 2024",
-        owner: "Sales Team",
-        starred: true,
-        description: "Presentation for enterprise client",
-        sharedBy: "Olivia R.",
-        sharedDate: "Mar 19, 2024",
-        source: "shared",
-    },
-    {
-        id: 107,
-        name: "Database_Schema.sql",
-        type: "code",
-        size: "0.5 MB",
-        modified: "Mar 22, 2024",
-        owner: "Backend Team",
-        starred: false,
-        description: "Updated database structure",
-        sharedBy: "Noah D.",
-        sharedDate: "Mar 23, 2024",
-        source: "shared",
-    },
-    {
-        id: 108,
-        name: "Brand_Assets.zip",
-        type: "archive",
-        size: "25.7 MB",
-        modified: "Mar 25, 2024",
-        owner: "Design Team",
-        starred: true,
-        description: "Logos and branding materials",
-        sharedBy: "Emma W.",
-        sharedDate: "Mar 26, 2024",
-        source: "shared",
-    },
-    {
-        id: 109,
-        name: "Onboarding_Guide.docx",
-        type: "word",
-        size: "2.1 MB",
-        modified: "Mar 28, 2024",
-        owner: "HR Team",
-        starred: false,
-        description: "Employee onboarding process guide",
-        sharedBy: "Daniel P.",
-        sharedDate: "Mar 29, 2024",
-        source: "shared",
+const StyledIcon = ({ type, isFolder }) => {
+    if (isFolder) {
+        return (
+            <div className="bg-amber-50 text-amber-500 p-2 rounded-md flex items-center justify-center shrink-0">
+                <Folder size={18} />
+            </div>
+        );
     }
-];
 
-const schoolVideos = [
-    {
-        title: "Greenwood Academy",
-        description: "A look inside our new sustainable campus and the student-led organic gardening project.",
-        views: "12k",
-        uploadDate: "March 15, 2026",
-        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4"
-    },
-    {
-        title: "Horizon Technical High",
-        description: "Highlights from the 2026 Robotics Championship where our seniors took home the gold.",
-        views: "45k",
-        uploadDate: "Feb 10, 2026",
-        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4"
-    },
-    {
-        title: "Sunrise Public School",
-        description: "Annual sports day recap featuring track events, team spirit, and unforgettable moments.",
-        views: "8.2k",
-        uploadDate: "Jan 28, 2026",
-        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4"
-    },
-    {
-        title: "Everest International Academy",
-        description: "Student exchange program highlights with cultural performances and global friendships.",
-        views: "22k",
-        uploadDate: "March 2, 2026",
-        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4"
-    },
-    {
-        title: "Riverdale High",
-        description: "Behind the scenes of our drama club’s award-winning theater production.",
-        views: "17k",
-        uploadDate: "Feb 18, 2026",
-        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4"
-    },
-    {
-        title: "Starlight Secondary School",
-        description: "Science fair innovations where students showcased futuristic tech ideas.",
-        views: "31k",
-        uploadDate: "March 8, 2026",
-        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4"
-    },
-    {
-        title: "Maple Leaf School",
-        description: "A day in the life of students, from morning assembly to after-school clubs.",
-        views: "9.5k",
-        uploadDate: "Jan 12, 2026",
-        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4"
-    },
-    {
-        title: "Silver Oak Academy",
-        description: "Digital classroom transformation and how technology is reshaping learning.",
-        views: "27k",
-        uploadDate: "Feb 25, 2026",
-        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4"
-    }
-];
-
-const FileIcon = ({ type }) => {
     switch (type) {
-        case "pdf":
-            return <FileText className="text-orange-600" />;
+        case "pdf": 
+            return <div className="bg-orange-50 text-orange-500 p-2 rounded-md flex items-center justify-center shrink-0"><FileText size={18} /></div>;
         case "word":
-        case "docx":
-            return <FileText className="text-blue-500" />;
+        case "docx": 
+            return <div className="bg-blue-50 text-blue-500 p-2 rounded-md flex items-center justify-center shrink-0"><FileText size={18} /></div>;
         case "xlsx":
-        case "excel":
-            return <Table className="text-emerald-600" />;
-        case "ppt":
-        case "presentation":
-            return <Presentation className="text-orange-500" />;
-        case "txt":
-            return <FileText className="text-slate-500" />;
-        case "image":
-        case "jpg":
-        case "jpeg":
-        case "png":
-        case "gif":
-            return <FileImage className="text-pink-500" />;
+        case "excel": 
+            return <div className="bg-amber-50 text-amber-500 p-2 rounded-md flex items-center justify-center shrink-0"><Table size={18} /></div>;
+        case "ppt": 
+            return <div className="bg-orange-50 text-orange-500 p-2 rounded-md flex items-center justify-center shrink-0"><Presentation size={18} /></div>;
         case "video":
-        case "mp4":
-            return <FileVideo className="text-purple-500" />;
-        case "audio":
-        case "mp3":
-            return <Music className="text-cyan-500" />;
-        case "folder":
-            return <Folder className="text-amber-500 fill-amber-500" />;
-        case "code":
-        case "sql":
-            return <FileCode className="text-slate-700" />;
-        case "archive":
-        case "zip":
-            return <FileBox className="text-slate-400" />;
-        default:
-            return <FileBox className="text-slate-400" />;
+        case "mp4": 
+            return <div className="bg-blue-50 text-blue-500 p-2 rounded-md flex items-center justify-center shrink-0"><FileVideo size={18} /></div>;
+        case "audio": 
+            return <div className="bg-amber-50 text-amber-500 p-2 rounded-md flex items-center justify-center shrink-0"><Music size={18} /></div>;
+        default: 
+            return <div className="bg-blue-50 text-blue-500 p-2 rounded-md flex items-center justify-center shrink-0"><FileBox size={18} /></div>;
     }
 };
 
-
-
 export const S_Folder_ = () => {
-    const [myFiles, setMyFiles] = useState(INITIAL_FILES);
-    const [sharedFiles, setSharedFiles] = useState(SHARED_WITH_ME);
+    const ROOT_FOLDERS = [
+        { id: "admin", name: "Admin Files", description: "Internal operations & management corporate records" },
+        { id: "clients", name: "Client Vaults", description: "Customer documentation & project deliverables" },
+        { id: "you", name: "Personal Repo", description: "Personal repository & cloud configurations" }
+    ];
 
-
-    const [viewMode, setViewMode] = useState("list");
-    const [selectedFileType, setSelectedFileType] = useState("all");
+    const [fileSystem, setFileSystem] = useState(INITIAL_ITEMS);
+    const [currentPath, setCurrentPath] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
-
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedDoc, setSelectedDoc] = useState(null);
-
     const [selectedIds, setSelectedIds] = useState([]);
-    const [isShareOpen, setIsShareOpen] = useState(false);
+    
+    const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+    const [newFolderName, setNewFolderName] = useState("");
+    const [newFolderDesc, setNewFolderDesc] = useState("");
+    
+    const [uploadQueue, setUploadQueue] = useState(null);
+    const [uploadDescription, setUploadDescription] = useState("");
+    const fileInputRef = useRef(null);
 
-    const [activeTab, setActiveTab] = useState("myfiles"); // 'myfiles' or 'shared'
-    const [showMobileSearch, setShowMobileSearch] = useState(false);
+    const [shareTarget, setShareTarget] = useState(null);
+    const [selectedShareUsers, setSelectedShareUsers] = useState([]);
 
+    // New State for Transfer/Move Functionality
+    const [moveTarget, setMoveTarget] = useState(null);
+    const [selectedDestinationFolder, setSelectedDestinationFolder] = useState("");
 
-    // Close mobile search when switching tab (nice UX)
-    useEffect(() => {
-        setShowMobileSearch(false);
-    }, [activeTab]);
+    const currentFolderContextId = useMemo(() => {
+        if (currentPath.length === 0) return null;
+        return currentPath[currentPath.length - 1].id;
+    }, [currentPath]);
 
-    const sourceFiles = useMemo(
-        () => (activeTab === "myfiles" ? myFiles : sharedFiles),
-        [activeTab, myFiles, sharedFiles]
-    );
+    const isInsidePersonalRepo = useMemo(() => {
+        return currentPath.length > 0 && currentPath[0].id === "you";
+    }, [currentPath]);
 
-    const filteredFiles = useMemo(() => {
-        return sourceFiles.filter((file) => {
-            const matchesType =
-                selectedFileType === "all" || file.type === selectedFileType;
+    const canEditNames = CURRENT_USER_ROLE === "admin client" || isInsidePersonalRepo;
 
-            const matchesSearch = file.name
-                .toLowerCase()
-                .includes(searchQuery.toLowerCase());
-            return matchesType && matchesSearch;
+    const activeItems = useMemo(() => {
+        if (!currentFolderContextId) return [];
+        let items = fileSystem.filter(item => item.parentId === currentFolderContextId &&
+            item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        
+        return items.sort((a, b) => {
+            if (a.type === 'folder' && b.type !== 'folder') return -1;
+            if (a.type !== 'folder' && b.type === 'folder') return 1;
+            return a.name.localeCompare(b.name);
         });
-    }, [sourceFiles, selectedFileType, searchQuery]);
+    }, [fileSystem, currentFolderContextId, searchQuery]);
 
-    // const fileTypeStats = useMemo(() => {
-    //     const stats = {};
-    //     sourceFiles.forEach((file) => {
-    //         let normalizedType = file.type;
-    //         // Normalize excel types
-    //         if (file.type === "excel") {
-    //             normalizedType = "xlsx";
-    //         }
-    //         stats[normalizedType] = (stats[normalizedType] || 0) + 1;
-    //     });
-    //     return stats;
-    // }, [sourceFiles]);
+    // Available folders for transfer (excludes current folder and the item itself if it's a folder)
+    const availableFoldersForMove = useMemo(() => {
+        const customFolders = fileSystem.filter(f => f.type === 'folder' && f.id !== moveTarget?.id && f.id !== currentFolderContextId);
+        return [...ROOT_FOLDERS.filter(rf => rf.id !== currentFolderContextId), ...customFolders];
+    }, [fileSystem, moveTarget, currentFolderContextId]);
 
-    const openDocDetails = (doc) => {
-        setSelectedDoc(doc);
-        setIsModalOpen(true);
-    };
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === "Escape") {
+                setUploadQueue(null);
+                setShareTarget(null);
+                setMoveTarget(null);
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, []);
 
     const toggleSelect = (id) => {
-        setSelectedIds((prev) =>
-            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-        );
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     };
 
-    const clearSelection = () => setSelectedIds([]);
-
-    const handleFilesShare = () => {
-        if (selectedIds.length === 0) {
-            alert("Please select files to share");
-            return;
-        }
-        setIsShareOpen(true);
-    };
-
-    const handleFilesDownload = () => {
-        if (selectedIds.length === 0) {
-            alert("Please select files to download");
-            return;
-        }
-        alert(`Download files with IDs: ${selectedIds.join(", ")}`);
-    };
-
-    const handleFilesDelete = () => {
+    const handleBulkDelete = () => {
         if (selectedIds.length === 0) return;
+        if (window.confirm(`Permanently delete ${selectedIds.length} selected asset(s)?`)) {
+            setFileSystem(prev => prev.filter(item => !selectedIds.includes(item.id)));
+            setSelectedIds([]);
+        }
+    };
 
-        const confirmDelete = window.confirm(
-            `Delete ${selectedIds.length} selected file(s)?`
+    const handleCreateFolder = (e) => {
+        e.preventDefault();
+        if (!newFolderName.trim()) return;
+
+        const newFolderObj = {
+            id: `f-${Date.now()}`,
+            name: newFolderName.trim(),
+            type: "folder",
+            parentId: currentFolderContextId,
+            nepaliDate: "२०८३ असार ४", 
+            daysBefore: "Just now",
+            description: newFolderDesc.trim() || "No additional description provided."
+        };
+
+        setFileSystem(prev => [newFolderObj, ...prev]);
+        setNewFolderName("");
+        setNewFolderDesc("");
+        setIsCreatingFolder(false);
+    };
+
+    const handleFileSelect = (e) => {
+        const selectedFiles = e.target.files;
+        if (!selectedFiles || selectedFiles.length === 0) return;
+        setUploadQueue(Array.from(selectedFiles));
+        setUploadDescription("");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const confirmUpload = () => {
+        if (!uploadQueue) return;
+
+        const updatedArray = [...fileSystem];
+        uploadQueue.forEach(file => {
+            const extension = file.name.split('.').pop();
+            updatedArray.unshift({
+                id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                name: file.name,
+                type: "file",
+                fileType: extension,
+                size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+                parentId: currentFolderContextId,
+                nepaliDate: "२०८३ असार ४",
+                daysBefore: "Just now",
+                description: uploadDescription.trim() || "Uploaded document via secure interface."
+            });
+        });
+
+        setFileSystem(updatedArray);
+        setUploadQueue(null);
+        setUploadDescription("");
+    };
+
+    const handleReplaceFile = (id, file) => {
+        if (!file) return;
+        const extension = file.name.split('.').pop();
+        setFileSystem(prev => prev.map(item => item.id === id ? {
+            ...item,
+            name: file.name,
+            fileType: extension,
+            size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+            daysBefore: "Replaced just now",
+            nepaliDate: "२०८३ असार ४",
+            description: `Replaced container copy with local file: ${file.name}`
+        } : item));
+    };
+
+    const handleConfirmTransfer = () => {
+        if (!selectedDestinationFolder || !moveTarget) return;
+        setFileSystem(prev => prev.map(item => 
+            item.id === moveTarget.id ? { ...item, parentId: selectedDestinationFolder } : item
+        ));
+        setMoveTarget(null);
+        setSelectedDestinationFolder("");
+    };
+
+    const navigateIntoFolder = (id, name) => {
+        setCurrentPath(prev => [...prev, { id, name }]);
+        setSelectedIds([]);
+        setSearchQuery("");
+    };
+
+    const navigateToBreadcrumb = (index) => {
+        if (index === -1) setCurrentPath([]);
+        else setCurrentPath(prev => prev.slice(0, index + 1));
+        setSelectedIds([]);
+        setSearchQuery("");
+    };
+
+    const toggleShareUser = (userId) => {
+        setSelectedShareUsers(prev => 
+            prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
         );
-        if (!confirmDelete) return;
+    };
 
-        if (activeTab === "myfiles") {
-            setMyFiles((prev) => prev.filter((f) => !selectedIds.includes(f.id)));
-        }
-        else {
-            setSharedFiles((prev) => prev.filter((f) => !selectedIds.includes(f.id)));
-
-        }
-        clearSelection();
+    const confirmShare = () => {
+        alert(`Successfully shared "${shareTarget.name}" with ${selectedShareUsers.length} user(s).`);
+        setShareTarget(null);
     };
 
     return (
-        <div
-            className="flex h-fit px-2 bg-white text-slate-900 overflow-hidden flex-col"
-            style={{ fontFamily: "'Roboto Slab', serif", fontWeight: 600 }}
-        >
-            {/* Main Content */}
-            <header className="border-b border-slate-100 bg-white sticky top-0 z-20">
-                <div className=" flex flex-col gap-3 lg:gap-4">
-
-                    {/* Top Section: Logo, Tabs, and Action Row */}
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-                        {/* Left side: Logo & Tab Switcher */}
-                        <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 bg-amber-500 rounded-lg flex-shrink-0 flex items-center justify-center
-                                 text-white font-black text-xl shadow-sm">
-                                D
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1
-                                     bg-slate-50 p-1 rounded-xl border w-fit border-slate-100 overflow-x-auto no-scrollbar">
-                                    <button
-                                        onClick={() => setActiveTab("myfiles")}
-                                        className={`px-4 py-2 flex items-center gap-2
-                                                 rounded-lg text-xs cursor-pointer font-black  shrink-0 ${activeTab === "myfiles"
-                                                ? "bg-white shadow-sm text-amber-600 border border-slate-100"
-                                                : "text-slate-500 hover:text-slate-900"
-                                            }`}
-                                    >
-                                        <Files size={14} />
-                                        <span className="inline-block">  My Files</span>
-
-                                    </button>
-
-                                    <button
-                                        onClick={() => setActiveTab("shared")}
-                                        className={`px-4 py-2 rounded-lg cursor-pointer text-xs font-black  flex items-center gap-2 shrink-0 ${activeTab === "shared"
-                                            ? "bg-white shadow-sm text-amber-600 border border-slate-100"
-                                            : "text-slate-500 hover:text-slate-900"
-                                            }`}
-                                    >
-                                        <Users size={14} />
-                                        <span className="inline-block">Shared</span>
-                                    </button>
-
-                                </div>
-                            </div>
+        <div className="min-h-screen bg-white text-neutral-800 antialiased pb-20" style={fontLight}>
+            
+            {/* Header */}
+            <header className="sticky top-0 z-40 bg-white border-b border-neutral-200 px-6 py-4 shadow-sm">
+                <div className="max-w-7xl mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigateToBreadcrumb(-1)}>
+                        <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center text-lg shadow-inner" style={fontBold}>
+                            <HardDrive size={20} />
                         </div>
-
-                        {/* Right side: Action Cluster (Download, Share, Delete) */}
-                        <div className="flex items-center gap-2 overflow-x-auto pb-1 
-                        md:pb-0 no-scrollbar">
-
-                            {/* Selection Actions Group */}
-                            <div className="w-full flex items-center justify-start gap-5  pr-2 border-r border-slate-200 overflow-x-auto ">
-                                <button
-                                    onClick={handleFilesDownload}
-                                    className="flex items-center justify-center gap-2 shrink-0 rounded-lg bg-indigo-50 px-3 py-2.5 text-indigo-600 transition-colors hover:bg-indigo-100"
-                                    title="Download Selected"
-                                >
-                                    <Download size={18} />
-                                    <span className="text-xs font-bold whitespace-nowrap">
-                                        {selectedIds.length || 0}
-                                    </span>
-                                </button>
-
-                                <button
-                                    onClick={handleFilesShare}
-                                    className="flex items-center justify-center gap-2 shrink-0 rounded-lg bg-sky-50 px-3 py-2.5 text-sky-600 transition-colors hover:bg-sky-100"
-                                    title="Share Selected"
-                                >
-                                    <Share2 size={18} />
-                                    <span className="text-xs font-bold whitespace-nowrap">
-                                        {selectedIds.length || 0}
-                                    </span>
-                                </button>
-
-                                <button
-                                    onClick={handleFilesDelete}
-                                    className="flex items-center justify-center shrink-0 rounded-lg bg-red-50 p-2.5 text-red-500 transition-colors hover:bg-red-100"
-                                    title="Delete Selected"
-                                >
-                                    <Trash2Icon size={18} />
-                                </button>
-                            </div>
-
-
-                            {/* View Switcher (Hidden on smallest mobile, shown from sm up) */}
-                            <div className="hidden sm:flex items-center gap-1 p-1 bg-slate-100/50 rounded-lg ml-1 shrink-0">
-                                <button
-                                    onClick={() => setViewMode("grid")}
-                                    className={`p-1.5 rounded-md ${viewMode === "grid" ? "bg-white shadow-sm text-amber-600" : "text-slate-400"}`}
-                                >
-                                    <Grid size={16} />
-                                </button>
-                                <button
-                                    onClick={() => setViewMode("list")}
-                                    className={`p-1.5 rounded-md ${viewMode === "list" ? "bg-white shadow-sm text-amber-600" : "text-slate-400"}`}
-                                >
-                                    <List size={16} />
-                                </button>
-                            </div>
+                        <div>
+                            <h1 className="text-base text-neutral-900 tracking-tight" style={fontBold}>
+                                Central Storage
+                            </h1>
+                            <p className="text-[10px] text-neutral-500 uppercase tracking-widest">Asset Management</p>
                         </div>
                     </div>
 
-                    {/* Search Row */}
-                    <div className="relative group">
-                        <Search
-                            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors"
-                            size={18}
-                        />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search documents..."
-                            className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 text-sm outline-none transition-all font-medium"
-                        />
-
-                        {/* Mobile-only view toggle inside search bar */}
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 sm:hidden flex items-center">
-                            <button
-                                onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
-                                className="p-2 text-slate-400 bg-white/50 rounded-lg border border-slate-100"
-                            >
-                                {viewMode === "grid" ? <List size={18} /> : <Grid size={18} />}
-                            </button>
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <div className="relative flex-1 md:w-80">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500" size={15} />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search repository..."
+                                style={fontLight}
+                                className="w-full pl-9 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all placeholder:text-neutral-400"
+                            />
                         </div>
+
+                        <button
+                            onClick={handleBulkDelete}
+                            disabled={selectedIds.length === 0}
+                            className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm transition-all border shadow-sm ${
+                                selectedIds.length > 0 
+                                ? "bg-white text-orange-600 border-orange-200 hover:bg-orange-50 cursor-pointer" 
+                                : "bg-white text-neutral-300 border-neutral-100 cursor-not-allowed"
+                            }`}
+                            style={fontBold}
+                        >
+                            <Trash2Icon size={14} className={selectedIds.length > 0 ? "text-orange-500" : "text-neutral-300"} />
+                            <span className="hidden sm:inline">Delete</span>
+                            {selectedIds.length > 0 && (
+                                <span className="ml-1 bg-orange-100 text-orange-700 rounded-md text-[10px] px-1.5 py-0.5 flex items-center justify-center font-bold">
+                                    {selectedIds.length}
+                                </span>
+                            )}
+                        </button>
                     </div>
                 </div>
             </header>
-            <main className="flex-1 flex-col min-w-0 w-full">
-                {/* Top Header */}
-                {/* Browser Area */}
-                <div className="flex-1 overflow-y-auto py-0 w-full">
-                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 md:gap-8 mb-8">
-                        <div className="mt-4">
-                            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight tracking-wider uppercase">
-                                {activeTab === "myfiles" ? "My Files" : "Shared with Me"}
-                                <span className="text-orange-500">.</span>
-                            </h1>
-                            <div className="flex items-center gap-2 text-[10px] sm:text-xs font-black text-slate-400 mt-2 uppercase tracking-widest">
-                                <HardDrive size={12} />
-                                <span>Storage</span>
-                                <ChevronRight size={12} />
-                                <span className="text-slate-900">
-                                    {activeTab === "myfiles" ? "My Library" : "Shared"}
-                                </span>
-                                <span className="text-slate-900">
-                                    {activeTab === "sample" ? "Sample" : "Files"}
-                                </span>
-                            </div>
-                        </div>
 
-                        <div className="w-full md:w-auto">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    Filter:
-                                </span>
-                                <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 max-w-full">
-                                    {[
-                                        "all",
-                                        "pdf",
-                                        "word",
-                                        "xlsx",
-                                        "ppt",
-                                        "txt",
-                                        "image",
-                                        "video",
-                                        "audio",
-                                    ].map((type) => (
-                                        <button
-                                            key={type}
-                                            onClick={() => setSelectedFileType(type)}
-                                            className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${selectedFileType === type
-                                                ? "bg-amber-500 text-white border-amber-500 shadow-sm"
-                                                : "bg-white text-slate-500 border-slate-200 hover:border-amber-400"
-                                                }`}
-                                        >
-                                            {type}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-
-
-                    <div className=" flex flex-col justify-between w-full  gap-4 ">
-
-
-                        <div className=" flex lg:flex-row md:flex-row flex-col justify-between w-full h-[85vh] lg:gap-6 md:gap-6 gap-3">
-
-
-                            {/* Left - Sticky Charts */}
-                            <div className="flex flex-col gap-4">
-                                <div className="sticky top-1 flex flex-col gap-4">
-                                    <div className=" ">
-                                        <S_FileUpload_ />
-                                    </div>
-
-
-
-                                    <div className="bg-white rounded-sm border border-gray-200  flex flex-col gap-4 ">
-
-                                        <div className="flex items-center py-4 px-2 gap-3">
-                                            <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50">
-                                                <Files size={20} className="text-amber-500" />
-                                            </div>
-                                            <span className="text-sm font-semibold text-gray-800 tracking-tight">
-                                                Files Information
-                                            </span>
-                                        </div>
-
-
-                                        <div className="w-full h-px bg-gray-200" />
-
-
-                                        <div className="flex justify-center items-center">
-                                            <SemiDonut_ />
-                                        </div>
-                                    </div>
-                                    <div className="bg-white ">
-                                        <S_Logs_ />
-                                        {/*  */}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Right - Scrollable Content */}
-                            <div className=" flex  gap-0  flex-col ">
-                                <div className="  pr-1">
-                                    <FileDisplay
-                                        viewMode={viewMode}
-                                        filteredFiles={filteredFiles}
-                                        selectedDoc={selectedDoc}
-                                        selectedIds={selectedIds}
-                                        isModalOpen={isModalOpen}
-                                        onFileClick={openDocDetails}
-                                        onToggleSelect={toggleSelect}
-                                        activeTab={activeTab}
-                                    />
-                                </div>
-
-                                <div className="w-full px-2  py-4">
-
-                                    {/* Title */}
-                                    <div className="mb-4 sm:mb-6 flex items-center justify-between">
-                                        <h2 className="text-lg sm:text-xl underline underline-offset-2 md:text-2xl font-bold text-slate-800" style={{ fontFamily: "'Roboto Slab', serif", fontWeight: 600 }}>
-                                            School Videos
-                                        </h2>
-                                    </div>
-
-                                    {/* Grid */}
-                                    <div className="
-        grid 
-
-
-        
-        grid-cols-1 
-        sm:grid-cols-1 
-        lg:grid-cols-2 
-        xl:grid-cols-2
-        gap-4 sm:gap-5 md:gap-6
-    ">
-                                        {schoolVideos?.map((video, index) => (
-                                            <VideoPlayer
-                                                key={index}
-                                                title={video.title}
-                                                description={video.description}
-                                                uploadDate={video.uploadDate}
-                                                videoUrl={video.videoUrl}
-                                            />
-                                        ))}
-                                    </div>
-
-                                </div>
-                                <div>
-
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-
-                </div>
-
-                {/* Share Slider */}
-                {/* <Circular_ /> */}
-                {/* <Memo_/> */}
-            </main>
-            <ShareSlider
-                isOpen={isShareOpen}
-                onClose={() => setIsShareOpen(false)}
-                selectedFiles={selectedIds}
-            />
-
-            {/* Document Detail Modal */}
-            {isModalOpen && selectedDoc && (
-                <DocumentDetailModal
-                    doc={selectedDoc}
-                    onClose={() => setIsModalOpen(false)}
-                />
-            )}
-
-
-        </div>
-    );
-};
-
-const FileDisplay = ({
-    viewMode,
-    filteredFiles,
-    selectedDoc,
-    selectedIds,
-    isModalOpen,
-    onFileClick,
-    onToggleSelect,
-    activeTab,
-}) => {
-    if (viewMode === "list") {
-        return (
-            <div className="bg-white rounded-xl overflow-hidden shadow">
-                <div className="overflow-auto h-[85vh]">
-                    <table className=" w-full text-left border-collapse text-xs sm:text-sm">
-                        <thead className="sticky top-0 z-10">
-                            <tr className="border-b border-slate-100 bg-slate-800">
-                                <th className="px-3 sm:px-4 py-3 w-14 text-center text-white">Sel.</th>
-
-                                <th className="px-3 sm:px-4 py-3 text-[10px] font-black text-white uppercase tracking-[0.18em]">
-                                    Name
-                                </th>
-
-                                <th className="px-4 sm:px-6 py-3 text-[10px] font-black text-white uppercase tracking-[0.18em] hidden sm:table-cell">
-                                    {activeTab === "myfiles" ? "Contributor" : "Shared By"}
-                                </th>
-
-                                <th className="px-4 sm:px-6 py-3 text-[10px] font-black text-white uppercase tracking-[0.18em] hidden md:table-cell">
-                                    Activity
-                                </th>
-
-                                <th className="px-4 sm:px-6 py-3 text-[10px] font-black text-white uppercase tracking-[0.18em] hidden lg:table-cell">
-                                    Size
-                                </th>
-
-                                <th className="px-3 sm:px-4 py-3 text-right w-16"></th>
-                            </tr>
-                        </thead>
-
-                        <tbody className="divide-y divide-slate-100">
-                            {filteredFiles.map((file) => (
-                                <tr
-                                    key={file.id}
-                                    className={`hover:bg-amber-50/30 transition-all group ${selectedDoc?.id === file.id && isModalOpen ? "bg-amber-50/50" : ""
-                                        }`}
-                                >
-                                    <td className="px-3 sm:px-4 py-4 text-center">
-                                        <label className="inline-flex items-center justify-center relative">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedIds.includes(file.id)}
-                                                onChange={() => onToggleSelect(file.id)}
-                                                className="peer appearance-none w-5 h-5 rounded border-2 transition-all cursor-pointer bg-white border-amber-400 hover:border-amber-500 checked:bg-amber-500 checked:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2"
-                                            />
-                                            <Check
-                                                size={14}
-                                                className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none"
-                                            />
-                                        </label>
-                                    </td>
-
-                                    <td
-                                        className="px-3 sm:px-4 py-4 cursor-pointer"
-                                        onClick={() => onFileClick(file)}
-                                    >
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className="shrink-0">
-                                                <FileIcon type={file.type} />
-                                            </div>
-
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="font-black text-slate-900 truncate">
-                                                    {file.name}
-                                                </span>
-
-                                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                                    {file.starred && (
-                                                        <Star
-                                                            size={12}
-                                                            className="fill-amber-500 text-amber-500 shrink-0"
-                                                        />
-                                                    )}
-
-                                                    <span className="text-[10px] text-slate-400 uppercase font-black tracking-tight">
-                                                        {file.type}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    <td className="px-4 sm:px-6 py-4 text-slate-700 font-semibold hidden sm:table-cell">
-                                        {activeTab === "myfiles" ? file.owner : file.sharedBy || file.owner}
-                                    </td>
-
-                                    <td className="px-4 sm:px-6 py-4 text-slate-500 italic hidden md:table-cell">
-                                        {file.modified}
-                                    </td>
-
-                                    <td className="px-4 sm:px-6 py-4 text-slate-500 font-mono hidden lg:table-cell">
-                                        {file.size}
-                                    </td>
-
-                                    <td className="px-3 sm:px-4 py-4 text-right">
-                                        <button
-                                            className="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 bg-purple-50 rounded-full hover:bg-purple-100 transition"
-                                            onClick={() => alert(`Download: ${file.name}`)}
-                                            title="Download"
-                                            type="button"
-                                        >
-                                            <Download size={16} className="text-slate-500" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-
-                            {filteredFiles.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan="6"
-                                        className="py-16 text-center text-slate-400 font-black italic"
-                                    >
-                                        No matching documents found.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="px-4 py-3 border-t border-slate-100 text-[11px] text-slate-500 font-semibold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <span>
-                        Showing <span className="text-slate-900">{filteredFiles.length}</span> item(s)
-                    </span>
-                    <span>
-                        Selected <span className="text-slate-900">{selectedIds.length}</span>
-                    </span>
-                </div>
-            </div>
-        );
-    }
-
-    // Grid view
-    return (
-        <div className="overflow-auto h-[85vh]">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                {filteredFiles.map((file) => (
-                    <div
-                        key={file.id}
-                        className={`bg-white p-4 sm:p-5 rounded-2xl border transition-all group relative ${selectedDoc?.id === file.id && isModalOpen
-                            ? "border-amber-400 shadow-md bg-amber-50/10"
-                            : "border-slate-100 shadow-sm hover:border-amber-400 hover:shadow-md"
-                            }`}
+            {/* Main Area */}
+            <main className="max-w-7xl mx-auto px-6 py-8">
+                
+                {/* Breadcrumbs */}
+                <div className="flex flex-wrap items-center gap-2 mb-8 bg-white border border-neutral-200 px-5 py-3.5 rounded-xl shadow-sm" style={fontBold}>
+                    <button 
+                        onClick={() => navigateToBreadcrumb(-1)}
+                        className="flex items-center gap-1.5 text-neutral-500 hover:text-blue-600 transition-colors cursor-pointer"
                     >
-                        <div className="absolute top-3 left-3 z-10">
-                            <label className="inline-flex items-center justify-center relative">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedIds.includes(file.id)}
-                                    onChange={() => onToggleSelect(file.id)}
-                                    className="peer appearance-none w-5 h-5 rounded border-2 transition-all cursor-pointer bg-white border-amber-400 hover:border-amber-500 checked:bg-amber-500 checked:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-offset-2"
-                                />
-                                <Check
-                                    size={14}
-                                    className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none"
-                                />
-                            </label>
-                        </div>
+                        <HardDrive size={15} className="text-blue-500" />
+                        <span className="text-xs tracking-wide">Root Directory</span>
+                    </button>
+                    
+                    {currentPath.map((folder, index) => (
+                        <React.Fragment key={folder.id}>
+                            <ChevronRight size={14} className="text-neutral-300" />
+                            <button
+                                onClick={() => navigateToBreadcrumb(index)}
+                                className={`hover:text-blue-600 transition-colors cursor-pointer text-xs tracking-wide max-w-[160px] truncate ${
+                                    index === currentPath.length - 1 ? "text-neutral-900 font-semibold" : "text-neutral-500"
+                                }`}
+                            >
+                                {folder.name}
+                            </button>
+                        </React.Fragment>
+                    ))}
+                </div>
 
-                        <div onClick={() => onFileClick(file)} className="cursor-pointer">
-                            <div className="flex justify-between items-start mb-4 pt-2">
-                                <div className="p-3 bg-slate-50 rounded-xl group-hover:bg-amber-50 transition-colors ml-7">
-                                    <FileIcon type={file.type} />
+                {currentPath.length === 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                        {ROOT_FOLDERS.map((folder) => {
+                            const childCount = fileSystem.filter(i => i.parentId === folder.id).length;
+                            return (
+                                <div 
+                                    key={folder.id}
+                                    onClick={() => navigateIntoFolder(folder.id, folder.name)}
+                                    className="group bg-white border border-neutral-200 p-6 rounded-2xl hover:border-blue-300 hover:shadow-md transition-all cursor-pointer flex flex-col items-start text-left"
+                                >
+                                    <div className="w-14 h-14 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center transition-all group-hover:bg-amber-100 group-hover:scale-105">
+                                        <Folder size={24} />
+                                    </div>
+                                    <h3 className="text-base text-neutral-900 mt-5 transition-colors" style={fontBold}>
+                                        {folder.name}
+                                    </h3>
+                                    <p className="text-sm text-neutral-500 mt-2 leading-relaxed min-h-[40px]" style={fontLight}>
+                                        {folder.description}
+                                    </p>
+                                    <div className="mt-6 pt-4 border-t border-neutral-100 w-full flex justify-between items-center">
+                                        <span className="text-[11px] text-neutral-400 uppercase tracking-wider" style={fontBold}>Data Partition</span>
+                                        <span className="bg-neutral-50 border border-neutral-200 text-neutral-600 text-[11px] px-3 py-1 rounded-full font-medium tracking-wide">
+                                            {childCount} item{childCount !== 1 ? 's' : ''}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+                        
+                        {/* Control Panel */}
+                        <div className="lg:col-span-1 space-y-5">
+                            <div className="bg-white border border-neutral-200 rounded-2xl p-5 space-y-5 shadow-sm">
+                                <h3 className="text-[11px] tracking-widest text-neutral-400 uppercase" style={fontBold}>Operations</h3>
+                                
+                                <input type="file" ref={fileInputRef} onChange={handleFileSelect} multiple className="hidden" />
+
+                                <div 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="border-2 border-dashed border-neutral-200 hover:border-blue-400 hover:bg-blue-50/50 rounded-xl p-6 text-center cursor-pointer bg-neutral-50 transition-all group"
+                                >
+                                    <UploadCloud size={28} className="text-blue-500 mx-auto mb-3 group-hover:scale-110 transition-transform" />
+                                    <span className="block text-sm text-neutral-900" style={fontBold}>Upload Assets</span>
+                                    <span className="block text-xs text-neutral-400 mt-1" style={fontLight}>Drag & drop or browse</span>
                                 </div>
 
-                                {file.starred && (
-                                    <Star
-                                        size={16}
-                                        className="fill-amber-500 text-amber-500 opacity-90 shrink-0"
-                                    />
+                                {!isCreatingFolder ? (
+                                    <button
+                                        onClick={() => setIsCreatingFolder(true)}
+                                        className="w-full flex items-center justify-center gap-2 border border-neutral-200 bg-white hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 py-3 rounded-xl text-sm text-neutral-700 shadow-sm transition-all cursor-pointer"
+                                        style={fontBold}
+                                    >
+                                        <FolderPlus size={16} className="text-amber-500" />
+                                        Create Directory
+                                    </button>
+                                ) : (
+                                    <form onSubmit={handleCreateFolder} className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl space-y-4 relative shadow-inner">
+                                        <button type="button" onClick={() => setIsCreatingFolder(false)} className="absolute top-3 right-3 text-neutral-400 hover:text-neutral-600 cursor-pointer">
+                                            <X size={16} />
+                                        </button>
+                                        <h4 className="text-sm text-neutral-900" style={fontBold}>New Directory</h4>
+                                        <input 
+                                            type="text" required placeholder="Directory name..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
+                                            className="w-full border border-neutral-200 rounded-lg p-2.5 text-sm text-neutral-800 bg-white outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" style={fontBold}
+                                        />
+                                        <textarea 
+                                            placeholder="Provide description..." value={newFolderDesc} onChange={e => setNewFolderDesc(e.target.value)} rows={2}
+                                            className="w-full border border-neutral-200 rounded-lg p-2.5 text-sm text-neutral-800 bg-white outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 resize-none" style={fontLight}
+                                        />
+                                        <button type="submit" className="w-full bg-amber-500 text-white hover:bg-amber-600 rounded-lg py-2.5 text-sm shadow-sm transition-colors cursor-pointer" style={fontBold}>
+                                            Deploy Path
+                                        </button>
+                                    </form>
                                 )}
                             </div>
 
-                            <h3 className="font-black text-slate-900 text-sm sm:text-[15px] mb-1 leading-tight ml-7 truncate">
-                                {file.name}
-                            </h3>
+                            <button
+                                onClick={() => navigateToBreadcrumb(currentPath.length - 2)}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-white border border-neutral-200 rounded-xl text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 shadow-sm transition-all cursor-pointer"
+                                style={fontBold}
+                            >
+                                <ArrowLeft size={16} className="text-neutral-400" /> Navigate Up
+                            </button>
+                        </div>
 
-                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider ml-7 truncate">
-                                {activeTab === "myfiles" ? file.owner : file.sharedBy || file.owner}
-                            </p>
-
-                            <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-3 ml-7">
-                                <span className="text-[10px] font-black text-slate-400 uppercase whitespace-nowrap">
-                                    {file.size}
-                                </span>
-
-                                <span className="text-[10px] font-black text-orange-500 uppercase truncate text-right">
-                                    {file.modified}
-                                </span>
-                            </div>
+                        {/* File Logs */}
+                        <div className="lg:col-span-3 space-y-3">
+                            {activeItems.length === 0 ? (
+                                <div className="text-center py-20 bg-white border border-neutral-200 border-dashed rounded-2xl flex flex-col items-center justify-center p-6 shadow-sm">
+                                    <div className="w-20 h-20 bg-blue-50 text-blue-400 rounded-2xl flex items-center justify-center mb-5">
+                                        <FolderOpen size={40} />
+                                    </div>
+                                    <h3 className="text-base text-neutral-700" style={fontBold}>Empty Directory</h3>
+                                    <p className="text-sm text-neutral-400 mt-2 max-w-sm" style={fontLight}>
+                                        This path currently holds no localized assets. Upload files or create directories to populate.
+                                    </p>
+                                </div>
+                            ) : (
+                                activeItems.map((item) => (
+                                    <FileAccordionRow 
+                                        key={item.id} 
+                                        item={item} 
+                                        isSelected={selectedIds.includes(item.id)}
+                                        canEdit={canEditNames}
+                                        onSelect={() => toggleSelect(item.id)}
+                                        onOpenFolder={() => navigateIntoFolder(item.id, item.name)}
+                                        onEditTitle={(newName) => setFileSystem(prev => prev.map(i => i.id === item.id ? { ...i, name: newName } : i))}
+                                        onReplaceFile={(file) => handleReplaceFile(item.id, file)}
+                                        onShare={() => { setShareTarget(item); setSelectedShareUsers([]); }}
+                                        onMove={() => { setMoveTarget(item); setSelectedDestinationFolder(""); }}
+                                        onInlineDelete={() => {
+                                            if (window.confirm(`Permanently remove "${item.name}"?`)) {
+                                                setFileSystem(prev => prev.filter(i => i.id !== item.id));
+                                                setSelectedIds(prev => prev.filter(x => x !== item.id));
+                                            }
+                                        }}
+                                    />
+                                ))
+                            )}
                         </div>
                     </div>
-                ))}
-
-                {filteredFiles.length === 0 && (
-                    <div className="col-span-full py-16 text-center text-slate-400 font-black italic">
-                        No matching documents found.
-                    </div>
                 )}
-            </div>
-        </div>
-    );
-};
+            </main>
 
-const ShareSlider = ({ isOpen, onClose, selectedFiles }) => {
-    const [shareEmail, setShareEmail] = useState("");
-    const [permission, setPermission] = useState("view");
-
-    return (
-        <>
-            {/* Backdrop */}
-            {isOpen && (
-                <div
-                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-                    onClick={onClose}
-                />
-            )}
-
-            {/* Drawer */}
-            <div
-                className={`fixed right-0 top-0 h-full w-full sm:w-[420px] bg-white z-50 transform transition-transform duration-300 shadow-xl ${isOpen ? "translate-x-0" : "translate-x-full"
-                    }`}
-            >
-                <div className="h-full flex flex-col">
-                    <div className="p-5 sm:p-6 border-b border-slate-100">
-                        <div className="flex items-center justify-between">
-                            <h2 className="font-black text-lg uppercase tracking-tight flex items-center gap-2">
-                                <Share2 size={18} className="text-amber-500" />
-                                Share Files
-                            </h2>
-                            <button
-                                onClick={onClose}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                                type="button"
-                            >
+            {/* Transfer / Move Modal */}
+            {moveTarget && (
+                <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-6 py-5 border-b border-neutral-100 flex justify-between items-center bg-white">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-purple-50 text-purple-600 p-2 rounded-lg">
+                                    <MoveRight size={18} />
+                                </div>
+                                <h3 className="text-base text-neutral-900" style={fontBold}>Transfer Asset</h3>
+                            </div>
+                            <button onClick={() => setMoveTarget(null)} className="text-neutral-400 hover:text-neutral-700 bg-neutral-50 hover:bg-neutral-100 p-1.5 rounded-lg transition-colors">
                                 <X size={18} />
                             </button>
                         </div>
-                        <p className="text-xs text-slate-500 mt-1 font-semibold">
-                            Sharing <span className="text-slate-900">{selectedFiles.length}</span>{" "}
-                            file(s)
-                        </p>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-5 sm:p-6">
-                        <div className="space-y-6">
-                            {/* Share with people */}
-                            <div>
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">
-                                    Share with people
-                                </label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="email"
-                                        value={shareEmail}
-                                        onChange={(e) => setShareEmail(e.target.value)}
-                                        placeholder="Enter email address"
-                                        className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-semibold"
-                                    />
-                                    <button
-                                        className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-black hover:bg-amber-600 transition-colors"
-                                        onClick={() => alert(`Add: ${shareEmail || "(empty)"}`)}
-                                        type="button"
-                                    >
-                                        <UserPlus size={18} />
-                                    </button>
+                        <div className="p-6 space-y-5 bg-white">
+                            <p className="text-sm text-neutral-600" style={fontLight}>
+                                Select a destination directory for <span className="font-bold text-neutral-900">"{moveTarget.name}"</span>.
+                            </p>
+                            
+                            {availableFoldersForMove.length === 0 ? (
+                                <div className="text-center py-6 bg-neutral-50 rounded-lg border border-neutral-200 border-dashed">
+                                    <p className="text-sm text-neutral-500" style={fontLight}>No alternative directories available.</p>
                                 </div>
-                            </div>
-
-                            {/* Permission level */}
-                            <div>
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">
-                                    Permission
-                                </label>
-                                <select
-                                    value={permission}
-                                    onChange={(e) => setPermission(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-semibold"
-                                >
-                                    <option value="view">Can view</option>
-                                    <option value="edit">Can edit</option>
-                                    <option value="comment">Can comment</option>
-                                </select>
-                            </div>
-
-                            {/* Share link */}
-                            <div>
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">
-                                    Share link
-                                </label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value="https://dochub.com/share/abc123"
-                                        readOnly
-                                        className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold"
-                                    />
-                                    <button
-                                        className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-black hover:bg-slate-200 transition-colors"
-                                        onClick={() => navigator.clipboard?.writeText("https://dochub.com/share/abc123")}
-                                        type="button"
-                                        title="Copy link"
-                                    >
-                                        <Link2 size={18} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Shared with list */}
-                            <div>
-                                <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">
-                                    Already shared with
-                                </label>
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
-                                                <Mail size={14} className="text-purple-600" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-black truncate">
-                                                    sarah.j@company.com
-                                                </p>
-                                                <p className="text-xs text-slate-400 font-semibold">
-                                                    Can edit
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            className="text-slate-400 hover:text-red-500 p-1"
-                                            onClick={() => alert("Remove access")}
-                                            type="button"
+                            ) : (
+                                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                    {availableFoldersForMove.map((folder) => (
+                                        <label 
+                                            key={folder.id} 
+                                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                                                selectedDestinationFolder === folder.id 
+                                                ? "border-purple-500 bg-purple-50" 
+                                                : "border-neutral-200 bg-white hover:border-purple-300 hover:bg-neutral-50"
+                                            }`}
                                         >
-                                            <X size={14} />
-                                        </button>
-                                    </div>
+                                            <input 
+                                                type="radio"
+                                                name="destinationFolder"
+                                                value={folder.id}
+                                                checked={selectedDestinationFolder === folder.id}
+                                                onChange={(e) => setSelectedDestinationFolder(e.target.value)}
+                                                className="hidden"
+                                            />
+                                            <Folder size={18} className={selectedDestinationFolder === folder.id ? "text-purple-600" : "text-amber-500"} />
+                                            <span className={`text-sm ${selectedDestinationFolder === folder.id ? "text-purple-900 font-bold" : "text-neutral-700"}`} style={fontBold}>
+                                                {folder.name}
+                                            </span>
+                                        </label>
+                                    ))}
                                 </div>
+                            )}
+                        </div>
+                        <div className="px-6 py-4 bg-neutral-50 border-t border-neutral-100 flex justify-end gap-3">
+                            <button 
+                                onClick={() => setMoveTarget(null)}
+                                className="px-5 py-2.5 rounded-lg border border-neutral-200 bg-white text-sm text-neutral-600 hover:bg-neutral-100 shadow-sm transition-colors" style={fontBold}>
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleConfirmTransfer}
+                                disabled={!selectedDestinationFolder}
+                                className="px-5 py-2.5 rounded-lg text-sm bg-purple-600 text-white shadow-sm hover:bg-purple-700 disabled:bg-neutral-200 disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors" style={fontBold}>
+                                Confirm Transfer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* Upload Modal (Unchanged) */}
+            {uploadQueue && (
+                <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-6 py-5 border-b border-neutral-100 flex justify-between items-center bg-white">
+                            <h3 className="text-base text-neutral-900" style={fontBold}>
+                                Finalize Upload ({uploadQueue.length} items)
+                            </h3>
+                            <button onClick={() => setUploadQueue(null)} className="text-neutral-400 hover:text-neutral-700 bg-neutral-50 hover:bg-neutral-100 p-1.5 rounded-lg transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4 bg-white">
+                            <div className="max-h-28 overflow-y-auto space-y-1.5 bg-neutral-50 p-4 rounded-xl border border-neutral-100">
+                                {uploadQueue.map((f, i) => (
+                                    <div key={i} className="text-xs text-neutral-600 truncate" style={fontLight}>
+                                        • {f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[11px] text-neutral-700 font-bold uppercase tracking-widest" style={fontBold}>
+                                    Asset Description
+                                </label>
+                                <textarea
+                                    value={uploadDescription}
+                                    onChange={(e) => setUploadDescription(e.target.value)}
+                                    placeholder="Enter documentation context..."
+                                    className="w-full border border-neutral-200 rounded-xl p-3.5 text-sm text-neutral-800 bg-neutral-50 outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none h-28 transition-all"
+                                    style={fontLight}
+                                />
                             </div>
                         </div>
-                    </div>
-
-                    <div className="p-5 sm:p-6 border-t border-slate-100">
-                        <button
-                            className="w-full py-3 bg-amber-500 text-white rounded-lg font-black hover:bg-amber-600 transition-colors"
-                            onClick={() => alert(`Invitations sent (${permission})`)}
-                            type="button"
-                        >
-                            Send Invitations
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-};
-
-const DocumentDetailModal = ({ doc, onClose }) => {
-    return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom sm:zoom-in duration-200 max-h-[90dvh] flex flex-col">
-                <div className="bg-amber-500 p-4 sm:p-6 text-white relative flex-shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-lg transition-colors"
-                        aria-label="Close"
-                        type="button"
-                    >
-                        <X size={18} />
-                    </button>
-
-                    <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="p-2 sm:p-3 bg-white/20 rounded-lg sm:rounded-xl backdrop-blur-md flex-shrink-0">
-                            <FileIcon type={doc.type} />
-                        </div>
-
-                        <div className="min-w-0">
-                            <h2 className="text-base sm:text-xl font-black uppercase tracking-tight leading-tight truncate">
-                                {doc.name}
-                            </h2>
-                            <p className="text-[10px] font-black opacity-80 uppercase tracking-widest mt-1">
-                                ID: DOC-00{doc.id}
-                            </p>
+                        <div className="px-6 py-4 bg-neutral-50 border-t border-neutral-100 flex justify-end gap-3">
+                            <button 
+                                onClick={() => setUploadQueue(null)}
+                                className="px-5 py-2.5 rounded-lg border border-neutral-200 bg-white text-sm text-neutral-600 hover:bg-neutral-100 shadow-sm transition-colors" style={fontBold}>
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={confirmUpload}
+                                className="px-5 py-2.5 rounded-lg text-sm bg-blue-600 text-white shadow-sm hover:bg-blue-700 transition-colors" style={fontBold}>
+                                Confirm & Upload
+                            </button>
                         </div>
                     </div>
                 </div>
+            )}
 
-                <div className="p-4 sm:p-8 space-y-5 overflow-y-auto flex-1">
-                    <div className="grid grid-cols-2 gap-4 sm:gap-6">
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                {doc.sharedBy ? "Shared By" : "Contributor"}
-                            </p>
-                            <p className="text-sm font-black text-slate-900 truncate">
-                                {doc.sharedBy || doc.owner}
-                            </p>
+            {/* Share Modal (Unchanged) */}
+            {shareTarget && (
+                <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-6 py-5 border-b border-neutral-100 flex justify-between items-center bg-white">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-blue-50 text-blue-600 p-2 rounded-lg">
+                                    <Share2 size={18} />
+                                </div>
+                                <h3 className="text-base text-neutral-900" style={fontBold}>Share Asset</h3>
+                            </div>
+                            <button onClick={() => setShareTarget(null)} className="text-neutral-400 hover:text-neutral-700 bg-neutral-50 hover:bg-neutral-100 p-1.5 rounded-lg transition-colors">
+                                <X size={18} />
+                            </button>
                         </div>
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                Activity
+                        <div className="p-6 space-y-4 bg-white">
+                            <p className="text-sm text-neutral-600" style={fontLight}>
+                                Grant access to <span className="font-bold text-neutral-900">"{shareTarget.name}"</span>.
                             </p>
-                            <p className="text-sm font-black text-slate-900 truncate">
-                                {doc.modified}
-                            </p>
+                            <div className="border border-neutral-200 rounded-xl divide-y divide-neutral-100 max-h-56 overflow-y-auto">
+                                {DIRECTORY_USERS.map((user) => (
+                                    <label key={user.id} className="flex items-center gap-3 p-3.5 bg-white hover:bg-neutral-50 cursor-pointer transition-colors">
+                                        <input 
+                                            type="checkbox"
+                                            checked={selectedShareUsers.includes(user.id)}
+                                            onChange={() => toggleShareUser(user.id)}
+                                            className="w-4 h-4 text-blue-600 border-neutral-300 rounded focus:ring-blue-500 cursor-pointer accent-blue-600"
+                                        />
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs shadow-inner" style={fontBold}>
+                                                {user.name.charAt(0)}
+                                            </div>
+                                            <span className="text-sm text-neutral-700" style={fontBold}>{user.name}</span>
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
                         </div>
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                Size
-                            </p>
-                            <p className="text-sm font-black text-slate-900 font-mono">
-                                {doc.size}
-                            </p>
+                        <div className="px-6 py-4 bg-neutral-50 border-t border-neutral-100 flex justify-end gap-3">
+                            <button 
+                                onClick={() => setShareTarget(null)}
+                                className="px-5 py-2.5 rounded-lg border border-neutral-200 bg-white text-sm text-neutral-600 hover:bg-neutral-100 shadow-sm transition-colors" style={fontBold}>
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={confirmShare}
+                                disabled={selectedShareUsers.length === 0}
+                                className="px-5 py-2.5 rounded-lg text-sm bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:bg-neutral-200 disabled:text-neutral-400 disabled:cursor-not-allowed transition-colors" style={fontBold}>
+                                Grant Access
+                            </button>
                         </div>
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                Format
-                            </p>
-                            <p className="text-sm font-black text-orange-600 uppercase">
-                                {doc.type}
-                            </p>
-                        </div>
-                    </div>
-
-                    {doc.sharedDate && (
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                                Shared On
-                            </p>
-                            <p className="text-sm font-black text-slate-900 truncate">
-                                {doc.sharedDate}
-                            </p>
-                        </div>
-                    )}
-
-                    <div className="pt-4 border-t border-slate-100">
-                        <div className="flex items-center gap-2 mb-2 text-amber-600">
-                            <Info size={14} />
-                            <span className="text-[10px] font-black uppercase tracking-widest">
-                                Description
-                            </span>
-                        </div>
-                        <p className="text-xs text-slate-600 leading-relaxed italic font-semibold">
-                            “{doc.description}”
-                        </p>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
-                        <button
-                            className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl text-sm font-black shadow-md shadow-amber-100 transition-all flex items-center justify-center gap-2"
-                            onClick={() => alert(`Download: ${doc.name}`)}
-                            type="button"
-                        >
-                            <Download size={16} />
-                            <span>Download</span>
-                        </button>
-                        <button
-                            className="flex-1 bg-white border border-slate-200 text-slate-900 py-3 rounded-xl text-sm font-black hover:bg-slate-50 transition-all"
-                            onClick={() => alert("Edit action")}
-                            type="button"
-                        >
-                            Edit
-                        </button>
                     </div>
                 </div>
-            </div>
-
+            )}
         </div>
     );
 };
 
+const FileAccordionRow = ({ item, isSelected, canEdit, onSelect, onOpenFolder, onEditTitle, onReplaceFile, onShare, onMove, onInlineDelete }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [editedTitle, setEditedTitle] = useState(item.name);
+    const [isSavingTitle, setIsSavingTitle] = useState(false);
+
+    const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+    const [feedbackText, setFeedbackText] = useState("");
+    const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+    const inlineFileInputRef = useRef(null);
+    const isFolder = item.type === "folder";
+
+    const handleTitleSave = async () => {
+        if (!editedTitle.trim()) { setEditedTitle(item.name); setIsEditingTitle(false); return; }
+        if (editedTitle === item.name) { setIsEditingTitle(false); return; }
+        
+        setIsSavingTitle(true);
+        await new Promise(r => setTimeout(r, 400));
+        onEditTitle(editedTitle);
+        setIsSavingTitle(false);
+        setIsEditingTitle(false);
+    };
+
+    const triggerEditFlow = (e) => {
+        e.stopPropagation();
+        if (canEdit) {
+            setIsEditingTitle(true);
+        } else {
+            alert("Editing restricted. You must be an Admin Client or inside the Personal Repo to modify nomenclature.");
+        }
+    };
+
+    return (
+        <div className={`bg-white border rounded-2xl shadow-sm transition-all ${
+            isExpanded ? "border-blue-300 ring-4 ring-blue-50" : "border-neutral-200 hover:border-neutral-300 hover:shadow-md"
+        }`}>
+            <div className="flex items-center justify-between p-4 sm:p-5 gap-4 bg-white rounded-t-2xl">
+                
+                <div className="flex items-center justify-center relative shrink-0 z-10 cursor-pointer" onClick={onSelect}>
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        readOnly
+                        className="peer appearance-none w-5 h-5 rounded-md border-2 border-neutral-300 checked:bg-blue-600 checked:border-blue-600 cursor-pointer focus:outline-none transition-all"
+                    />
+                    <Check size={14} className="absolute text-white pointer-events-none opacity-0 peer-checked:opacity-100" strokeWidth={3} />
+                </div>
+
+                <div className="flex-1 flex items-center gap-4 min-w-0">
+                    <StyledIcon type={item.fileType} isFolder={isFolder} />
+
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                            {isSavingTitle ? (
+                                <span className="flex items-center gap-1.5 text-xs text-neutral-400" style={fontLight}>
+                                    <Loader2 size={12} className="animate-spin text-blue-500" /> Updating...
+                                </span>
+                            ) : isEditingTitle ? (
+                                <input
+                                    autoFocus
+                                    value={editedTitle}
+                                    onChange={e => setEditedTitle(e.target.value)}
+                                    onBlur={handleTitleSave}
+                                    onKeyDown={e => e.key === 'Enter' && handleTitleSave()}
+                                    className="border-b-2 border-blue-500 outline-none text-sm text-neutral-900 w-full bg-neutral-50 px-2 py-1 rounded-sm"
+                                    style={fontBold}
+                                />
+                            ) : (
+                                <span 
+                                    onDoubleClick={triggerEditFlow}
+                                    className="text-sm sm:text-base text-neutral-800 truncate cursor-text hover:text-blue-600 transition-colors"
+                                    style={fontBold}
+                                    title={canEdit ? "Double-click to modify" : "Read-only access"}
+                                >
+                                    {item.name}
+                                </span>
+                            )}
+                        </div>
+                        
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-neutral-500" style={fontLight}>
+                            <span className="uppercase text-[10px] tracking-widest font-bold text-neutral-400">
+                                {isFolder ? "Directory" : item.fileType}
+                            </span>
+                            {!isFolder && <span className="text-neutral-300">•</span>}
+                            {!isFolder && <span>{item.size}</span>}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {isFolder ? (
+                        <button 
+                            onClick={onOpenFolder}
+                            className="px-4 py-2 sm:px-5 sm:py-2.5 text-amber-700 bg-amber-50 border border-amber-100 hover:bg-amber-100 hover:border-amber-300 rounded-lg text-xs transition-all cursor-pointer shadow-sm"
+                            style={fontBold}
+                        >
+                            Open
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className={`p-2 sm:p-2.5 text-neutral-500 border hover:text-neutral-800 bg-white hover:bg-neutral-50 rounded-lg cursor-pointer transition-all duration-200 ${
+                                isExpanded ? "border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100" : "border-neutral-200"
+                            }`}
+                        >
+                            <ChevronDown size={18} className={`transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Expanded Document Details & Actions */}
+            {!isFolder && isExpanded && (
+                <div className="bg-neutral-50 border-t border-neutral-100 p-5 sm:p-6 space-y-6 rounded-b-2xl">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="md:col-span-2 space-y-2">
+                            <h4 className="text-[11px] uppercase tracking-widest text-neutral-400" style={fontBold}>Metadata</h4>
+                            <p className="text-sm text-neutral-700 leading-relaxed p-4 rounded-xl bg-white border border-neutral-200 shadow-sm" style={fontLight}>
+                                {item.description}
+                            </p>
+                        </div>
+                        
+                        <div className="space-y-4 bg-white p-5 rounded-xl border border-neutral-200 text-xs text-neutral-600 shadow-sm" style={fontLight}>
+                            <div className="flex justify-between items-center">
+                                <span>Ingestion Date:</span>
+                                <span className="text-neutral-900" style={fontBold}>{item.nepaliDate}</span>
+                            </div>
+                            <div className="border-t border-neutral-100" />
+                            <div className="flex justify-between items-center">
+                                <span>Lifecycle:</span>
+                                <span className="text-neutral-900" style={fontBold}>{item.daysBefore}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="pt-5 border-t border-neutral-200 flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center flex-wrap gap-3 w-full sm:w-auto">
+                            <button
+                                onClick={() => alert(`Initiating download: ${item.name}`)}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 rounded-xl text-sm transition-all cursor-pointer shadow-sm"
+                                style={fontBold}
+                            >
+                                <div className="bg-blue-50 text-blue-600 p-1.5 rounded-md"><Download size={14} /></div> Download
+                            </button>
+                            
+                            <button
+                                onClick={onShare}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 rounded-xl text-sm transition-all cursor-pointer shadow-sm"
+                                style={fontBold}
+                            >
+                                <div className="bg-amber-50 text-amber-600 p-1.5 rounded-md"><Share2 size={14} /></div> Share
+                            </button>
+                            
+                            {/* New Transfer Action Button */}
+                            <button
+                                onClick={onMove}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 rounded-xl text-sm transition-all cursor-pointer shadow-sm"
+                                style={fontBold}
+                            >
+                                <div className="bg-purple-50 text-purple-600 p-1.5 rounded-md"><MoveRight size={14} /></div> Transfer
+                            </button>
+
+                            <button
+                                onClick={() => setIsFeedbackOpen(!isFeedbackOpen)}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 rounded-xl text-sm transition-all cursor-pointer shadow-sm"
+                                style={fontBold}
+                            >
+                                <div className="bg-blue-50 text-blue-600 p-1.5 rounded-md"><MessageSquare size={14} /></div> Note
+                            </button>
+
+                            <input 
+                                type="file" 
+                                ref={inlineFileInputRef} 
+                                className="hidden" 
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) onReplaceFile(file);
+                                }}
+                            />
+                            <button
+                                onClick={() => inlineFileInputRef.current?.click()}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 rounded-xl text-sm transition-all cursor-pointer shadow-sm"
+                                style={fontBold}
+                            >
+                                <div className="bg-orange-50 text-orange-600 p-1.5 rounded-md"><RefreshCw size={14} /></div> Replace
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={onInlineDelete}
+                            className="px-5 py-2.5 text-orange-600 bg-white border border-transparent hover:border-orange-200 hover:bg-orange-50 rounded-xl text-sm transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                            style={fontBold}
+                        >
+                            <Trash2Icon size={16} /> Revoke
+                        </button>
+                    </div>
+
+                    {/* Feedback Box (Unchanged) */}
+                    {isFeedbackOpen && (
+                        <div className="p-5 bg-white border border-neutral-200 rounded-xl space-y-4 mt-2 shadow-sm">
+                            <h4 className="text-xs text-neutral-800 uppercase tracking-widest" style={fontBold}>Add Notation</h4>
+                            <textarea
+                                value={feedbackText}
+                                onChange={e => setFeedbackText(e.target.value)}
+                                placeholder="Type remarks here..."
+                                className="w-full border border-neutral-200 rounded-xl p-3.5 text-sm text-neutral-800 bg-neutral-50 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none transition-all"
+                                rows={2}
+                                style={fontLight}
+                                disabled={isSubmittingFeedback}
+                            />
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={async () => {
+                                        if (!feedbackText.trim()) return;
+                                        setIsSubmittingFeedback(true);
+                                        await new Promise(r => setTimeout(r, 600));
+                                        setIsSubmittingFeedback(false); setIsFeedbackOpen(false); setFeedbackText("");
+                                    }}
+                                    disabled={isSubmittingFeedback || !feedbackText.trim()}
+                                    className="bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:bg-neutral-200 disabled:text-neutral-400 disabled:border-transparent px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2 cursor-pointer"
+                                    style={fontBold}
+                                >
+                                    {isSubmittingFeedback ? (
+                                        <><Loader2 size={16} className="animate-spin" /> Saving...</>
+                                    ) : "Save Note"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};

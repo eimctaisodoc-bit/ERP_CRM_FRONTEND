@@ -9,6 +9,8 @@ import {
   AlertTriangle,
   CalendarDays,
   Save,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import React, { useState } from "react";
 
@@ -165,6 +167,12 @@ export const SchedulingForms = () => {
     },
   };
 
+
+  const [expandedRowId, setExpandedRowId] = useState(null);
+
+  const toggleRow = (id) => {
+    setExpandedRowId((prev) => (prev === id ? null : id));
+  };
   const getToday = () => new Date().toISOString().split("T")[0];
 
   const handleSelectPerson = (id) => {
@@ -485,11 +493,12 @@ export const SchedulingForms = () => {
                   <th className="border-b border-slate-100 px-3 py-3 font-semibold">
                     Conflict
                   </th>
-
-                  <th colSpan={2} className="border-b border-slate-100 px-3 py-3 text-center font-semibold">
+                  <th
+                    colSpan={2}
+                    className="border-b border-slate-100 px-3 py-3 text-center font-semibold"
+                  >
                     Action
                   </th>
-
                 </tr>
               </thead>
 
@@ -501,7 +510,6 @@ export const SchedulingForms = () => {
                         <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-slate-50">
                           <CalendarDays size={22} className="text-slate-400" />
                         </div>
-
                         <div>
                           <h5 className="text-sm font-semibold text-slate-600">
                             No Data Available
@@ -516,99 +524,200 @@ export const SchedulingForms = () => {
                 ) : (
                   selectedPersonDetails.map((item) => {
                     const person = item.person;
-                    const theme = colorClasses[person.color];
+                    const theme = colorClasses[person.color] || { ring: 'ring-slate-200' };
                     const conflict = getConflictLabel(item);
                     const ConflictIcon = conflict.icon;
+                    const isExpanded = expandedRowId === item.id;
 
                     return (
-                      <tr
-                        key={item.id}
-                        className="group border-b border-slate-100 transition hover:bg-slate-50/70"
-                      >
-                        {/* Name */}
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-2">
-                            <img
-                              src={person.image}
-                              alt={person.name}
-                              className={`h-9 w-9 rounded-full border-2 border-white object-cover ring-2 ${theme.ring}`}
-                            />
-
-                            <div className="min-w-0">
-                              <h5 className="truncate text-sm font-semibold text-slate-700">
-                                {person.name}
-                              </h5>
-                              <p className="truncate text-xs text-slate-400">
-                                {person.role}
-                              </p>
+                      <React.Fragment key={item.id}>
+                        {/* MAIN ROW */}
+                        <tr
+                          onClick={() => toggleRow(item.id)}
+                          className={`group cursor-pointer border-b border-slate-100 transition hover:bg-slate-50/70 ${isExpanded ? 'bg-slate-50' : ''
+                            }`}
+                        >
+                          {/* Name & Chevron */}
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-3">
+                              <button className="text-slate-400 hover:text-slate-600">
+                                {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                              </button>
+                              <img
+                                src={person.image}
+                                alt={person.name}
+                                className={`h-9 w-9 rounded-full border-2 border-white object-cover ring-2 ${theme.ring}`}
+                              />
+                              <div className="min-w-0">
+                                <h5 className="truncate text-sm font-semibold text-slate-700">
+                                  {person.name}
+                                </h5>
+                                <p className="truncate text-xs text-slate-400">
+                                  {person.role}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* From Date - To Date */}
-                        <td className="px-3 py-3">
-                          <div className="grid grid-cols-2 gap-2">
-                            <input
-                              type="datetime-local"
-                              value={item.fromDate}
-                              onChange={(e) =>
-                                handleInlineDateChange(
-                                  item.id,
-                                  "fromDate",
-                                  e.target.value
-                                )
-                              }
-                              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-600 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                            />
+                          {/* From Date - To Date */}
+                          <td className="px-3 py-3">
+                            <div className="grid grid-cols-2 gap-2" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="datetime-local"
+                                value={item.fromDate}
+                                onChange={(e) =>
+                                  handleInlineDateChange(item.id, 'fromDate', e.target.value)
+                                }
+                                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-600 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                              />
+                              <input
+                                type="datetime-local"
+                                value={item.toDate}
+                                onChange={(e) =>
+                                  handleInlineDateChange(item.id, 'toDate', e.target.value)
+                                }
+                                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-600 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                              />
+                            </div>
+                          </td>
 
-                            <input
-                              type="datetime-local"
-                              value={item.toDate}
-                              onChange={(e) =>
-                                handleInlineDateChange(
-                                  item.id,
-                                  "toDate",
-                                  e.target.value
-                                )
-                              }
-                              className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-600 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                            />
-                          </div>
-                        </td>
+                          {/* Conflict */}
+                          <td className="px-3 py-3">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${conflict.className}`}
+                            >
+                              <ConflictIcon size={13} />
+                              {conflict.label}
+                            </span>
+                          </td>
 
-                        {/* Conflict */}
-                        <td className="px-3 py-3">
-                          <span
-                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${conflict.className}`}
-                          >
-                            <ConflictIcon size={13} />
-                            {conflict.label}
-                          </span>
-                        </td>
+                          {/* Actions */}
+                          <td className="px-3 py-3 text-center w-12" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSelectedPerson(item.id)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-500 transition hover:border-red-200 hover:bg-red-100"
+                              title="Delete Person"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                          <td className="px-3 py-3 text-center w-12" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => { /* Quick save logic */ }}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-500 transition hover:border-emerald-200 hover:bg-emerald-100"
+                              title="Quick Save"
+                            >
+                              <Save size={16} />
+                            </button>
+                          </td>
+                        </tr>
 
-                        {/* Date */}
+                        {/* EXPANDED ROW (CRUD SCHEDULING DETAILS) */}
+                        {isExpanded && (
+                          <tr className="bg-slate-50/50 border-b border-slate-200">
+                            <td colSpan={5} className="px-6 py-4">
+                              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                                <h4 className="mb-4 text-sm font-bold text-slate-700 border-b border-slate-100 pb-2">
+                                  Detailed Scheduling: {person.name}
+                                </h4>
 
+                                <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-                        {/* Delete */}
-                        <td className="px-3 py-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSelectedPerson(item.id)}
-                            className="inline-flex h-9 cursor-pointer w-9 items-center justify-center rounded-lg border border-red-100 bg-red-50 text-red-500 transition hover:border-red-200 hover:bg-red-100"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => { }}
-                            className="inline-flex h-9  cursor-pointer w-9 items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-500 transition hover:border-emerald-200 hover:bg-emerald-100"
-                          >
-                            <Save size={16} />
-                          </button>
-                        </td>
-                      </tr>
+                                  {/* Role */}
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-slate-500">Role</label>
+                                    <input
+                                      type="text"
+                                      defaultValue={person.role}
+                                      className="h-9 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                                    />
+                                  </div>
+
+                                  {/* Services */}
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-slate-500">Services</label>
+                                    <input
+                                      type="text"
+                                      placeholder="e.g. Initial Consultation"
+                                      className="h-9 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                                    />
+                                  </div>
+
+                                  {/* Team Admin */}
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-slate-500">Team Admin</label>
+                                    <input
+                                      type="text"
+                                      placeholder="Assign Admin"
+                                      className="h-9 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                                    />
+                                  </div>
+
+                                  {/* Clients */}
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-slate-500">Clients</label>
+                                    <input
+                                      type="text"
+                                      placeholder="Select or type clients"
+                                      className="h-9 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                                    />
+                                  </div>
+
+                                  {/* From Date - To Date (Expanded View Mirror) */}
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-slate-500">Schedule Window</label>
+                                    <div className="flex gap-2">
+                                      <input
+                                        type="datetime-local"
+                                        value={item.fromDate}
+                                        onChange={(e) => handleInlineDateChange(item.id, 'fromDate', e.target.value)}
+                                        className="h-9 w-full rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                                      />
+                                      <span className="flex items-center text-slate-400">-</span>
+                                      <input
+                                        type="datetime-local"
+                                        value={item.toDate}
+                                        onChange={(e) => handleInlineDateChange(item.id, 'toDate', e.target.value)}
+                                        className="h-9 w-full rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Notes */}
+                                  <div className="flex flex-col gap-1 lg:col-span-3">
+                                    <label className="text-xs font-semibold text-slate-500">Scheduling Notes</label>
+                                    <textarea
+                                      rows={2}
+                                      placeholder="Add specific requirements or notes here..."
+                                      className="w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 resize-none"
+                                    />
+                                  </div>
+
+                                  {/* CRUD Actions */}
+                                  <div className="flex items-center justify-end gap-2 lg:col-span-3 pt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleRow(item.id)}
+                                      className="h-9 rounded-lg px-4 text-sm font-medium text-slate-500 hover:bg-slate-100 transition"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { /* Implement Save Logic */ }}
+                                      className="h-9 rounded-lg bg-blue-600 px-6 text-sm font-medium text-white hover:bg-blue-700 transition"
+                                    >
+                                      Save Schedule
+                                    </button>
+                                  </div>
+                                </form>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })
                 )}

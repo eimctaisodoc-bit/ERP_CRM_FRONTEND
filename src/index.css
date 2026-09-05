@@ -1,12 +1,16 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&family=Tagesschrift&display=swap');
+
 @import "tailwindcss";
 
-/* for emp-mgt_client.jsx and leave_mgt_client.jsx */
-/* Custom Scrollbar Styling */
-/* Hide scrollbar for Chrome, Safari and Opera */
+
 body::-webkit-scrollbar {
   width: 0px;
   background: transparent;
   display: none;
+}
+body {
+  font-family: 'Roboto Slab', serif;
 }
 .custom-scrollbar::-webkit-scrollbar {
   width: 0px;
@@ -27,6 +31,28 @@ input:focus {
   box-shadow: none;
 }
 
+
+/* Nepali Datepicker faded UI fix */
+.nepali-date-picker,
+.nepali-date-picker *,
+.date-picker,
+.date-picker * {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.nepali-date-picker,
+.date-picker {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  z-index: 99999 !important;
+}
+
+.nepali-date-picker input,
+.date-picker input {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
 
 /* From Uiverse.io by elijahgummer */
 .sales_btn {

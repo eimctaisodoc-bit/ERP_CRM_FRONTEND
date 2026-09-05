@@ -131,8 +131,8 @@ export const Personal = () => {
     };
 
     return (
-        <div className="min-h-screen bg-white p-4 md:p-6">
-            <div className="max-w-7xl mx-auto">
+        <div className="w-full bg-slate-50/40 p-3 sm:p-5 lg:p-6">
+            <div className="mx-auto w-full max-w-7xl">
                 {/* Header with Profile Summary */}
                 <div className="relative mb-8 overflow-hidden rounded-2xl bg-white border border-orange-500 shadow">
                     <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-amber-500/5 to-transparent rounded-full -translate-x-16 -translate-y-16"></div>
