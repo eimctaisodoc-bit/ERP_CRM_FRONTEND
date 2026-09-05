@@ -9,7 +9,7 @@ const GoogleDriveFiles = () => {
   const [googleAuthRequired, setGoogleAuthRequired] = useState(false);
 
   const startGoogleOAuth = () => {
-    window.location.href = "http://localhost:5000/api/auth/google";
+    window.location.href = "https://erp-crm-backend-amber.vercel.app/api/auth/google";
   };
 
   const formatFileSize = (size) => {
@@ -29,7 +29,7 @@ const GoogleDriveFiles = () => {
       }
 
       const response = await axios.get(
-        "http://localhost:5000/api/auth/list-files",
+        "https://erp-crm-backend-amber.vercel.app/api/auth/list-files",
         {
           headers: {
             Authorization: `Bearer ${token}`,
