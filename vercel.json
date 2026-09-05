@@ -9,6 +9,10 @@
   ],
   "routes": [
     { "handle": "filesystem" },
+    { 
+      "src": "/api/(.*)", 
+      "dest": "https://erp-crm-backend-4snq50gfo-eimctaisodoc-bits-projects.vercel.app/$1" 
+    },
     { "src": "/(.*)", "dest": "/" }
   ]
 }
