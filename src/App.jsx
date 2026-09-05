@@ -15,7 +15,7 @@ import Admin_Report from './component/admin/report/report';
 import { SalesPipeline } from './component/staff/salespipeline/sales';
 import { RecruitmentTable } from './component/admin/admin_hr/admin_hR_/recruTable';
 import Admin_Hr_Page from './component/admin/hrPage';
-import Staff_hr_pages from './component/staff/Staff_hr_pages';
+import Staff_hr_pages from './component/staff/staff_hr_pages';
 import { Admin_task_page } from './component/admin/task/admin_task_page';
 import MyCalendar from './component/calendara';
 import { Staff_task_page } from './component/staff/task/staff_task_page';
