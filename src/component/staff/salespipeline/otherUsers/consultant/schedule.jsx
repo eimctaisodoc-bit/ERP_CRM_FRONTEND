@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 
 // Assuming these utilities exist in your project
-import { getBsDisplayData, getMonthDays } from "../calendar";
+import { getBsDisplayData, getMonthDays } from "../../calendar";
 
 // ─── Typography & Theming Constants ───────────────────────────────────────────
 const fontLight = { fontFamily: "'Roboto Slab', serif", fontWeight: 300 };
@@ -190,23 +190,6 @@ export const Schedule = () => {
         return map;
     }, [activities]);
 
-    // Stats Computation
-    const stats = useMemo(() => {
-        const total = activities.length;
-        const completed = activities.filter(a => a.status === "Completed").length;
-        const inProgress = activities.filter(a => a.status === "In Progress").length;
-        const upcoming = activities.filter(a => a.status === "Upcoming").length;
-        const clients = new Set(activities.map(a => a.client)).size;
-        const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
-        return [
-            { icon: <BookOpen className="w-5 h-5 text-blue-600" />, label: "Total Audits", value: total, pct: 100, color: "text-slate-900", bar: "bg-blue-500", sub: "All Schedules" },
-            { icon: <CheckCircle2 className="w-5 h-5 text-emerald-600" />, label: "Completed", value: completed, pct: pct(completed), color: "text-emerald-700", bar: "bg-emerald-500", sub: "Verified Compliance" },
-            { icon: <RefreshCw className="w-4 h-4 text-amber-600" />, label: "In Progress", value: inProgress, pct: pct(inProgress), color: "text-amber-700", bar: "bg-amber-500", sub: "Ongoing Audits" },
-            { icon: <Clock className="w-5 h-5 text-orange-600" />, label: "Upcoming", value: upcoming, pct: pct(upcoming), color: "text-orange-700", bar: "bg-orange-500", sub: "Scheduled Pipeline" },
-            { icon: <GraduationCap className="w-5 h-5 text-slate-600" />, label: "Institutions", value: clients, pct: 92, color: "text-slate-800", bar: "bg-slate-500", sub: "Affiliated Colleges" },
-        ];
-    }, [activities]);
-
     // Drawer Filtering
     const filteredActivities = useMemo(() => {
         if (!drawerDay) return [];
@@ -287,12 +270,12 @@ export const Schedule = () => {
     const currentMonthLabel = months.find(m => m.monthIndex === selectedMonth)?.label ?? "";
 
     return (
-        <div className="w-full bg-white text-slate-800 antialiased pb-16 " style={fontLight}>
-            <main className="w-full ">
+        <div className="w-full bg-slate-50/50 text-slate-800 antialiased pb-16" style={fontLight}>
+            <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-6">
                 <div className="flex flex-col gap-6">
 
                     {/* ── CALENDAR SECTION ────────────────────────────────────── */}
-                    <section className=" rounded-2xl shadow-sm border border-slate-200 p-5 md:p-6 overflow-hidden">
+                    <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 md:p-6 overflow-hidden">
                         
                         {/* Controls */}
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -332,7 +315,7 @@ export const Schedule = () => {
 
                         <div className="grid grid-cols-7 gap-2">
                             {calendarGrid.map((cell) => {
-                                if (cell._blank) return <div key={cell.key} className="min-h-[100px] rounded-xl bg-slate-50/50 border border-transparent" aria-hidden="true" />;
+                                if (cell._blank) return <div key={cell.key} className="min-h-[110px] rounded-xl bg-slate-50/50 border border-transparent" aria-hidden="true" />;
 
                                 const formattedMonth = String(selectedMonth + 1).padStart(2, '0');
                                 const formattedDay = String(cell.date).padStart(2, '0');
@@ -352,8 +335,8 @@ export const Schedule = () => {
                                         tabIndex={isHoliday ? -1 : 0}
                                         onClick={() => !isHoliday && handleSelectDay(cell.date)}
                                         className={`
-                                            min-h-[100px] flex flex-col rounded-xl p-2.5 transition-all relative overflow-hidden group border
-                                            ${isHoliday ? "bg-red-50/20 border-red-400 cursor-not-allowed opacity-80" : 
+                                            min-h-[110px] flex flex-col rounded-xl p-2.5 transition-all relative overflow-hidden group border
+                                            ${isHoliday ? "bg-red-50/20 border-red-300 cursor-not-allowed opacity-80" : 
                                               isSelected ? "bg-blue-50/40 border-blue-400 shadow-md z-10 cursor-pointer" : 
                                               "bg-white border-slate-200 hover:border-blue-300 hover:shadow-sm cursor-pointer"}
                                             ${isToday && !isSelected && !isHoliday ? "ring-2 ring-amber-400 ring-offset-2" : ""}
@@ -424,25 +407,6 @@ export const Schedule = () => {
                         </div>
                     </section>
 
-                    {/* ── STATS GRID ───────────────────────────────────────────── */}
-                    <section className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                        {stats.map(s => (
-                            <div key={s.label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-3 transition-transform hover:-translate-y-1">
-                                <div className="flex items-center justify-between">
-                                    <span className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 shadow-sm">{s.icon}</span>
-                                    {s.label !== "Total Audits" && <span style={fontBold} className="text-[11px] text-slate-400">{s.pct}%</span>}
-                                </div>
-                                <div>
-                                    <p style={fontBold} className="text-[10px] text-slate-400 uppercase tracking-widest">{s.label}</p>
-                                    <p style={fontBold} className={`text-2xl mt-1 ${s.color}`}>{s.value}</p>
-                                </div>
-                                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                    <div className={`h-full rounded-full transition-all duration-1000 ${s.bar}`} style={{ width: `${s.pct}%` }} />
-                                </div>
-                            </div>
-                        ))}
-                    </section>
-
                     {/* ── FOLLOW-UP LEDGER ─────────────────────────────────────── */}
                     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 overflow-hidden">
                         <div className="flex items-center justify-between mb-5 border-b border-slate-100 pb-4">
@@ -506,7 +470,7 @@ export const Schedule = () => {
 
                 <aside
                     onClick={(e) => e.stopPropagation()}
-                    className={`absolute top-0 right-0 h-full w-full bg-slate-50 shadow-2xl flex flex-col transition-transform duration-500 ease-in-out border-l border-slate-200 ${isDrawerOpen ? "translate-x-0" : "translate-x-full"}`}
+                    className={`absolute top-0 right-0 h-full w-full sm:max-w-md bg-slate-50 shadow-2xl flex flex-col transition-transform duration-500 ease-in-out border-l border-slate-200 ${isDrawerOpen ? "translate-x-0" : "translate-x-full"}`}
                 >
                     {/* Header */}
                     <div className="bg-white border-b border-slate-200 p-6">
@@ -799,7 +763,7 @@ const JobCardFormModal = ({ isOpen, onClose, act, onSubmit }) => {
     const canSave = form.jobCardNo.trim() && form.assignedTo.trim();
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4" style={fontLight}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white backdrop-blur-sm p-4" style={fontLight}>
             <form onSubmit={handleSubmit} className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
                 <div className="flex items-center justify-between border-b border-slate-100 p-5 bg-slate-50">
                     <div className="flex items-center gap-3">

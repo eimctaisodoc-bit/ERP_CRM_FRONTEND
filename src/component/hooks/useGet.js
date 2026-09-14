@@ -13,7 +13,8 @@ import {
     getStaffCredit,
     getLocalStorageFiles,
     getAllRecruitment,
-    getAllBranch
+    getAllBranch,
+    getStaff
 } from "../../api/role.api";
 import { userById } from "../../api/auth.api";
 
@@ -224,7 +225,18 @@ export const useGet = () => {
             console.log("notes error", err);
         }
     });
-
+    const getStaff_ = useMutation({
+        mutationFn: getStaff,
+        onSuccess: (data, params) => {
+            queryClient.setQueryData(
+                ["getStaff"],
+                data
+            );
+        },
+        onError: (err) => {
+            console.log("notes error", err);
+        }
+    });
     return {
         getDetails_,
         // getScheduleOnly_,
@@ -240,6 +252,7 @@ export const useGet = () => {
         getStaffCredit_,
         getLocalStorageFiles_,
         getAllRecruitment_,
-        getAllBranch_
+        getAllBranch_,
+        getStaff_
     }
 }

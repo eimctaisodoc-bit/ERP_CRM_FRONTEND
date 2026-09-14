@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
     FileText,
@@ -16,8 +16,8 @@ import { ComponentLoader, MainLoader } from "../../loader";
 import { Dropstyle } from "../../../data/data";
 import { ErrorPage } from "../../../error";
 import { SmallModal } from "./modal";
-import { useGet } from "../../hooks/useGet";
-import { Other_user_sales } from "./otherUsers/calendar";
+import { Consultant_sales } from "./otherUsers/consultant/consultant";
+import { useAuth } from "../../hooks/useAuth"; // Added useAuth import
 
 // Clean, modern typography
 const fontLight = { fontFamily: "'Roboto Slab', serif", fontWeight: 700 };
@@ -33,8 +33,6 @@ export const STAGES = [
 export const SalesPipeline = () => {
     const [showLeadForm, setShowLeadForm] = useState(false);
     const [isStage, setStage] = useState(false);
-    const [Users_, setUsers_] = useState({});
-    const [loading, setLoading] = useState(false);
 
     const [selectedId, setSelectedId] = useState({
         activeStage: "",
@@ -44,9 +42,30 @@ export const SalesPipeline = () => {
     });
     const [filterValue, setFilterValue] = useState(null);
 
-    const { data: salesData, isLoading, error } = useSalesData();
-    const { getUser } = useGet();
+    const { data: salesData, isLoading: isSalesLoading, error } = useSalesData();
     const { data = [] } = salesData || {};
+
+    // --- Auth hook integration ---
+    const getSessionUser = useMemo(() => {
+        try {
+            const stored = sessionStorage.getItem('user');
+            return stored ? JSON.parse(stored) : null;
+        } catch {
+            return null;
+        }
+    }, []);
+    
+    const currentUser = getSessionUser;
+    const { MewithID } = useAuth(currentUser?.id);
+    
+    const userDetails = MewithID?.data || {};
+    const jobRole = userDetails?.jobRole?.trim().toLowerCase();
+
+    // Derived loading state (true if either sales data or user data is loading)
+    const isPageLoading = isSalesLoading || MewithID?.isLoading;
+    // -----------------------------
+
+    console.log('Current Job Role:', jobRole);
 
     const organizations = useMemo(() => {
         return data.map(item => ({
@@ -97,41 +116,26 @@ export const SalesPipeline = () => {
     const handleCloseLeadForm = useCallback(() => setShowLeadForm(false), []);
     const handleOpenLeadForm = useCallback(() => setShowLeadForm(true), []);
 
-    useEffect(() => {
-        const user = JSON.parse(sessionStorage.getItem("user") || "null");
-        if (user?.id) {
-            getUser.mutate({ params: user.id }, {
-                onSuccess: (data) => setUsers_(data),
-                onError: (error) => console.error(error)
-            });
-        }
-    }, []);
-
-    useEffect(() => {
-        setLoading(getUser.isPending && isLoading);
-    }, [getUser.isPending, isLoading]);
-
     if (error?.code === "ERR_NETWORK") {
         return <ErrorPage />;
     }
 
     return (
         <>
-            {loading && (
+            {isPageLoading && (
                 <div className="fixed inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm z-50">
                     <MainLoader />
                 </div>
             )}
 
-            {Users_?.jobRole === "consultant" && (
+            {jobRole === "consultant" && (
                 <div className="flex items-center justify-center min-h-[80vh] bg-white w-full">
-                    <Other_user_sales />
+                    <Consultant_sales />
                 </div>
             )}
 
-            {Users_?.jobRole === "Sales" && (
+            {jobRole === "sales" && (
                 <div className="min-h-screen bg-white text-slate-800 antialiased" style={fontLight}>
-                    {/* Removed h-screen to allow vertical page scrolling */}
                     <div className="max-w-[1800px] mx-auto p-4 md:p-6 lg:p-8 flex flex-col">
 
                         <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm shrink-0">
@@ -140,16 +144,11 @@ export const SalesPipeline = () => {
                                     <div className="p-1.5 bg-blue-50 rounded-lg">
                                         <Sparkles className="text-blue-600" size={16} />
                                     </div>
-                                    <span
-                                        className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest"
-                                    >
+                                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
                                         ISO Management Portal
                                     </span>
                                 </div>
-                                <h1
-                                    className="text-2xl md:text-3xl text-slate-800 tracking-tight"
-                                    style={fontBold}
-                                >
+                                <h1 className="text-2xl md:text-3xl text-slate-800 tracking-tight" style={fontBold}>
                                     Sales <span className="text-orange-500">Pipeline</span>
                                 </h1>
                             </div>
@@ -167,14 +166,13 @@ export const SalesPipeline = () => {
                             </div>
                         </header>
 
-                        {/* Kanban Board Container - items-start allows columns to have independent natural heights */}
                         <div className="flex gap-6 overflow-x-auto pb-8 custom-scrollbar items-start">
                             {STAGES.map((stage) => (
                                 <StageColumn
                                     key={`stage-${stage.step}`}
                                     stage={stage}
                                     organizations={filteredOrganizations}
-                                    isLoading={isLoading}
+                                    isLoading={isSalesLoading}
                                     onCardClick={handleCardClick}
                                     onOpenLeadForm={handleOpenLeadForm}
                                 />
@@ -207,30 +205,21 @@ const StageColumn = React.memo(({ stage, organizations, isLoading, onCardClick, 
     const isEven = stage.step % 2 === 0;
     
     return (
-        /* Changed to h-fit to allow the column to expand downwards limitlessly */
         <div className="flex flex-col min-w-[340px] w-[340px] h-fit bg-white rounded-2xl border border-slate-200 shadow-sm shrink-0">
-            {/* Stage Header */}
             <div className="p-4 border-b border-slate-100 bg-white rounded-t-2xl flex items-center justify-between sticky top-0 z-10">
                 <div className="flex items-center gap-3 overflow-hidden pr-2">
                     <div className={`p-2 rounded-lg shadow-sm border border-slate-100 shrink-0 ${isEven ? 'bg-blue-50' : 'bg-amber-50'}`}>
                         <stage.icon className={isEven ? 'text-blue-500' : 'text-amber-500'} size={18} />
                     </div>
-                    <h2
-                        className="text-[14px] text-slate-800 tracking-wide truncate"
-                        title={stage.title}
-                        style={fontBold}
-                    >
+                    <h2 className="text-[14px] text-slate-800 tracking-wide truncate" title={stage.title} style={fontBold}>
                         {stage.name}
                     </h2>
                 </div>
-                <span
-                    className="shrink-0 text-[11px] text-slate-500 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-full font-bold"
-                >
+                <span className="shrink-0 text-[11px] text-slate-500 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-full font-bold">
                     {stage.step}
                 </span>
             </div>
 
-            {/* Stage Column Body - Removed overflow restrictions */}
             <div className="p-3.5 flex flex-col gap-3.5">
                 {stage.step === 1 && (
                     <motion.button

@@ -17,9 +17,7 @@ export const logoutUser = async () => {
   return data;
 };
 
-export const userById = async (params) => {
-  // const { id } = params
-  // console.log("Fetching user with ID:", params.params);
-  const { data } = await api.get(`/api/users/${params.params}`);
+export const userById = async (id) => {
+  const { data } = await api.get(`/api/users/${id}`);
   return data;
 };

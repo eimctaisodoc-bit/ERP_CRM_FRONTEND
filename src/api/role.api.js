@@ -347,6 +347,11 @@ export const Createstaff = async ({ payload }) => {
   console.log('Response from  API:', res.data);
   return res.data;
 }
+export const getStaff = async () => {
+  const res = await api.get(`admin/recruitment`);
+  console.log('Response from  API:', res.data);
+  return res.data;
+}
 export const DeleteStaff = async ({ params }) => {
   const { ids } = params;
   const res = await api.delete(`admin/credit/deletestaff`, { data: { ids } });

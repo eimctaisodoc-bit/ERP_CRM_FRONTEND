@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, LogOut, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,20 +7,32 @@ import { menus } from "../data/data.jsx";
 import { useAuth } from "./hooks/useAuth.js";
 
 const Asidebar = ({ isOpen, setIsOpen }) => {
-  const { 
-    isAuthLoading, 
-    logout, 
-    useMe: { data: { user: { decoded } = {} } = {}, isLoading } 
-  } = useAuth();
-
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Safely parse the user role from session storage
-  const roleString = sessionStorage.getItem('user');
-  const user = roleString ? JSON.parse(roleString) : null;
-  const userRole = user?.role;
+  // 1. Safely parse the user role from session storage
+  const currentUser = useMemo(() => {
+    try {
+      const stored = sessionStorage.getItem('user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const userRole = currentUser?.role;
   const updatedMenus = menus[userRole] || [];
+
+  // 2. Fetch all auth and user data seamlessly via useAuth
+  const { 
+    logout, 
+    useMe: { data: { user: { decoded } = {} } = {}, isLoading: isMeLoading },
+    MewithID
+  } = useAuth(currentUser?.id);
+
+  // 3. Derive user details and combined loading state
+  const userDetails = MewithID?.data || {};
+  const isLoading = isMeLoading || MewithID?.isLoading;
 
   const handleLogOut = async () => {
     try {
@@ -175,11 +187,11 @@ const Asidebar = ({ isOpen, setIsOpen }) => {
                 <User size={18} />
               </div>
               <div className="ml-3 flex flex-col whitespace-nowrap overflow-hidden">
-                <span className="text-sm font-bold text-slate-800 capitalize truncate">
-                  {decoded?.name || user?.name || "System User"}
+                <span className="text-sm font-bold text-slate-800  truncate">
+                  {userDetails.officeEmail || currentUser?.officeEmail || "System User"}
                 </span>
                 <span className="text-xs font-semibold text-slate-400 capitalize">
-                  {userRole || "Member"}
+                  {userDetails.jobRole || currentUser?.jobRole || "Member"}
                 </span>
               </div>
             </motion.div>
@@ -200,14 +212,14 @@ const Asidebar = ({ isOpen, setIsOpen }) => {
 
 // Sub-component for Menu Item
 const NavItem = ({ item, isActive, isOpen, itemVariants, labelVariants, tooltipVariants }) => {
-  const [isHovered, setIsHovered] = React.useState(false);
+  const [isHovered, ReactSetIsHovered] = React.useState(false);
 
   return (
     <motion.div variants={itemVariants} className="relative">
       <Link
         to={item.path}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseEnter={() => ReactSetIsHovered(true)}
+        onMouseLeave={() => ReactSetIsHovered(false)}
         className={`group relative flex font-extrabold w-full items-center justify-start rounded-xl px-3 py-2.5 my-0.5
           transition-colors duration-200 ease-in-out
           ${isActive
@@ -262,7 +274,7 @@ const NavItem = ({ item, isActive, isOpen, itemVariants, labelVariants, tooltipV
 
 // Sub-component for Logout Button
 const LogoutButton = ({ isOpen, handleLogOut, labelVariants, tooltipVariants }) => {
-  const [isHovered, setIsHovered] = React.useState(false);
+  const [isHovered, ReactSetIsHovered] = React.useState(false);
 
   return (
     <div className="relative">
@@ -270,8 +282,8 @@ const LogoutButton = ({ isOpen, handleLogOut, labelVariants, tooltipVariants }) 
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
         onClick={handleLogOut}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseEnter={() => ReactSetIsHovered(true)}
+        onMouseLeave={() => ReactSetIsHovered(false)}
         className={`group relative flex w-full items-center justify-center rounded-xl py-2.5 transition-all duration-200
           ${isOpen 
             ? "px-3 bg-white border border-slate-200/80 hover:border-red-200 hover:bg-red-50/80 text-slate-600 hover:text-red-600 shadow-sm" 
@@ -296,7 +308,7 @@ const LogoutButton = ({ isOpen, handleLogOut, labelVariants, tooltipVariants }) 
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-[100] hidden md:flex items-center
+            className="absolute left-full cursor-pointer  top-1/2 -translate-y-1/2 ml-3 z-[100] hidden md:flex items-center
               rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-xl whitespace-nowrap pointer-events-none font-['Roboto_Slab',serif]"
           >
             Log Out

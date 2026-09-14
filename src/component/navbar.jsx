@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
-import { 
-    Menu, Bell, Search, User, Settings, LogOut, 
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import {
+    Menu, Bell, Search, User, Settings, LogOut,
     ChevronDown, ShieldCheck, ChevronRight, ChevronLeft, Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./hooks/useAuth";
 import { Skeleton } from "./skeleton";
+
+
 
 const DropdownItem = ({ icon, label, variant = "default", onClick, disabled = false }) => {
     const styles = {
@@ -14,7 +16,7 @@ const DropdownItem = ({ icon, label, variant = "default", onClick, disabled = fa
     };
 
     return (
-        <motion.button 
+        <motion.button
             whileHover={{ x: 3 }}
             whileTap={{ scale: 0.97 }}
             onClick={onClick}
@@ -33,19 +35,22 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
 
     const profileRef = useRef(null);
     const notifRef = useRef(null);
-    const { logout, useMe } = useAuth();
-    const { data: { user: { decoded } = {} } = {} } = useMe;
 
     // Safely parse session storage to prevent React crashes
-    const getSessionUser = () => {
+    const getSessionUser = useMemo(() => {
         try {
             const stored = sessionStorage.getItem('user');
             return stored ? JSON.parse(stored) : { userName: "Guest", role: "Visitor" };
         } catch {
             return { userName: "Guest", role: "Visitor" };
         }
-    };
-    const currentUser = getSessionUser();
+    }, []);
+    const currentUser = getSessionUser;
+    const { logout, useMe, MewithID } = useAuth(currentUser?.id);
+    const { data: { user: { decoded } = {} } = {} } = useMe;
+    const userDetails = MewithID.data || {};
+    const displayName = userDetails.username || userDetails.userName || decoded?.username || currentUser.userName;
+    const displayRole = userDetails.role || currentUser.role;
 
     const handleLogout = async () => {
         try {
@@ -75,27 +80,27 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
     }, []);
 
     const sidebarMarginClass = isOpen ? "md:ml-64" : "md:ml-20";
-    const handleToggleSidebar = toggleSidebar || (() => {});
+    const handleToggleSidebar = toggleSidebar || (() => { });
 
     // Animation Variants
     const dropdownVariants = {
         hidden: { opacity: 0, y: -12, scale: 0.95 },
-        visible: { 
-            opacity: 1, 
-            y: 0, 
+        visible: {
+            opacity: 1,
+            y: 0,
             scale: 1,
             transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
         },
-        exit: { 
-            opacity: 0, 
-            y: -10, 
+        exit: {
+            opacity: 0,
+            y: -10,
             scale: 0.95,
             transition: { duration: 0.15, ease: "easeIn" }
         }
     };
 
     return (
-        <motion.header 
+        <motion.header
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
@@ -125,22 +130,20 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
 
             {/* RIGHT SECTION */}
             <div className="flex items-center gap-2 sm:gap-4 relative">
-                
+
                 {/* NOTIFICATIONS */}
                 <div className="relative" ref={notifRef}>
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setNotifOpen(!notifOpen)}
-                        className={`p-2.5 rounded-xl transition-colors duration-200 relative group focus:outline-none ${
-                            notifOpen ? "bg-amber-50 text-amber-600" : "text-slate-500 hover:bg-slate-100/80 hover:text-slate-800"
-                        }`}
+                        className={`p-2.5 rounded-xl transition-colors duration-200 relative group focus:outline-none ${notifOpen ? "bg-amber-50 text-amber-600" : "text-slate-500 hover:bg-slate-100/80 hover:text-slate-800"
+                            }`}
                     >
-                        <Bell 
-                            size={20} 
-                            className={`transition-transform duration-300 ${
-                                notifOpen ? 'rotate-[15deg] fill-amber-500/20' : 'group-hover:rotate-[15deg]'
-                            }`} 
+                        <Bell
+                            size={20}
+                            className={`transition-transform duration-300 ${notifOpen ? 'rotate-[15deg] fill-amber-500/20' : 'group-hover:rotate-[15deg]'
+                                }`}
                         />
                         {/* Active Amber Indicator with Pulse Effect */}
                         <span className="absolute top-2 right-2.5 flex h-2.5 w-2.5">
@@ -152,7 +155,7 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
                     {/* Animated Notification Dropdown */}
                     <AnimatePresence>
                         {notifOpen && (
-                            <motion.div 
+                            <motion.div
                                 variants={dropdownVariants}
                                 initial="hidden"
                                 animate="visible"
@@ -165,11 +168,11 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
                                         3 New
                                     </span>
                                 </div>
-                                
+
                                 <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-2">
                                     {notifications.map((n) => (
-                                        <motion.div 
-                                            key={n.id} 
+                                        <motion.div
+                                            key={n.id}
                                             whileHover={{ x: 2 }}
                                             className="p-3 flex gap-4 hover:bg-slate-50/80 rounded-xl transition-colors cursor-pointer group"
                                         >
@@ -184,7 +187,7 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
                                         </motion.div>
                                     ))}
                                 </div>
-                                
+
                                 <div className="p-2 border-t border-slate-50">
                                     <button className="w-full py-2.5 text-center text-sm font-bold text-amber-600 hover:bg-amber-50 transition-colors rounded-xl">
                                         View all updates
@@ -206,9 +209,8 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
                         onClick={() => setProfileOpen(!profileOpen)}
                         disabled={useMe.isLoading}
                         aria-busy={useMe.isLoading}
-                        className={`flex items-center gap-3 p-1.5 pr-3 rounded-2xl transition-colors duration-200 group focus:outline-none ${
-                            profileOpen ? "bg-slate-100" : "hover:bg-slate-100/80"
-                        }`}
+                        className={`flex items-center gap-3 p-1.5 pr-3 rounded-2xl transition-colors duration-200 group focus:outline-none ${profileOpen ? "bg-slate-100" : "hover:bg-slate-100/80"
+                            }`}
                     >
                         {useMe.isLoading ? (
                             <>
@@ -223,7 +225,7 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
                             <>
                                 <div className="relative">
                                     <img
-                                        src={`https://ui-avatars.com/api/?name=${decoded?.username || currentUser.userName}&background=6366f1&color=fff&bold=true`}
+                                        src={`https://ui-avatars.com/api/?name=${displayName}&background=6366f1&color=fff&bold=true`}
                                         alt="profile"
                                         className="w-9 h-9 rounded-xl object-cover border border-slate-200/50 shadow-sm transition-transform group-hover:scale-105"
                                     />
@@ -232,10 +234,10 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
 
                                 <div className="hidden md:flex flex-col text-left">
                                     <p className="text-sm font-bold text-slate-800 leading-tight">
-                                        {currentUser.userName}
+                                        {displayName}
                                     </p>
-                                    <p className="text-[11px] font-medium text-slate-500 tracking-wide mt-0.5">
-                                        {currentUser.role}
+                                    <p className="text-[11px] capitalize font-medium text-slate-500 tracking-wide mt-0.5">
+                                        {displayRole}/{userDetails?.jobRole}
                                     </p>
                                 </div>
 
@@ -250,7 +252,7 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
                     {/* Animated Profile Dropdown */}
                     <AnimatePresence>
                         {profileOpen && (
-                            <motion.div 
+                            <motion.div
                                 variants={dropdownVariants}
                                 initial="hidden"
                                 animate="visible"
@@ -263,9 +265,9 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
                                 <DropdownItem icon={<User size={16} />} label="My Profile" />
                                 <DropdownItem icon={<ShieldCheck size={16} />} label="Security" />
                                 <DropdownItem icon={<Settings size={16} />} label="Settings" />
-                                
+
                                 <div className="my-1.5 border-t border-slate-100/80"></div>
-                                
+
                                 <DropdownItem
                                     icon={logout.isPending ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />}
                                     label="Sign Out"

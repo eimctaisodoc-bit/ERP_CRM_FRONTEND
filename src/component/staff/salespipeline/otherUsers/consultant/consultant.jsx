@@ -7,7 +7,7 @@ import {
     ArrowLeft,
     Layers
 } from "lucide-react";
-import FileUpload from "./fileUpload";
+import FileUpload from "../fileUpload";
 import { Schedule } from "./schedule";
 
 // ─── Typography Constants ─────────────────────────────────────────────────────
@@ -15,19 +15,19 @@ const fontLight = { fontFamily: "'Roboto Slab', serif", fontWeight: 300 };
 const fontBold = { fontFamily: "'Roboto Slab', serif", fontWeight: 700 };
 
 // --- Main Component: Portal Dashboard ---
-export const Other_user_sales = () => {
+export const Consultant_sales = () => {
     // Sample Core Grid Datasets
     const cardsData = [
         {
-            id: 2,
-            badge: "Scheduling",
+            id: 1,
+            badge: "Work Scheduling",
             title: "Quality Review Controls",
             description: "Inspect active client milestones and verify regulation metrics to ensure compliance protocols.",
             scheduleCount: "04",
             pendingTasks: "02",
             comp: <Schedule />
         },
-        // Add more cards here as needed...
+        
     ];
 
     // Track the currently active card ID (null means grid view)
@@ -47,41 +47,7 @@ export const Other_user_sales = () => {
 
     return (
         <div className="min-h-screen bg-white relative w-full pb-12" style={fontLight}>
-            {/* Header */}
-            <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/90 backdrop-blur-md shadow-sm">
-                <div className="mx-auto flex w-full p-4 items-center justify-between max-w-7xl">
-                    <div className="min-w-0 flex-1 flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md shrink-0">
-                            <Layers className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h1 style={fontBold} className="truncate text-xl text-slate-900 sm:text-2xl tracking-tight">
-                                ISO 21001 Portal
-                            </h1>
-                            <p className="mt-0.5 text-xs text-slate-500 font-medium">
-                                Manage your jobs, activities and client engagement
-                            </p>
-                        </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                        <button 
-                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm transition-all hover:bg-slate-50 hover:border-blue-300 cursor-pointer text-slate-600 group" 
-                            onClick={() => setOpenUpload(true)}
-                            title="Upload Data"
-                        >
-                            <Calendar1Icon size={18} className="group-hover:text-blue-600 transition-colors" />
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            <FileUpload
-                isOpen={openUpload}
-                onClose={() => setOpenUpload(false)}
-            />
-
-            {/* Main Layout Container */}
+          
             <main className="w-full mx-auto w-full  pt-8">
 
                 {/* Grid View Mode */}
