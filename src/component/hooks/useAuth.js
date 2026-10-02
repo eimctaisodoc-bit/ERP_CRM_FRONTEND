@@ -33,7 +33,7 @@ export const useAuth = (userId) => {
         onSuccess: () => {
             queryClient.removeQueries({ queryKey: ["me"] });
             queryClient.clear(); // clear all cached data
-            // socket.disconnect()
+            socket.disconnect();
         },
     });
 

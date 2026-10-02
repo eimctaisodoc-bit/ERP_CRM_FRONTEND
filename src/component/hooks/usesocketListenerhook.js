@@ -1,14 +1,18 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import socket from "../../socket_client/scoket";
 
 export const useOnlineUsersSocket = () => {
   const queryClient = useQueryClient();
+  const [isConnected, setIsConnected] = useState(socket.connected);
 
   useEffect(() => {
     const token = sessionStorage.getItem("Token");
 
-    if (!token) return;
+    if (!token) {
+      setIsConnected(false);
+      return;
+    }
 
     socket.auth = { token };
 
@@ -30,15 +34,39 @@ export const useOnlineUsersSocket = () => {
     const handleDisconnect = () => {
       console.log(" Socket disconnected");
 
+      setIsConnected(false);
       queryClient.setQueryData(["onlineUsers"], []);
     };
 
+    const handleConnect = () => setIsConnected(true);
+
+    const handleStaticNotifications = (notifications) => {
+      queryClient.setQueryData(["notifications"], notifications);
+    };
+
+    const handleNotification = (notification) => {
+      queryClient.setQueryData(["notifications"], (current = []) => [
+        notification,
+        ...current,
+      ]);
+    };
+
     socket.on("user:status", handleUserStatus);
+
+    socket.on("notification:static", handleStaticNotifications);
+    socket.on("notification:received", handleNotification);
+    
+    socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
 
     return () => {
       socket.off("user:status", handleUserStatus);
+      socket.off("notification:static", handleStaticNotifications);
+      socket.off("notification:received", handleNotification);
+      socket.off("connect", handleConnect);
       socket.off("disconnect", handleDisconnect);
     };
   }, [queryClient]);
+
+  return { isConnected };
 };

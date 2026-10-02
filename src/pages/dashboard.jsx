@@ -6,10 +6,17 @@ import Navbar from "../component/navbar";
 import React, { useState, useEffect, useRef } from "react";
 import { CornerDownLeft } from "lucide-react";
 import { MainLoader } from "../component/loader.jsx";
+import { useOnlineUsersSocket } from "../component/hooks/usesocketListenerhook";
+import { isRoleRoute } from "../component/hooks/routeStatus";
+import { useLocation } from "react-router-dom";
 
 const Dashboard = () => {
 
   const { isAuthLoading } = useAuth();
+  const { isConnected } = useOnlineUsersSocket();
+  const { pathname } = useLocation();
+  const sessionUser = JSON.parse(sessionStorage.getItem("user") || "null");
+  const isOnRoleRoute = isRoleRoute(pathname, sessionUser?.role);
 
 
 
@@ -59,6 +66,7 @@ const Dashboard = () => {
         <Navbar
           isOpen={isOpen}
           toggleSidebar={() => setIsOpen(!isOpen)}
+            isOnline={isOnRoleRoute && isConnected}
         />
       </div>
       <main className={`flex-1 ${isOpen ? "ml-67" : "ml-0 md:ml-20"} p-2   ${isAuthLoading ? 'mt-48' : 'mt-16'} bg-white `}>

@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { User } from "lucide-react";
 import HeroOverlay from "../../overlay";
-import { useOnlineUsersSocket } from "../../hooks/usesocketListenerhook";
 import { useOnlineUsers } from "../../hooks/useOnlineuser";
 
 /* =========================================================
@@ -162,7 +161,6 @@ const pickColorByRole = (role) => {
 };
 
 const Admin_Report = () => {
-    useOnlineUsersSocket()
     const { data: users = [], isLoading } = useOnlineUsers();
     console.log('new users ',users,isLoading)
     const me = useMemo(() => getCurrentSessionUser(), []);

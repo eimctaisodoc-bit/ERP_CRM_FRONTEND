@@ -29,7 +29,7 @@ const DropdownItem = ({ icon, label, variant = "default", onClick, disabled = fa
     );
 };
 
-const Navbar = ({ isOpen = false, toggleSidebar }) => {
+const Navbar = ({ isOpen = false, toggleSidebar, isOnline = false }) => {
     const [profileOpen, setProfileOpen] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
 
@@ -229,7 +229,7 @@ const Navbar = ({ isOpen = false, toggleSidebar }) => {
                                         alt="profile"
                                         className="w-9 h-9 rounded-xl object-cover border border-slate-200/50 shadow-sm transition-transform group-hover:scale-105"
                                     />
-                                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></div>
+                                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 border-2 border-white rounded-full ${isOnline ? "bg-emerald-500" : "bg-slate-400"}`}></div>
                                 </div>
 
                                 <div className="hidden md:flex flex-col text-left">
