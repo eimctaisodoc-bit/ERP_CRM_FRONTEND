@@ -20,7 +20,7 @@ export const Drawer = ({ isOpen, onClose }) => {
         <div
             className={`fixed inset-0 z-50 transition-opacity duration-300 ease-in-out ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         >
-            <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
 
             <aside className={`absolute top-0 right-0 h-full w-full max-w-md bg-slate-950 text-slate-100 shadow-2xl border-l border-slate-800 transform transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="flex items-start justify-between p-5 border-b border-slate-800">

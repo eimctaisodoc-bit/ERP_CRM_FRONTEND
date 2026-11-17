@@ -479,7 +479,8 @@ export const A_folder = () => {
 
             {/* Transfer / Move Modal */}
             {moveTarget && (
-                <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
                     <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="px-6 py-5 border-b border-neutral-100 flex justify-between items-center bg-white">
                             <div className="flex items-center gap-3">
@@ -548,7 +549,8 @@ export const A_folder = () => {
             
             {/* Upload Modal */}
             {uploadQueue && (
-                <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
                     <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="px-6 py-5 border-b border-neutral-100 flex justify-between items-center bg-white">
                             <h3 className="text-base text-neutral-900" style={fontBold}>
@@ -597,7 +599,8 @@ export const A_folder = () => {
 
             {/* Share Modal */}
             {shareTarget && (
-                <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
                     <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="px-6 py-5 border-b border-neutral-100 flex justify-between items-center bg-white">
                             <div className="flex items-center gap-3">

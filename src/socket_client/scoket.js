@@ -13,7 +13,7 @@ export const socket = io(SOCKET_URL, {
 
 // optional: attach listeners once
 socket.on("connect", () => {
-  console.log("✅ Connected! ID:", socket);
+  // console.log("✅ Connected! ID:", socket);
 });
 
 socket.on("connect_error", (err) => {

@@ -898,7 +898,8 @@ const Admin_HR_Mgmt = () => {
 
             {/* Summary Modal */}
             {showSummary && summaryData && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
                     <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
                         {/* Modal Header */}
                         <div className="sticky top-0 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200 p-6 flex justify-between items-center">

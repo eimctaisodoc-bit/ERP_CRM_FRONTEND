@@ -465,8 +465,8 @@ export const Schedule = () => {
             </main>
 
             {/* ── FULL WIDTH RIGHT DRAWER (Z-50, Smooth transition) ──────────────────────── */}
-            <div className={`fixed inset-0 z-50 transition-all duration-500 ease-in-out ${isDrawerOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} onClick={() => setIsDrawerOpen(false)}>
-                <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <div className={`fixed inset-0 z-50 transition-all duration-500 ease-in-out ${isDrawerOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}>
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setIsDrawerOpen(false)} />
 
                 <aside
                     onClick={(e) => e.stopPropagation()}
@@ -662,7 +662,8 @@ const TasksModal = ({ isOpen, onClose, act, onOpenJobCard }) => {
     if (!isOpen || !act) return null;
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" style={fontLight}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={fontLight}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
             <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col transform transition-all">
                 
                 <div className="p-5 border-b border-slate-100 flex justify-between items-start">
@@ -763,7 +764,8 @@ const JobCardFormModal = ({ isOpen, onClose, act, onSubmit }) => {
     const canSave = form.jobCardNo.trim() && form.assignedTo.trim();
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white backdrop-blur-sm p-4" style={fontLight}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={fontLight}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
             <form onSubmit={handleSubmit} className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
                 <div className="flex items-center justify-between border-b border-slate-100 p-5 bg-slate-50">
                     <div className="flex items-center gap-3">
@@ -827,7 +829,8 @@ const DprModal = ({ isOpen, onClose, act, onSubmit }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4" style={fontLight}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={fontLight}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
             <form onSubmit={handleSubmit} className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
                 <div className="flex items-center justify-between border-b border-slate-100 p-5 bg-blue-50/50">
                     <div className="flex items-center gap-3">

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from "react"
 import Select from "react-select";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  AlertCircle,
   Search,
   Filter,
   Users,
@@ -26,8 +27,10 @@ import {
   IdCard,
   Calendar,
   UserMinus,
+  Loader2,
 } from "lucide-react";
 import RecruitmentForm from "./emp-mgt_client";
+import { useRecruitmentData } from "../../../hooks/useRecruitment";
 
 /* =======================
    ANIMATION VARIANTS
@@ -105,13 +108,14 @@ const StatCard = ({ label, value, icon: Icon, colorClass, bgColorClass }) => (
 );
 
 const AvatarWithHover = ({ firstName, lastName, onClick }) => {
-  const getInitials = (first, last) => `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
+  const getInitials = (first, last) =>
+    `${first?.charAt(0) || ""}${last?.charAt(0) || ""}`.toUpperCase() || "?";
   const getAvatarColor = (first, last) => {
     const colors = [
       "bg-blue-100 text-blue-700", "bg-emerald-100 text-emerald-700", "bg-violet-100 text-violet-700",
       "bg-amber-100 text-amber-700", "bg-rose-100 text-rose-700", "bg-indigo-100 text-indigo-700", "bg-cyan-100 text-cyan-700"
     ];
-    return colors[(first.charCodeAt(0) + last.charCodeAt(0)) % colors.length];
+    return colors[((first?.charCodeAt(0) || 0) + (last?.charCodeAt(0) || 0)) % colors.length];
   };
 
   return (
@@ -157,29 +161,30 @@ const CustomCheckbox = ({ checked, onChange, id }) => (
   </div>
 );
 
-/* =======================
-   SAMPLE DATA 
-======================= */
-const initialRecruitmentData = [
-  { employeeId: "EMP-101", firstName: "John", lastName: "Smith", officeEmail: "john.smith@company.com", officeMobile: "+1 (555) 123-4567", department: "Engineering", designation: "Senior Developer", employmentType: "Permanent", employeeStatus: "Active", dateOfJoining: "2023-03-15", contractEndDate: "2026-03-15" },
-  { employeeId: "EMP-102", firstName: "Sarah", lastName: "Johnson", officeEmail: "sarah.j@company.com", officeMobile: "+1 (555) 987-6543", department: "Marketing", designation: "Marketing Manager", employmentType: "Permanent", employeeStatus: "Active", dateOfJoining: "2022-08-22", contractEndDate: "2025-08-22" },
-  { employeeId: "EMP-103", firstName: "Michael", lastName: "Chen", officeEmail: "michael.chen@company.com", officeMobile: "+1 (555) 456-7890", department: "Finance", designation: "Financial Analyst", employmentType: "Contract", employeeStatus: "Active", dateOfJoining: "2024-01-10", contractEndDate: "2025-01-10" },
-  { employeeId: "EMP-104", firstName: "Emma", lastName: "Wilson", officeEmail: "emma.w@company.com", officeMobile: "+1 (555) 234-5678", department: "HR", designation: "HR Specialist", employmentType: "Permanent", employeeStatus: "Inactive", dateOfJoining: "2021-11-05", contractEndDate: "2024-11-05" },
-  { employeeId: "EMP-105", firstName: "David", lastName: "Brown", officeEmail: "david.b@company.com", officeMobile: "+1 (555) 876-5432", department: "Sales", designation: "Sales Executive", employmentType: "Permanent", employeeStatus: "Active", dateOfJoining: "2023-07-18", contractEndDate: "2026-07-18" },
-  { employeeId: "EMP-106", firstName: "Lisa", lastName: "Anderson", officeEmail: "lisa.a@company.com", officeMobile: "+1 (555) 345-6789", department: "Engineering", designation: "Junior Developer", employmentType: "Intern", employeeStatus: "Active", dateOfJoining: "2024-06-01", contractEndDate: "2024-12-01" },
-  { employeeId: "EMP-107", firstName: "James", lastName: "Taylor", officeEmail: "james.t@company.com", officeMobile: "+1 (555) 111-2222", department: "Support", designation: "IT Support", employmentType: "Permanent", employeeStatus: "Active", dateOfJoining: "2023-09-12", contractEndDate: "2026-09-12" },
-  { employeeId: "EMP-108", firstName: "Olivia", lastName: "Martinez", officeEmail: "olivia.m@company.com", officeMobile: "+1 (555) 333-4444", department: "Design", designation: "UI/UX Designer", employmentType: "Contract", employeeStatus: "Active", dateOfJoining: "2024-02-15", contractEndDate: "2025-02-15" },
-  { employeeId: "EMP-109", firstName: "Daniel", lastName: "Thomas", officeEmail: "daniel.t@company.com", officeMobile: "+1 (555) 555-6666", department: "Marketing", designation: "Content Writer", employmentType: "Permanent", employeeStatus: "Inactive", dateOfJoining: "2020-04-10", contractEndDate: "2023-04-10" },
-  { employeeId: "EMP-110", firstName: "Sophia", lastName: "White", officeEmail: "sophia.w@company.com", officeMobile: "+1 (555) 777-8888", department: "Sales", designation: "Account Executive", employmentType: "Permanent", employeeStatus: "Active", dateOfJoining: "2023-11-20", contractEndDate: "2026-11-20" },
-  { employeeId: "EMP-111", firstName: "Matthew", lastName: "Harris", officeEmail: "matthew.h@company.com", officeMobile: "+1 (555) 999-0000", department: "Engineering", designation: "DevOps Engineer", employmentType: "Permanent", employeeStatus: "Active", dateOfJoining: "2021-08-05", contractEndDate: "2024-08-05" },
-  { employeeId: "EMP-112", firstName: "Chloe", lastName: "Martin", officeEmail: "chloe.m@company.com", officeMobile: "+1 (555) 121-3434", department: "HR", designation: "Recruiter", employmentType: "Contract", employeeStatus: "Active", dateOfJoining: "2024-03-01", contractEndDate: "2025-03-01" },
-];
+const mapRecruitmentRecord = (record) => ({
+  employeeId: record?._id,
+  firstName: record?.personal?.firstName || "",
+  lastName: record?.personal?.lastName || "",
+  officeEmail: record?.contact?.officeEmail || "",
+  officeMobile: record?.contact?.officeMobile || "",
+  department: record?.employment?.department || "",
+  designation: record?.employment?.jobPosition || "",
+  employmentType: record?.employment?.employmentType || "",
+  employeeStatus: record?.isActive === false ? "Inactive" : "Active",
+  dateOfJoining: record?.employment?.dateOfJoining,
+});
 
 /* =======================
    MAIN COMPONENT
 ======================= */
 export const RecruitmentTable = () => {
-  const [recruitmentData, setRecruitmentData] = useState(initialRecruitmentData);
+  const {
+    data: recruitmentRecords = [],
+    isLoading,
+    isError,
+    error,
+  } = useRecruitmentData();
+  const [recruitmentData, setRecruitmentData] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState(statusOptions[0]);
   const [selectedType, setSelectedType] = useState(employmentTypeOptions[0]);
@@ -189,6 +194,10 @@ export const RecruitmentTable = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
+
+  useEffect(() => {
+    setRecruitmentData(recruitmentRecords.map(mapRecruitmentRecord));
+  }, [recruitmentRecords]);
   
   // Reference for the scrollable table body to track viewport intersection precisely
   const scrollContainerRef = useRef(null);
@@ -222,6 +231,15 @@ export const RecruitmentTable = () => {
   }, [filteredData, currentPage]);
 
   const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
+  const newJoiners = useMemo(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    return recruitmentData.filter((record) => {
+      const dateOfJoining = new Date(record.dateOfJoining);
+      return Number.isFinite(dateOfJoining.getTime()) && dateOfJoining >= thirtyDaysAgo;
+    }).length;
+  }, [recruitmentData]);
 
   useEffect(() => { setCurrentPage(1); }, [search, selectedStatus, selectedType]);
 
@@ -255,7 +273,7 @@ export const RecruitmentTable = () => {
           <StatCard label="Total Employees" value={recruitmentData.length} icon={Users} colorClass="text-blue-600" bgColorClass="bg-blue-50" />
           <StatCard label="Active" value={recruitmentData.filter((e) => e.employeeStatus === "Active").length} icon={UserCheck} colorClass="text-emerald-600" bgColorClass="bg-emerald-50" />
           <StatCard label="Inactive" value={recruitmentData.filter((e) => e.employeeStatus !== "Active").length} icon={UserX} colorClass="text-rose-600" bgColorClass="bg-rose-50" />
-          <StatCard label="New Joiners" value={12} icon={UserPlus} colorClass="text-amber-600" bgColorClass="bg-amber-50" />
+          <StatCard label="New Joiners (30 days)" value={newJoiners} icon={UserPlus} colorClass="text-amber-600" bgColorClass="bg-amber-50" />
         </motion.div>
 
         {/* FILTERS */}
@@ -285,7 +303,23 @@ export const RecruitmentTable = () => {
               
               <tbody className="divide-y divide-slate-100 bg-white">
                 <AnimatePresence mode="wait">
-                  {paginatedData.length === 0 ? (
+                  {isLoading ? (
+                    <motion.tr key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <td colSpan={7} className="p-12 text-center text-slate-500">
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 size={18} className="animate-spin" /> Loading recruitment records...
+                        </span>
+                      </td>
+                    </motion.tr>
+                  ) : isError ? (
+                    <motion.tr key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <td colSpan={7} className="p-12 text-center text-rose-700">
+                        <span className="inline-flex items-center gap-2">
+                          <AlertCircle size={18} /> {error?.message || "Failed to load recruitment records."}
+                        </span>
+                      </td>
+                    </motion.tr>
+                  ) : paginatedData.length === 0 ? (
                     <motion.tr key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                       <td colSpan={7} className="p-12 text-center text-slate-500">No records found</td>
                     </motion.tr>
@@ -341,7 +375,7 @@ export const RecruitmentTable = () => {
       
       {/* MODALS */}
       <AnimatePresence>
-        {open && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50"><RecruitmentForm onClose={() => SetIsOpen(false)} /></motion.div>}
+        {open && <div className="fixed inset-0 z-50"><motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-md" /><RecruitmentForm onClose={() => SetIsOpen(false)} /></div>}
       </AnimatePresence>
 
       <Emp_Each isOpen={isOpen} onClose={() => setIs_Open(false)} employee={selectedEmployee} />
@@ -365,7 +399,7 @@ const Emp_Each = ({ isOpen, onClose, employee }) => {
     <AnimatePresence>
       {isOpen && (
         <div style={{ fontFamily: "'Roboto Slab', serif" }} className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
           <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} transition={{ duration: 0.25, ease: "easeOut" }} className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden">
             <button onClick={onClose} className="absolute top-5 right-5 p-2 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-full transition-colors z-20"><X size={20} strokeWidth={2.5} /></button>
             <div className="p-8 sm:p-10">

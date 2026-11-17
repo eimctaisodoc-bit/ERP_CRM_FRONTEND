@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 import { CreateTask } from "./createTask";
-import MyCalendar from "../../calendara";
+// import MyCalendar from "../../calendara";
 
 export const Admin_task_page = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -70,95 +70,95 @@ export const Admin_task_page = () => {
       clientAttachments: [{ name: "requirements.doc", type: "word", size: "890 KB" }],
     },
     {
-  id: 3,
-  title: "SEO Optimization Phase 1",
-  description:
-    "Conduct keyword research and optimize meta tags, headings, and on-page content for better search engine visibility.",
-  date: "2025-01-15",
-  completed: false,
-  priority: "high",
-  assignee: { username: "sarah_marketing", role: "Editor", position: "SEO Specialist" },
-  createdBy: "jane_lead",
-  createdDate: "2024-12-01",
+      id: 3,
+      title: "SEO Optimization Phase 1",
+      description:
+        "Conduct keyword research and optimize meta tags, headings, and on-page content for better search engine visibility.",
+      date: "2025-01-15",
+      completed: false,
+      priority: "high",
+      assignee: { username: "sarah_marketing", role: "Editor", position: "SEO Specialist" },
+      createdBy: "jane_lead",
+      createdDate: "2024-12-01",
 
-  adminAttachments: [{ name: "seo-strategy.pdf", type: "pdf", size: "2.1 MB" }],
-  clientAttachments: [{ name: "target-keywords.xlsx", type: "excel", size: "560 KB" }],
-},
-{
-  id: 4,
-  title: "Backend API Integration",
-  description:
-    "Integrate third-party payment gateway API and implement secure authentication with JWT tokens.",
-  date: "2025-01-28",
-  completed: false,
-  priority: "high",
-  assignee: { username: "alex_backend", role: "Admin", position: "Backend Developer" },
-  createdBy: "john_manager",
-  createdDate: "2024-12-05",
+      adminAttachments: [{ name: "seo-strategy.pdf", type: "pdf", size: "2.1 MB" }],
+      clientAttachments: [{ name: "target-keywords.xlsx", type: "excel", size: "560 KB" }],
+    },
+    {
+      id: 4,
+      title: "Backend API Integration",
+      description:
+        "Integrate third-party payment gateway API and implement secure authentication with JWT tokens.",
+      date: "2025-01-28",
+      completed: false,
+      priority: "high",
+      assignee: { username: "alex_backend", role: "Admin", position: "Backend Developer" },
+      createdBy: "john_manager",
+      createdDate: "2024-12-05",
 
-  adminAttachments: [{ name: "api-docs.pdf", type: "pdf", size: "3.4 MB" }],
-  clientAttachments: [{ name: "payment-requirements.docx", type: "word", size: "1.2 MB" }],
-},
-{
-  id: 5,
-  title: "Mobile Responsiveness Testing",
-  description:
-    "Test the application across multiple devices and browsers ensuring consistent UI/UX experience.",
-  date: "2025-02-05",
-  completed: false,
-  priority: "medium",
-  assignee: { username: "lisa_qa", role: "Editor", position: "QA Engineer" },
-  createdBy: "jane_lead",
-  createdDate: "2024-12-12",
+      adminAttachments: [{ name: "api-docs.pdf", type: "pdf", size: "3.4 MB" }],
+      clientAttachments: [{ name: "payment-requirements.docx", type: "word", size: "1.2 MB" }],
+    },
+    {
+      id: 5,
+      title: "Mobile Responsiveness Testing",
+      description:
+        "Test the application across multiple devices and browsers ensuring consistent UI/UX experience.",
+      date: "2025-02-05",
+      completed: false,
+      priority: "medium",
+      assignee: { username: "lisa_qa", role: "Editor", position: "QA Engineer" },
+      createdBy: "jane_lead",
+      createdDate: "2024-12-12",
 
-  adminAttachments: [{ name: "test-cases.xlsx", type: "excel", size: "980 KB" }],
-  clientAttachments: [{ name: "device-list.pdf", type: "pdf", size: "430 KB" }],
-},
-{
-  id: 6,
-  title: "Dashboard Analytics Module",
-  description:
-    "Develop interactive analytics dashboard with charts and real-time data updates using WebSockets.",
-  date: "2025-02-18",
-  completed: false,
-  priority: "high",
-  assignee: { username: "raj_frontend", role: "Editor", position: "Frontend Developer" },
-  createdBy: "john_manager",
-  createdDate: "2024-12-20",
+      adminAttachments: [{ name: "test-cases.xlsx", type: "excel", size: "980 KB" }],
+      clientAttachments: [{ name: "device-list.pdf", type: "pdf", size: "430 KB" }],
+    },
+    {
+      id: 6,
+      title: "Dashboard Analytics Module",
+      description:
+        "Develop interactive analytics dashboard with charts and real-time data updates using WebSockets.",
+      date: "2025-02-18",
+      completed: false,
+      priority: "high",
+      assignee: { username: "raj_frontend", role: "Editor", position: "Frontend Developer" },
+      createdBy: "john_manager",
+      createdDate: "2024-12-20",
 
-  adminAttachments: [{ name: "analytics-ui.fig", type: "figma", size: "5.6 MB" }],
-  clientAttachments: [{ name: "metrics-requirement.docx", type: "word", size: "760 KB" }],
-},
-{
-  id: 7,
-  title: "Content Migration",
-  description:
-    "Migrate existing blog articles and media assets to the new CMS while maintaining SEO structure.",
-  date: "2025-03-02",
-  completed: false,
-  priority: "medium",
-  assignee: { username: "emma_content", role: "Editor", position: "Content Manager" },
-  createdBy: "jane_lead",
-  createdDate: "2025-01-05",
+      adminAttachments: [{ name: "analytics-ui.fig", type: "figma", size: "5.6 MB" }],
+      clientAttachments: [{ name: "metrics-requirement.docx", type: "word", size: "760 KB" }],
+    },
+    {
+      id: 7,
+      title: "Content Migration",
+      description:
+        "Migrate existing blog articles and media assets to the new CMS while maintaining SEO structure.",
+      date: "2025-03-02",
+      completed: false,
+      priority: "medium",
+      assignee: { username: "emma_content", role: "Editor", position: "Content Manager" },
+      createdBy: "jane_lead",
+      createdDate: "2025-01-05",
 
-  adminAttachments: [{ name: "migration-plan.pdf", type: "pdf", size: "1.7 MB" }],
-  clientAttachments: [{ name: "old-content-backup.zip", type: "zip", size: "12.4 MB" }],
-},
-{
-  id: 8,
-  title: "Security Audit & Penetration Testing",
-  description:
-    "Perform security assessment including vulnerability scanning, penetration testing, and risk mitigation planning.",
-  date: "2025-03-15",
-  completed: false,
-  priority: "high",
-  assignee: { username: "noah_security", role: "Admin", position: "Security Analyst" },
-  createdBy: "john_manager",
-  createdDate: "2025-01-10",
+      adminAttachments: [{ name: "migration-plan.pdf", type: "pdf", size: "1.7 MB" }],
+      clientAttachments: [{ name: "old-content-backup.zip", type: "zip", size: "12.4 MB" }],
+    },
+    {
+      id: 8,
+      title: "Security Audit & Penetration Testing",
+      description:
+        "Perform security assessment including vulnerability scanning, penetration testing, and risk mitigation planning.",
+      date: "2025-03-15",
+      completed: false,
+      priority: "high",
+      assignee: { username: "noah_security", role: "Admin", position: "Security Analyst" },
+      createdBy: "john_manager",
+      createdDate: "2025-01-10",
 
-  adminAttachments: [{ name: "security-checklist.pdf", type: "pdf", size: "2.9 MB" }],
-  clientAttachments: [{ name: "compliance-guidelines.docx", type: "word", size: "1.1 MB" }],
-}
+      adminAttachments: [{ name: "security-checklist.pdf", type: "pdf", size: "2.9 MB" }],
+      clientAttachments: [{ name: "compliance-guidelines.docx", type: "word", size: "1.1 MB" }],
+    }
   ]);
 
   const [newTask, setNewTask] = useState({
@@ -256,11 +256,11 @@ export const Admin_task_page = () => {
 
   // ✅ Per-task actions
   const handleFeedback = (task) => {
-    console.log("Feedback for:", task.id);
+    // console.log("Feedback for:", task.id);
   };
 
   const handleSchedule = (task) => {
-    console.log("Schedule for:", task.id);
+    // console.log("Schedule for:", task.id);
   };
 
   // ✅ Helper: get a combined list for preview chips (admin + client)
@@ -359,7 +359,7 @@ export const Admin_task_page = () => {
       //   backgroundSize: "40px 40px",
       // }}
       />
-      
+
       {/* Your Content/Components */}
       <div className="flex flex-col lg:flex-row min-h-screen relative">
         <main className="flex-1 p-4 md:p-8 lg:p-10 max-w-5xl mx-auto w-full">
@@ -449,11 +449,10 @@ export const Admin_task_page = () => {
                   return (
                     <div
                       key={task.id}
-                      className={`group relative bg-white rounded-2xl border transition-colors duration-200 flex flex-col overflow-hidden cursor-pointer ${
-                        task.completed
+                      className={`group relative bg-white rounded-2xl border transition-colors duration-200 flex flex-col overflow-hidden cursor-pointer ${task.completed
                           ? "opacity-60 border-amber-50 bg-white"
                           : "border-amber-100 hover:border-amber-200"
-                      }`}
+                        }`}
                       onClick={() => toggleTaskExpansion(task.id)}
                     >
                       <div className="p-5 flex flex-col sm:flex-row items-start gap-4">
@@ -463,11 +462,10 @@ export const Admin_task_page = () => {
                               e.stopPropagation();
                               toggleTask(task.id);
                             }}
-                            className={`mt-0.5 shrink-0 flex items-center justify-center w-8 h-8 rounded-xl transition-colors ${
-                              task.completed
+                            className={`mt-0.5 shrink-0 flex items-center justify-center w-8 h-8 rounded-xl transition-colors ${task.completed
                                 ? "bg-amber-500 text-white"
                                 : "bg-white text-amber-600 hover:bg-amber-50 border border-amber-100"
-                            }`}
+                              }`}
                             title="Toggle complete"
                           >
                             {task.completed ? (
@@ -487,9 +485,8 @@ export const Admin_task_page = () => {
                             </div>
 
                             <h3
-                              className={`text-lg tracking-tight ${
-                                task.completed ? "line-through text-slate-400" : "text-slate-800"
-                              }`}
+                              className={`text-lg tracking-tight ${task.completed ? "line-through text-slate-400" : "text-slate-800"
+                                }`}
                               style={{ fontFamily: "'Roboto Slab', serif", fontWeight: 600 }}
                             >
                               {task.title}
@@ -570,9 +567,8 @@ export const Admin_task_page = () => {
                           >
                             <ChevronRight
                               size={18}
-                              className={`text-amber-600 transition-transform duration-200 ${
-                                isExpanded ? "rotate-90" : ""
-                              }`}
+                              className={`text-amber-600 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""
+                                }`}
                             />
                           </button>
                         </div>
@@ -622,7 +618,7 @@ export const Admin_task_page = () => {
 
       {isModalOpen && (
         <div className="absolute top-0 left-1 w-full z-50 bg-white max-h-full border border-amber-100 rounded-2xl">
-          <MyCalendar onclose={handleclose} />
+          {/* <MyCalendar onclose={handleclose} /> */}
         </div>
       )}
     </div>

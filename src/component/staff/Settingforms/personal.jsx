@@ -122,7 +122,7 @@ export const Personal = () => {
     // Save changes
     const handleSave = () => {
         setIsEditing(false);
-        console.log("Saved:", personalInfo);
+        // console.log("Saved:", personalInfo);
     };
 
     // Cancel editing

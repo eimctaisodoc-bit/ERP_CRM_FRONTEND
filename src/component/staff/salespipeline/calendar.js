@@ -181,7 +181,9 @@ export const getMonthDays = (
       
       // Explicit custom holiday flags
       isCustomHoliday,
-      customHolidayName: isCustomHoliday ? holidayMatch.name : null,
+      customHolidayName: isCustomHoliday
+        ? holidayMatch.title || holidayMatch.name
+        : null,
       
       // Combined holiday state (Saturday OR Custom Holiday)
       isHoliday: dayIndex === 6 || isCustomHoliday,

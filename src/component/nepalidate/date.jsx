@@ -5,7 +5,7 @@ import "@sajanm/nepali-date-picker/dist/nepali.datepicker.v5.0.6.min.css";
 
 function NepaliDatepicker({
   options = {},
-  onSelect = () => {},
+  onSelect = () => { },
   id,
   className = "",
   defaultValue = "",

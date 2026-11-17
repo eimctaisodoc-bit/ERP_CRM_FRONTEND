@@ -165,7 +165,8 @@ const OvertimeModal = ({ isOTModalOpen, setIsOTModalOpen, formData, setFormData 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={cancelAndClose}>
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={cancelAndClose} />
       <motion.div
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -448,7 +449,7 @@ const Attend_Mgt_Client_form = ({onClose}) => {
 
     setIsSubmitting(true);
     setTimeout(() => {
-      console.log("FINAL DATA SUBMITTED:", formData);
+      // console.log("FINAL DATA SUBMITTED:", formData);
       setIsSubmitting(false);
       alert("Attendance Log Submitted Successfully!");
     }, 1000);

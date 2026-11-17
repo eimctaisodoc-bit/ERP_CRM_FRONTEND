@@ -11,8 +11,16 @@ export const useRecruitmentData = () => {
   return useQuery({
     queryKey: ['recruitment'],
     queryFn: async () => {
-      const { data } = await api.get('/admin/recruitment');
-      return data;
+      const { data: responseData } = await api.get('/admin/recruitment');
+      const recruitmentData = Array.isArray(responseData)
+        ? responseData
+        : responseData?.data;
+
+      if (!Array.isArray(recruitmentData)) {
+        throw new Error('The recruitment API returned an invalid response.');
+      }
+
+      return recruitmentData;
     },
 
     enabled: role === 'admin',
@@ -28,7 +36,7 @@ export const useRecruitmentDataForClient = () => {
     queryKey: ['recruitmentForClient'],
     queryFn: async () => {
       const { data } = await api.get('/client/recruitment');
-      console.log('from client ',data)
+      // console.log('from client ',data)
       return data;
     },
     enabled: role === 'admin',

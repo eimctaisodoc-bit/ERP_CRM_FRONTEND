@@ -726,7 +726,7 @@ export const Schedule = () => {
                 onClick={handleCloseDrawer}
             >
                 {/* Backdrop */}
-                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
 
                 {/* Drawer */}
                 <aside
@@ -1021,12 +1021,12 @@ export const Schedule = () => {
             {/* ── ADD PROGRAM MODAL ─────────────────────────────────────────────── */}
             {isModalOpen && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="modal-title"
-                    onClick={e => e.target === e.currentTarget && setIsModalOpen(false)}
                 >
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={e => e.target === e.currentTarget && setIsModalOpen(false)} />
                     <style>{`@keyframes _fis { from { opacity:0; transform:scale(.96) translateY(6px); } to { opacity:1; transform:scale(1) translateY(0); } }`}</style>
                     <div
                         className="bg-white rounded-lg max-w-md w-full border border-amber-100 shadow-2xl p-6 relative my-auto"

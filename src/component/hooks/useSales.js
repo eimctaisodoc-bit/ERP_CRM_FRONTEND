@@ -32,7 +32,7 @@ export const useSalesData = () => {
 //     queryKey: ['recruitmentForClient'],
 //     queryFn: async () => {
 //       const { data } = await api.get('/client/recruitment');
-//       console.log('from client ',data)
+//       // console.log('from client ',data)
 //       return data;
 //     },
 //     enabled: role === 'admin',

@@ -5,6 +5,7 @@ import Select from "react-select";
 import { getInputClass, ValidateStyle } from "../../../data/data";
 import { UseAdd } from "../../hooks/useadd";
 import { ErrorNotify, SuccessNotify } from "../../hotToaster";
+import { getDistrictNames, getLocalLevelNames, provinceDistricts } from "../../province";
 
 const leadType = [
     { label: "Inbound (Client Contacted You)", value: "inbound" },
@@ -93,45 +94,23 @@ const servicesInterested = [
     { label: "Third Party Audits", value: "third_party_audits", color: "#000000" },
 ];
 
-const provinceNumberOptions = [
-    { label: "Province 1", value: "1" },
-    { label: "Province 2", value: "2" },
-    { label: "Province 3", value: "3" },
-    { label: "Province 4", value: "4" },
-    { label: "Province 5", value: "5" },
-    { label: "Province 6", value: "6" },
-    { label: "Province 7", value: "7" },
-];
-
-const provinceNumberToName = {
-    "1": { label: "Koshi", value: "Koshi" },
-    "2": { label: "Madhesh", value: "Madhesh" },
-    "3": { label: "Bagmati", value: "Bagmati" },
-    "4": { label: "Gandaki", value: "Gandaki" },
-    "5": { label: "Lumbini", value: "Lumbini" },
-    "6": { label: "Karnali", value: "Karnali" },
-    "7": { label: "Sudurpashchim", value: "Sudurpashchim" }
+const provinceNumbers = {
+    "Koshi Province": 1,
+    "Madhesh Province": 2,
+    "Bagmati Province": 3,
+    "Gandaki Province": 4,
+    "Lumbini Province": 5,
+    "Karnali Province": 6,
+    "Sudurpashchim Province": 7
 };
 
-const provinceOptions = [
-    { label: "Koshi", value: "Koshi" },
-    { label: "Madhesh", value: "Madhesh" },
-    { label: "Bagmati", value: "Bagmati" },
-    { label: "Gandaki", value: "Gandaki" },
-    { label: "Lumbini", value: "Lumbini" },
-    { label: "Karnali", value: "Karnali" },
-    { label: "Sudurpashchim", value: "Sudurpashchim" },
-];
-
-const provinceDistricts = {
-    "Koshi": ["Bhojpur", "Dhankuta", "Ilam", "Jhapa", "Khotang", "Morang", "Okhaldhunga", "Panchthar", "Sankhuwasabha", "Solukhumbu", "Sunsari", "Taplejung", "Terhathum", "Udayapur"],
-    "Madhesh": ["Bara", "Dhanusha", "Mahottari", "Parsa", "Rautahat", "Saptari", "Sarlahi", "Siraha"],
-    "Bagmati": ["Bhaktapur", "Chitwan", "Dhading", "Dolakha", "Kathmandu", "Kavrepalanchok", "Lalitpur", "Makwanpur", "Nuwakot", "Ramechhap", "Rasuwa", "Sindhuli", "Sindhupalchok"],
-    "Gandaki": ["Baglung", "Gorkha", "Kaski", "Lamjung", "Manang", "Mustang", "Myagdi", "Nawalpur", "Parbat", "Syangja", "Tanahun"],
-    "Lumbini": ["Arghakhanchi", "Banke", "Bardiya", "Dang", "Eastern Rukum", "Gulmi", "Kapilvastu", "Palpa", "Pyuthan", "Rolpa", "Rupandehi"],
-    "Karnali": ["Dailekh", "Dolpa", "Humla", "Jajarkot", "Jumla", "Kalikot", "Mugu", "Salyan", "Surkhet", "Western Rukum"],
-    "Sudurpashchim": ["Achham", "Baitadi", "Bajhang", "Bajura", "Dadeldhura", "Darchula", "Doti", "Kailali", "Kanchanpur"]
+const provinceOptions = Object.keys(provinceDistricts).map(name => ({ label: name, value: name }));
+const provinceNumberOption = (province) => {
+    const number = province ? provinceNumbers[province.value] : null;
+    return number ? { label: `Province ${number}`, value: String(number) } : null;
 };
+
+
 
 const industries = [
     { label: "IT", value: "it", color: "#3b82f6" },
@@ -147,16 +126,6 @@ const industries = [
     { label: "Logistics & Transportation", value: "logistics", color: "#0ea5e9" },
     { label: "Energy & Utilities", value: "energy", color: "#22c55e" },
     { label: "Financial Services", value: "finance", color: "#14b8a6" },
-];
-
-const employeeRangeOptions = [
-    { label: "0-50 employees", value: "0-50", maximum: 50 },
-    { label: "50-200 employees", value: "50-200", maximum: 200 },
-    { label: "200-500 employees", value: "200-500", maximum: 500 },
-    { label: "500-700 employees", value: "500-700", maximum: 700 },
-    { label: "700-1000 employees", value: "700-1000", maximum: 1000 },
-    { label: "1000-1500 employees", value: "1000-1500", maximum: 1500 },
-    { label: "Custom entry", value: "custom" },
 ];
 
 const freeEmailDomains = [
@@ -194,7 +163,6 @@ const initialOrgData = {
     orgTelephone: "",
     orgEmail: "",
     totalEmp_learners: "",
-    employeeRange: null,
     totalEducator: "",
     fromGrade: "",
     toGrade: "",
@@ -322,16 +290,10 @@ const LeadForm = ({ onClose }) => {
             }
         }
 
-        if (!error && name === "employeeRange" && !isEducationService && isEmpty(value)) {
-            error = "Select an employee range";
-        }
-
-        if (!error && name === "totalEmp_learners" && !isEducationService && orgData.employeeRange?.value === "custom" && isEmpty(value)) {
-            error = "Enter the employee count";
-        }
-
-        if (!error && name === "totalEmp_learners" && isEducationService && isEmpty(value)) {
-            error = "Enter the total learners";
+        if (!error && name === "totalEmp_learners" && isEmpty(value)) {
+            error = isEducationService
+                ? "Enter the total learners"
+                : "Enter the total employees";
         }
 
         if (!error && name === "totalEducator" && !isEducationService) {
@@ -353,7 +315,7 @@ const LeadForm = ({ onClose }) => {
         const errors = requiredLeadFields.map((field) =>
             validateField(field, leadData[field], "lead")
         );
-        return !errors.some(Boolean);
+        return validateLocation(leadData, "lead", true) && !errors.some(Boolean);
     };
 
     const validateOrg = () => {
@@ -365,15 +327,31 @@ const LeadForm = ({ onClose }) => {
 
         if (isEducationService) {
             fields.push("totalEducator", "fromGrade", "toGrade");
-        } else {
-            fields.push("employeeRange");
-            if (orgData.employeeRange?.value === "custom") fields.push("totalEmp_learners");
         }
 
         const errors = fields.map((field) =>
             validateField(field, orgData[field], "org")
         );
-        return !errors.some(Boolean);
+        return validateLocation(orgData, "org", false) && !errors.some(Boolean);
+    };
+
+    const validateLocation = (location, tab, required) => {
+        const province = location.province?.value;
+        const district = location.district?.value;
+        const localLevel = location.localLevel?.value;
+        const hasAnyLocation = Boolean(province || district || localLevel);
+
+        if (!required && !hasAnyLocation) return true;
+
+        const validProvince = Boolean(province && Object.hasOwn(provinceDistricts, province));
+        const validDistrict = validProvince && getDistrictNames(province).includes(district);
+        const validLocalLevel = validDistrict && getLocalLevelNames(province, district).includes(localLevel);
+
+        if (!validProvince) setTabErrors(tab, "province", "Select a valid Province.");
+        if (!validDistrict) setTabErrors(tab, "district", "Select a District from the selected Province.");
+        if (!validLocalLevel) setTabErrors(tab, "localLevel", "Select a Local Level from the selected District.");
+
+        return validProvince && validDistrict && validLocalLevel;
     };
 
     const normalizePayload = () => {
@@ -416,7 +394,6 @@ const LeadForm = ({ onClose }) => {
                 totalEmp_learners: orgData.totalEmp_learners === ""
                     ? null
                     : Number(orgData.totalEmp_learners),
-                employeeRange: isEducationService ? "" : orgData.employeeRange?.value || "",
                 totalEducator: orgData.totalEducator === "" || !isEducationService
                     ? null
                     : Number(orgData.totalEducator),
@@ -522,23 +499,27 @@ const LeadForm = ({ onClose }) => {
 
     const isSubmitting = addOrgLeadDetails?.isPending;
 
-    const districtOptions = leadData.province?.value
-        ? provinceDistricts[leadData.province.value].map(dist => ({ label: dist, value: dist }))
-        : [];
+    const districtOptions = getDistrictNames(leadData.province?.value)
+        .map(district => ({ label: district, value: district }));
+    const localLevelOptions = getLocalLevelNames(leadData.province?.value, leadData.district?.value)
+        .map(localLevel => ({ label: localLevel, value: localLevel }));
 
-    const orgDistrictOptions = orgData.province?.value
-        ? provinceDistricts[orgData.province.value].map(dist => ({ label: dist, value: dist }))
-        : [];
+    const orgDistrictOptions = getDistrictNames(orgData.province?.value)
+        .map(district => ({ label: district, value: district }));
+    const orgLocalLevelOptions = getLocalLevelNames(orgData.province?.value, orgData.district?.value)
+        .map(localLevel => ({ label: localLevel, value: localLevel }));
 
     return (
         <AnimatePresence>
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4"
+            <div className="fixed inset-0 flex items-center justify-center z-50 p-2 sm:p-4"
             >
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                />
                 <button
                     type="button"
                     onClick={onClose}
@@ -724,43 +705,34 @@ const LeadForm = ({ onClose }) => {
                                                     <label className="text-xs sm:text-sm font-semibold text-slate-700">
                                                         Province No. <span className="text-red-500">*</span>
                                                     </label>
-                                                    <Select
-                                                        name="provinceNumber"
-                                                        value={leadData.provinceNumber}
-                                                        options={provinceNumberOptions}
-                                                        className="cursor-pointer"
-                                                        placeholder="Select No."
-                                                        styles={ValidateStyle(!!leadErrors.provinceNumber, false)}
-                                                        onChange={(option) => {
-                                                            const autoProvince = provinceNumberToName[option.value];
-                                                            setLeadData((prev) => ({
-                                                                ...prev,
-                                                                provinceNumber: option,
-                                                                province: autoProvince,
-                                                                district: null,
-                                                                localLevel: ""
-                                                            }));
-                                                            setLeadErrors((prev) => ({ ...prev, provinceNumber: "", province: "", district: "", localLevel: "" }));
-                                                        }}
+                                                    <input
+                                                        value={leadData.provinceNumber?.value || ""}
+                                                        disabled
+                                                        placeholder="Auto-mapped"
+                                                        className={`${commonInputStyles} cursor-not-allowed bg-slate-100 text-slate-500`}
                                                     />
-                                                    {leadErrors.provinceNumber && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.provinceNumber}</p>}
                                                 </div>
 
                                                 <div className="flex flex-col gap-1.5 sm:gap-2">
                                                     <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                                                        Province Name <span className="text-red-500">*</span>
+                                                        Province <span className="text-red-500">*</span>
                                                     </label>
                                                     <Select
                                                         name="province"
                                                         value={leadData.province}
-                                                        options={leadData.provinceNumber ? [provinceNumberToName[leadData.provinceNumber.value]] : provinceOptions}
-                                                        isDisabled={!leadData.provinceNumber}
-                                                        placeholder={leadData.provinceNumber ? "Select Province" : "Select No. First"}
+                                                        options={provinceOptions}
+                                                        placeholder="Select Province"
                                                         className="cursor-pointer"
                                                         styles={ValidateStyle(!!leadErrors.province, false)}
                                                         onChange={(option) => {
-                                                            setLeadData((prev) => ({ ...prev, province: option, district: null, localLevel: "" }));
-                                                            setLeadErrors((prev) => ({ ...prev, province: "", district: "", localLevel: "" }));
+                                                            setLeadData((prev) => ({
+                                                                ...prev,
+                                                                province: option,
+                                                                provinceNumber: provinceNumberOption(option),
+                                                                district: null,
+                                                                localLevel: null
+                                                            }));
+                                                            setLeadErrors((prev) => ({ ...prev, provinceNumber: "", province: "", district: "", localLevel: "" }));
                                                         }}
                                                     />
                                                     {leadErrors.province && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.province}</p>}
@@ -775,12 +747,12 @@ const LeadForm = ({ onClose }) => {
                                                         value={leadData.district}
                                                         options={districtOptions}
                                                         isDisabled={!leadData.province}
-                                                        placeholder={leadData.province ? "Select District" : "Select Province First"}
-                                                        className="cursor-pointer"
+                                                        placeholder={leadData.province ? "Select District" : "Select Province first"}
+                                                        className={!leadData.province ? "cursor-not-allowed" : "cursor-pointer"}
                                                         styles={ValidateStyle(!!leadErrors.district, false)}
                                                         onChange={(option) => {
-                                                            handleInputChange(option, "lead", "district");
-                                                            validateField("district", option, "lead");
+                                                            setLeadData((prev) => ({ ...prev, district: option, localLevel: null }));
+                                                            setLeadErrors((prev) => ({ ...prev, district: "", localLevel: "" }));
                                                         }}
                                                     />
                                                     {leadErrors.district && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.district}</p>}
@@ -790,16 +762,17 @@ const LeadForm = ({ onClose }) => {
                                                     <label className="text-xs sm:text-sm font-semibold text-slate-700">
                                                         Local Level <span className="text-red-500">*</span>
                                                     </label>
-                                                    <input
-                                                        type="text"
+                                                    <Select
                                                         name="localLevel"
-                                                        value={leadData.localLevel || ''}
-                                                        placeholder="Municipality / Metropolitan"
-                                                        className={leadErrors.localLevel ? errorInputStyles : commonInputStyles}
-                                                        onChange={(e) => {
-                                                            const newValue = e.target.value;
-                                                            handleInputChange(newValue, "lead", "localLevel");
-                                                            validateField("localLevel", newValue, "lead");
+                                                        value={leadData.localLevel}
+                                                        options={localLevelOptions}
+                                                        isDisabled={!leadData.district}
+                                                        placeholder={leadData.district ? "Select Local Level" : "Select District first"}
+                                                        className={!leadData.district ? "cursor-not-allowed" : "cursor-pointer"}
+                                                        styles={ValidateStyle(!!leadErrors.localLevel, false)}
+                                                        onChange={(option) => {
+                                                            handleInputChange(option, "lead", "localLevel");
+                                                            validateField("localLevel", option, "lead");
                                                         }}
                                                     />
                                                     {leadErrors.localLevel && <p className="mt-1 text-xs font-medium text-red-500">{leadErrors.localLevel}</p>}
@@ -910,7 +883,6 @@ const LeadForm = ({ onClose }) => {
                                                             ...prev,
                                                             industyType: nextIndustries,
                                                             totalEmp_learners: "",
-                                                            employeeRange: null,
                                                             totalEducator: "",
                                                             fromGrade: "",
                                                             toGrade: "",
@@ -931,42 +903,37 @@ const LeadForm = ({ onClose }) => {
                                                         <label className="text-xs sm:text-sm font-semibold text-slate-700">
                                                             Province No. <span className="text-slate-400 font-normal">(Optional)</span>
                                                         </label>
-                                                        <Select
-                                                            name="provinceNumber"
-                                                            value={orgData.provinceNumber}
-                                                            options={provinceNumberOptions}
-                                                            className="cursor-pointer"
-                                                            placeholder="Select No."
-                                                            styles={ValidateStyle(false, false)}
-                                                            onChange={(option) => {
-                                                                const autoProvince = provinceNumberToName[option.value];
-                                                                setOrgData((prev) => ({
-                                                                    ...prev,
-                                                                    provinceNumber: option,
-                                                                    province: autoProvince,
-                                                                    district: null,
-                                                                    localLevel: ""
-                                                                }));
-                                                            }}
+                                                        <input
+                                                            value={orgData.provinceNumber?.value || ""}
+                                                            disabled
+                                                            placeholder="Auto-mapped"
+                                                            className={`${commonInputStyles} cursor-not-allowed bg-slate-100 text-slate-500`}
                                                         />
                                                     </div>
 
                                                     <div className="flex flex-col gap-1.5 sm:gap-2">
                                                         <label className="text-xs sm:text-sm font-semibold text-slate-700">
-                                                            Province Name <span className="text-slate-400 font-normal">(Optional)</span>
+                                                            Province <span className="text-slate-400 font-normal">(Optional)</span>
                                                         </label>
                                                         <Select
                                                             name="province"
                                                             value={orgData.province}
-                                                            options={orgData.provinceNumber ? [provinceNumberToName[orgData.provinceNumber.value]] : provinceOptions}
-                                                            isDisabled={!orgData.provinceNumber}
+                                                            options={provinceOptions}
                                                             className="cursor-pointer"
-                                                            placeholder={orgData.provinceNumber ? "Select Province" : "Select No. First"}
-                                                            styles={ValidateStyle(false, false)}
+                                                            placeholder="Select Province"
+                                                            styles={ValidateStyle(!!orgErrors.province, false)}
                                                             onChange={(option) => {
-                                                                setOrgData((prev) => ({ ...prev, province: option, district: null, localLevel: "" }));
+                                                                setOrgData((prev) => ({
+                                                                    ...prev,
+                                                                    province: option,
+                                                                    provinceNumber: provinceNumberOption(option),
+                                                                    district: null,
+                                                                    localLevel: null
+                                                                }));
+                                                                setOrgErrors((prev) => ({ ...prev, province: "", district: "", localLevel: "" }));
                                                             }}
                                                         />
+                                                        {orgErrors.province && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.province}</p>}
                                                     </div>
 
                                                     <div className="flex flex-col gap-1.5 sm:gap-2">
@@ -979,28 +946,34 @@ const LeadForm = ({ onClose }) => {
                                                             options={orgDistrictOptions}
                                                             isDisabled={!orgData.province}
                                                             placeholder={orgData.province ? "Select District" : "Select Province First"}
-                                                            className="cursor-pointer"
-                                                            styles={ValidateStyle(false, false)}
+                                                            className={!orgData.province ? "cursor-not-allowed" : "cursor-pointer"}
+                                                            styles={ValidateStyle(!!orgErrors.district, false)}
                                                             onChange={(option) => {
-                                                                handleInputChange(option, "org", "district");
+                                                                setOrgData((prev) => ({ ...prev, district: option, localLevel: null }));
+                                                                setOrgErrors((prev) => ({ ...prev, district: "", localLevel: "" }));
                                                             }}
                                                         />
+                                                        {orgErrors.district && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.district}</p>}
                                                     </div>
 
                                                     <div className="flex flex-col gap-1.5 sm:gap-2">
                                                         <label className="text-xs sm:text-sm font-semibold text-slate-700">
                                                             Local Level <span className="text-slate-400 font-normal">(Optional)</span>
                                                         </label>
-                                                        <input
-                                                            type="text"
+                                                        <Select
                                                             name="localLevel"
-                                                            value={orgData.localLevel || ''}
-                                                            placeholder="Municipality / Metropolitan"
-                                                            className={commonInputStyles}
-                                                            onChange={(e) => {
-                                                                handleInputChange(e.target.value, "org", "localLevel");
+                                                            value={orgData.localLevel}
+                                                            options={orgLocalLevelOptions}
+                                                            isDisabled={!orgData.district}
+                                                            placeholder={orgData.district ? "Select Local Level" : "Select District first"}
+                                                            className={!orgData.district ? "cursor-not-allowed" : "cursor-pointer"}
+                                                            styles={ValidateStyle(!!orgErrors.localLevel, false)}
+                                                            onChange={(option) => {
+                                                                handleInputChange(option, "org", "localLevel");
+                                                                setOrgErrors((prev) => ({ ...prev, localLevel: "" }));
                                                             }}
                                                         />
+                                                        {orgErrors.localLevel && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.localLevel}</p>}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1140,39 +1113,21 @@ const LeadForm = ({ onClose }) => {
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 sm:col-span-2">
-                                                    <div className="flex flex-col gap-1.5 sm:gap-2">
+                                                <div className="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2 sm:gap-5">
+                                                    <div className="flex flex-col gap-1.5 sm:col-span-2 sm:gap-2">
                                                         <label className="text-[11px] sm:text-xs font-bold text-slate-600 uppercase">Total Employees <span className="text-red-500">*</span></label>
-                                                        <Select
-                                                            value={orgData.employeeRange}
-                                                            options={employeeRangeOptions}
-                                                            className="cursor-pointer"
-                                                            placeholder="Select employee range"
-                                                            styles={ValidateStyle(!!orgErrors.employeeRange, false)}
-                                                            onChange={(option) => {
-                                                                const maximum = option?.maximum;
-                                                                setOrgData((prev) => ({ ...prev, employeeRange: option, totalEmp_learners: option?.value === "custom" ? "" : maximum }));
-                                                                setOrgErrors((prev) => ({ ...prev, employeeRange: "", totalEmp_learners: "" }));
-                                                            }}
+                                                        <input
+                                                            type="number"
+                                                            name="totalEmp_learners"
+                                                            min="0"
+                                                            step="1"
+                                                            value={orgData.totalEmp_learners}
+                                                            className={orgErrors.totalEmp_learners ? errorInputStyles : commonInputStyles}
+                                                            placeholder="Enter total employees"
+                                                            onChange={(e) => handleInputChange(e, "org")}
+                                                            onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
                                                         />
-                                                        {orgErrors.employeeRange && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.employeeRange}</p>}
                                                     </div>
-                                                    {orgData.employeeRange?.value === "custom" && (
-                                                        <div className="flex flex-col gap-1.5 sm:gap-2">
-                                                            <label className="text-[11px] sm:text-xs font-bold text-slate-600 uppercase">Employee Count <span className="text-red-500">*</span></label>
-                                                            <input
-                                                                type="number"
-                                                                name="totalEmp_learners"
-                                                                min="0"
-                                                                value={orgData.totalEmp_learners}
-                                                                className={orgErrors.totalEmp_learners ? errorInputStyles : commonInputStyles}
-                                                                placeholder="Enter exact employee count"
-                                                                onChange={(e) => handleInputChange(e, "org")}
-                                                                onBlur={(e) => validateField(e.target.name, e.target.value, "org")}
-                                                            />
-                                                            {orgErrors.totalEmp_learners && <p className="mt-1 text-xs font-medium text-red-500">{orgErrors.totalEmp_learners}</p>}
-                                                        </div>
-                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -1370,7 +1325,7 @@ const LeadForm = ({ onClose }) => {
                         </div>
                     </div>
                 </motion.div>
-            </motion.div>
+            </div>
         </AnimatePresence>
     );
 };

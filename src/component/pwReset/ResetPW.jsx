@@ -45,12 +45,12 @@ const ResetPassword = () => {
 
         try {
             const res = await api.get(`api/verify-reset-token/${token}`);
-            console.log(res.data);
+            // console.log(res.data);
             setValid({ valid: true, message: res.data?.message || "" });
             setTokenValid(true);
         } catch (error) {
             const data = error.response?.data || {};
-            console.log(data || error.message);
+            // console.log(data || error.message);
             setValid({
                 valid: false,
                 message: data.message || "Reset link expired or invalid."

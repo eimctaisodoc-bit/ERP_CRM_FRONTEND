@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { Cloud, ExternalLink, FileText, HardDrive, ShieldAlert } from "lucide-react";
 import { Skeleton } from "../../skeleton";
@@ -7,9 +7,10 @@ const GoogleDriveFiles = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [googleAuthRequired, setGoogleAuthRequired] = useState(false);
+  const fetchInFlight = useRef(false);
 
   const startGoogleOAuth = () => {
-    window.location.href = "https://erp-crm-backend-amber.vercel.app/api/auth/google";
+    window.location.href = "http://localhost:5000/api/auth/google";
   };
 
   const formatFileSize = (size) => {
@@ -20,6 +21,9 @@ const GoogleDriveFiles = () => {
   };
 
   const fetchFiles = async () => {
+    if (fetchInFlight.current) return;
+    fetchInFlight.current = true;
+
     try {
       const token = sessionStorage.getItem("Token");
 
@@ -29,7 +33,7 @@ const GoogleDriveFiles = () => {
       }
 
       const response = await axios.get(
-        "https://erp-crm-backend-amber.vercel.app/api/auth/list-files",
+        "http://localhost:5000/api/auth/list-files",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -50,6 +54,7 @@ const GoogleDriveFiles = () => {
 
       alert(error.response?.data?.message || "Failed to load Google Drive files.");
     } finally {
+      fetchInFlight.current = false;
       setLoading(false);
     }
   };
@@ -87,7 +92,7 @@ const GoogleDriveFiles = () => {
 
   if (googleAuthRequired) {
     return (
-      <main className="flex min-h-[70vh] items-center justify-center bg-slate-50/60 p-4 font-['Roboto_Slab',serif] sm:p-6">
+      <main className="flex min-h-[70vh] items-center justify-center p-4 font-['Roboto_Slab',serif] sm:p-6">
         <section className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm sm:p-10">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
             <ShieldAlert size={30} />
@@ -110,7 +115,7 @@ const GoogleDriveFiles = () => {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50/60 p-4 font-['Roboto_Slab',serif] sm:p-6 lg:p-8">
+    <main className="min-h-screen p-4 font-['Roboto_Slab',serif] sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl">
         <header className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
@@ -127,42 +132,42 @@ const GoogleDriveFiles = () => {
           </div>
         </header>
 
-      {files.length === 0 ? (
-        <section className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
-          <FileText className="mx-auto text-slate-300" size={42} />
-          <h2 className="mt-4 text-lg font-bold text-slate-800">No files found</h2>
-          <p className="mt-2 text-sm text-slate-500">Your Google Drive does not contain any accessible files yet.</p>
-        </section>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {files.map((file) => (
-            <article key={file.id} className="group flex min-h-52 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg hover:shadow-slate-200/60">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                    <FileText size={21} />
+        {files.length === 0 ? (
+          <section className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
+            <FileText className="mx-auto text-slate-300" size={42} />
+            <h2 className="mt-4 text-lg font-bold text-slate-800">No files found</h2>
+            <p className="mt-2 text-sm text-slate-500">Your Google Drive does not contain any accessible files yet.</p>
+          </section>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {files.map((file) => (
+              <article key={file.id} className="group flex min-h-52 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg hover:shadow-slate-200/60">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                      <FileText size={21} />
+                    </div>
+                    <h2 className="truncate text-sm font-bold text-slate-800" title={file.name}>{file.name}</h2>
                   </div>
-                  <h2 className="truncate text-sm font-bold text-slate-800" title={file.name}>{file.name}</h2>
+                  <ExternalLink className="shrink-0 text-slate-300 transition group-hover:text-blue-500" size={17} />
                 </div>
-                <ExternalLink className="shrink-0 text-slate-300 transition group-hover:text-blue-500" size={17} />
-              </div>
-              <dl className="mt-7 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 text-xs">
-                <div>
-                  <dt className="text-slate-400">Type</dt>
-                  <dd className="mt-1 truncate font-semibold text-slate-600" title={file.mimeType}>{file.mimeType || "Unknown"}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-400">Size</dt>
-                  <dd className="mt-1 font-semibold text-slate-600">{formatFileSize(Number(file.size))}</dd>
-                </div>
-              </dl>
-              <a className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-bold text-blue-600 transition hover:text-blue-800" href={file.webViewLink} target="_blank" rel="noopener noreferrer">
-                Open file <ExternalLink size={15} />
-              </a>
-            </article>
-          ))}
-        </div>
-      )}
+                <dl className="mt-7 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 text-xs">
+                  <div>
+                    <dt className="text-slate-400">Type</dt>
+                    <dd className="mt-1 truncate font-semibold text-slate-600" title={file.mimeType}>{file.mimeType || "Unknown"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-400">Size</dt>
+                    <dd className="mt-1 font-semibold text-slate-600">{formatFileSize(Number(file.size))}</dd>
+                  </div>
+                </dl>
+                <a className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-bold text-blue-600 transition hover:text-blue-800" href={file.webViewLink} target="_blank" rel="noopener noreferrer">
+                  Open file <ExternalLink size={15} />
+                </a>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );

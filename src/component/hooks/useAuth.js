@@ -15,7 +15,7 @@ export const useAuth = (userId) => {
         retry: false,
         staleTime: 0,
         enabled: !isHomePage,
-        refetchOnReconnect: true, // automatically refetch after network loss
+        refetchOnReconnect: false, // automatically refetch after network loss
         refetchOnWindowFocus: true,
     });
 
@@ -43,7 +43,7 @@ export const useAuth = (userId) => {
         retry: false,
         staleTime: 5 * 60 * 1000,
         enabled: Boolean(userId) && !isHomePage,
-        refetchOnReconnect: true, // automatically refetch after network loss
+        refetchOnReconnect: false,
         refetchOnWindowFocus: true,
     });
     return {

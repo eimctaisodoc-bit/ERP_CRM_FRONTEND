@@ -169,7 +169,7 @@ const LeaveManagementForm = ({ onClose }) => {
 
         // Simulate API call
         setTimeout(() => {
-            console.log("Leave Application Submitted:", formData);
+            // console.log("Leave Application Submitted:", formData);
             setIsSubmitting(false);
             setIsSubmitted(true);
         }, 1500);
@@ -241,7 +241,8 @@ const LeaveManagementForm = ({ onClose }) => {
     }
 
     return (
-       <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+       <div className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
     {/* Single scrollable container - removed nested scrolling */}
     <div className="w-full max-w-4xl md:rounded-2xl flex flex-col max-h-[90vh] overflow-hidden relative bg-white">
         

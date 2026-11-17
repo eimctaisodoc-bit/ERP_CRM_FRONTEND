@@ -4,18 +4,13 @@ import React from 'react';
 const Skeleton = ({ className = '', variant = 'rect', index = 0 }) => {
     const baseClasses = "relative overflow-hidden bg-slate-50 border border-slate-200/40";
 
-    // Custom styles for controlled staggered animation based on index
-    const style = {
-        '--delay': `${index * 0.1}s`,
-    };
-
     return (
         <div
             className={`${baseClasses} ${className}`}
-            style={style}
         >
-            <div className="absolute inset-0 -translate-x-full animate-[advancedShimmer_2s_infinite_linear] [animation-delay:var(--delay)]
-             bg-gradient-to-r from-transparent via-slate-200/50 to-transparent" />
+            <div className="absolute inset-0 -translate-x-full animate-[advancedShimmer_2s_infinite_linear] bg-gradient-to-r from-transparent via-slate-200/50 to-transparent"
+                style={{ animationDelay: `${index * 0.1}s` }}
+            />
         </div>
     );
 };

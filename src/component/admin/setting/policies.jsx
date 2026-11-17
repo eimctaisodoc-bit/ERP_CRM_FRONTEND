@@ -65,7 +65,7 @@ export const Policies = () => {
         bonusEnabled: true,
         deductionEnabled: true
     });
-console.log('payroll date :',payroll)
+// console.log('payroll date :',payroll)
     // Projects State
     const [projects, setProjects] = useState({
         statusOptions: ["Planning", "Active", "On Hold", "Completed", "Cancelled"],
@@ -298,7 +298,7 @@ console.log('payroll date :',payroll)
     // API submission handler (ready for implementation)
     const handleSaveAll = async () => {
         const dataToSave = prepareApiData();
-        console.log('Data ready for API:', dataToSave);
+        // console.log('Data ready for API:', dataToSave);
         
         // Uncomment and implement when API is ready
         /*
@@ -314,7 +314,7 @@ console.log('payroll date :',payroll)
             
             if (response.ok) {
                 const result = await response.json();
-                console.log('Save successful:', result);
+                // console.log('Save successful:', result);
                 // Show success message
                 alert('Policies saved successfully!');
             } else {
@@ -336,7 +336,7 @@ console.log('payroll date :',payroll)
     const handleLeaveTypeChange = (index, field, value) => {
         const updated = [...leaveTypes];
         updated[index][field] = value;
-        console.log(updated[index][field])
+        // console.log(updated[index][field])
         setLeaveTypes(updated);
     };
 
@@ -373,7 +373,7 @@ console.log('payroll date :',payroll)
     };
 
     const handlePayrollChange = (field, value) => {
-        console.log(value)
+        // console.log(value)
         setPayroll({
             ...payroll,
             [field]: value

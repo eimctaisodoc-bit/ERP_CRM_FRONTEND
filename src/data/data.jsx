@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   User,
   Phone,
@@ -19,12 +19,25 @@ import {
   ClipboardList,
   Settings,
   LogOut,
+  BusFront,
+  Building2
 
 } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
-
 import html2canvas from "html2canvas";
+
 import jsPDF from "jspdf";
+
+
+const getUserRole = () => {
+  try {
+    const userData = sessionStorage.getItem("user");
+    return userData ? JSON.parse(userData)?.jobRole : undefined;
+  } catch (error) {
+    console.error("Failed to read the user's job role from sessionStorage:", error);
+    return undefined;
+  }
+};
 
 const menus = {
   admin: [
@@ -37,14 +50,32 @@ const menus = {
     // { name: "Inbox", path: "/admin/inbox", icon: MessageCircle },
     { name: "Settings", path: "/admin/settings", icon: Settings },
   ],
+  admin_cro: [
+    { name: "Dashboard", path: "/admin/report", icon: LayoutDashboard },
+    { name: "HR", path: "/admin/hr", icon: Users },
+    { name: "Finance", path: "/admin/finance", icon: CreditCard },
+    { name: "DMS", path: "/admin/dms", icon: FileText },
+    { name: 'Meeting', path: '/admin/meeting', icon: Calendar },
+    {
+      name: 'Employee Management', path: '/admin/employee', icon: Users
+    },
+    {
+      name: "Travel & Vehicle", path: '/admin/travel', icon: BusFront
+    },
+    { name: "Scheduling", path: "/admin/sales", icon: Calendar },
+    { name: "Settings", path: "/admin/settings", icon: Settings },
+
+  ],
   super_admin: [
     { name: "Dashboard", path: "/super_admin/report", icon: LayoutDashboard },
-    { name: "HR Management", path: "/super_admin/hr", icon: Users },
-    { name: "Finance", path: "/super_admin/finance", icon: CreditCard },
-    { name: "Sales", path: "/super_admin/sales", icon: BarChart3 },
-    // { name: "Tasks", path: "/super_admin/tasks", icon: ClipboardList },
+    { name: "HR", path: "/super_admin/hr", icon: Users },
+    { name: "Contract Management", path: "/super_admin/contract", icon: BarChart3 },
+    { name: "Lead Management", path: "/super_admin/lead", icon: BarChart3 },
+    {
+      name: "Branch Management", path: "/super_admin/branch", icon: Building2
+    },
     { name: "DMS", path: "/super_admin/dms", icon: FileText },
-    // { name: "Inbox", path: "/super_admin/comm", icon: MessageCircle },
+
     { name: "Settings", path: "/super_admin/settings", icon: Settings },
   ],
   client: [
@@ -56,15 +87,55 @@ const menus = {
   staff: [
     { name: "Dashboard", path: "/staff/report", icon: LayoutDashboard },
     { name: "HR Management", path: "/staff/hr", icon: Users },
-    // { name: "Finance", path: "/staff/finance", icon: CreditCard },
-    { name: "Sales", path: "/staff/sales", icon: BarChart3 },
-    // { name: "Tasks", path: "/staff/tasks", icon: ClipboardList },
+    { name: "Sales", path: "/staff/contract", icon: BarChart3 },
     { name: "DMS", path: "/staff/dms", icon: FileText },
-    // { name: "Attendance", path: "/staff/attendance", icon: ClipboardList },
-    { name: "Settings", path: "/staff/settings", icon: User },
+    { name: "Settings", path: "/staff/settings", icon: Settings },
+  ],
+  staff_sales: [
+    { name: "Dashboard", path: "/staff/report", icon: LayoutDashboard },
+    { name: "HR", path: "/staff/hr", icon: Users },
+    { name: "Lead Management", path: "/staff/lead", icon: BarChart3 },
+    { name: "Contract", path: "/staff/contract", icon: BarChart3 },
+    { name: "Note", path: "/staff/note", icon: Users },
+    { name: "DMS", path: "/staff/dms", icon: FileText },
+    { name: "Settings", path: "/staff/settings", icon: Settings },
+  ],
+  staff_consultant: [
+    { name: "Dashboard", path: "/staff/report", icon: LayoutDashboard },
+    { name: "Task Schedule", path: "/staff/tasks", icon: ClipboardList },
+    { name: "DMS", path: "/staff/dms", icon: FileText },
+    { name: "HR", path: "/staff/hr", icon: Users },
+    { name: "Settings", path: "/staff/settings", icon: Settings },
+  ],
+  staff_hr: [
+    { name: "Dashboard", path: "/hr/report", icon: LayoutDashboard },
+    { name: "Recruitment & Hiring", path: "/hr/recruitment", icon: Briefcase },
+    { name: "Employee Management", path: "/hr/employees", icon: Users },
+    { name: "Attendance & Leave", path: "/hr/attendance", icon: Calendar },
+    { name: "Payroll & Benefits", path: "/hr/payroll", icon: CreditCard },
+    { name: "HR Settings", path: "/hr/settings", icon: Settings },
   ],
 };
 
+const getMenusForUser = (role, jobRole = getUserRole()) => {
+  const normalizedRole = role?.toLowerCase();
+  const normalizedJobRole = jobRole?.trim().toLowerCase();
+
+  if (normalizedRole === "admin" && normalizedJobRole === "cro") {
+    return menus.admin_cro;
+  }
+  if (normalizedRole === "staff" && normalizedJobRole === "sales") {
+    return menus.staff_sales;
+  }
+  if (normalizedRole === "staff" && normalizedJobRole === "consultant") {
+    return menus.staff_consultant;
+  }
+  if (normalizedRole === "staff" && normalizedJobRole === "hr") {
+    return menus.staff_hr;
+  }
+
+  return menus[normalizedRole] || [];
+};
 
 
 
@@ -212,12 +283,12 @@ const ClientEmp_form = [
           " ERP Developer",
           " ERP Maintenance",
           "Consultant ",
-         
+
         ]
       },
 
       // Application access level
-    
+
 
       // Employment type
       {
@@ -240,7 +311,7 @@ const ClientEmp_form = [
         icon: <Calendar size={16} />
       },
 
-     
+
 
       // Main or Branch
       {
@@ -324,128 +395,128 @@ const ClientEmp_form = [
     ]
   },
 
-{
-  title: "Docs",
-  fullTitle: "Documents & Experience",
-  icon: <FileText size={24} />,
-  fields: [
-    // ─────────────────────────────
-    // EXPERIENCE TYPE
-    // ─────────────────────────────
-    {
-      name: "experienceType",
-      label: "Experience Type",
-      type: "radio",
-      options: [
-        {
-          label: "Fresher",
-          value: "fresher"
-        },
-        {
-          label: "Experienced",
+  {
+    title: "Docs",
+    fullTitle: "Documents & Experience",
+    icon: <FileText size={24} />,
+    fields: [
+      // ─────────────────────────────
+      // EXPERIENCE TYPE
+      // ─────────────────────────────
+      {
+        name: "experienceType",
+        label: "Experience Type",
+        type: "radio",
+        options: [
+          {
+            label: "Fresher",
+            value: "fresher"
+          },
+          {
+            label: "Experienced",
+            value: "experienced"
+          }
+        ]
+      },
+
+      // ─────────────────────────────
+      // TOTAL EXPERIENCE
+      // ─────────────────────────────
+      {
+        name: "totalExperience",
+        label: "Total Years of Experience",
+        type: "number",
+        min: 0,
+        step: 0.5,
+        required: true,
+        condition: {
+          field: "experienceType",
           value: "experienced"
         }
-      ]
-    },
-
-    // ─────────────────────────────
-    // TOTAL EXPERIENCE
-    // ─────────────────────────────
-    {
-      name: "totalExperience",
-      label: "Total Years of Experience",
-      type: "number",
-      min: 0,
-      step: 0.5,
-      required: true,
-      condition: {
-        field: "experienceType",
-        value: "experienced"
-      }
-    },
-
-    // ─────────────────────────────
-    // PREVIOUS EXPERIENCE
-    // ─────────────────────────────
-    {
-      name: "previousExperience",
-      label: "Previous Experience",
-      type: "repeatable",
-      required: true,
-      condition: {
-        field: "experienceType",
-        value: "experienced"
       },
-      fields: [
-        {
-          name: "organization",
-          label: "Institute / Organization",
-          type: "text"
-        },
-        {
-          name: "position",
-          label: "Position",
-          type: "text"
-        },
-        {
-          name: "startDate",
-          label: "Start Date",
-          type: "date"
-        },
-        {
-          name: "endDate",
-          label: "End Date",
-          type: "date"
-        },
-        {
-          name: "tenure",
-          label: "Tenure",
-          type: "text",
-          readOnly: true
-        }
-      ]
-    },
 
-    // ─────────────────────────────
-    // DOCUMENTS
-    // ─────────────────────────────
-    {
-      name: "resume",
-      label: "Resume / CV",
-      type: "file"
-    },
-    {
-      name: "offerLetter",
-      label: "Offer Letter",
-      type: "file"
-    },
-    {
-      name: "citizenDoc",
-      label: "Citizenship / ID",
-      type: "file"
-    },
-    {
-      name: "qualification",
-      label: "Qualification Certificate",
-      type: "file"
-    },
-    {
-      name: "training",
-      label: "Training Certificate",
-      type: "file"
-    },
-    {
-      name: "experience",
-      label: "Experience Certificate",
-      type: "file",
-      required: true,
-      condition: {
-        field: "experienceType",
-        value: "experienced"
+      // ─────────────────────────────
+      // PREVIOUS EXPERIENCE
+      // ─────────────────────────────
+      {
+        name: "previousExperience",
+        label: "Previous Experience",
+        type: "repeatable",
+        required: true,
+        condition: {
+          field: "experienceType",
+          value: "experienced"
+        },
+        fields: [
+          {
+            name: "organization",
+            label: "Institute / Organization",
+            type: "text"
+          },
+          {
+            name: "position",
+            label: "Position",
+            type: "text"
+          },
+          {
+            name: "startDate",
+            label: "Start Date",
+            type: "date"
+          },
+          {
+            name: "endDate",
+            label: "End Date",
+            type: "date"
+          },
+          {
+            name: "tenure",
+            label: "Tenure",
+            type: "text",
+            readOnly: true
+          }
+        ]
+      },
+
+      // ─────────────────────────────
+      // DOCUMENTS
+      // ─────────────────────────────
+      {
+        name: "resume",
+        label: "Resume / CV",
+        type: "file"
+      },
+      {
+        name: "offerLetter",
+        label: "Offer Letter",
+        type: "file"
+      },
+      {
+        name: "citizenDoc",
+        label: "Citizenship / ID",
+        type: "file"
+      },
+      {
+        name: "qualification",
+        label: "Qualification Certificate",
+        type: "file"
+      },
+      {
+        name: "training",
+        label: "Training Certificate",
+        type: "file"
+      },
+      {
+        name: "experience",
+        label: "Experience Certificate",
+        type: "file",
+        required: true,
+        condition: {
+          field: "experienceType",
+          value: "experienced"
+        }
       }
-    }
-  ]
-}
+    ]
+  }
 ];
 
 
@@ -508,17 +579,18 @@ const attendanceManagementFields = {
   ],
 };
 
-const Dropstyle = (w, fs) => ({
+const Dropstyle = (w, fs, isDisabled = false) => ({
   control: (base, state) => ({
     ...base,
-
     minHeight: w,
     borderRadius: "5px",
     borderColor: state.isFocused ? "#f59e0b" : "#e2e8f0",
     boxShadow: "none",
-    fontSize: fs,//14
+    fontSize: fs,
+    cursor: isDisabled ? "not-allowed" : "pointer",
+    opacity: isDisabled ? 0.6 : 1,
     "&:hover": {
-      borderColor: "#f59e0b",
+      borderColor: isDisabled ? "#e2e8f0" : "#f59e0b",
     },
   }),
 
@@ -539,8 +611,6 @@ const Dropstyle = (w, fs) => ({
     fontWeight: 600,
   }),
 
-
-
   menu: (base) => ({
     ...base,
     borderRadius: "5px",
@@ -560,223 +630,218 @@ const Dropstyle = (w, fs) => ({
   option: (base, state) => ({
     ...base,
     backgroundColor: state.isSelected
-      ? "#0f172a" // slate-900 active/selected
+      ? "#0f172a"
       : state.isFocused
-        ? "#e2e8f0" // slate-200 hover
+        ? "#e2e8f0"
         : "#ffffff",
-
-    color: state.isSelected
-      ? "#ffffff"
-      : "#1e293b",
-
+    color: state.isSelected ? "#ffffff" : "#1e293b",
     fontSize: fs,
     fontWeight: 500,
-    cursor: "pointer",
+    cursor: isDisabled ? "not-allowed" : "pointer",
     borderBottom: "1px solid #e2e8f0",
-
     ":active": {
-      backgroundColor: "#0f172a", // slate-900 on click
+      backgroundColor: "#0f172a",
       color: "#ffffff",
     },
   }),
 });
 
 const ValidateStyle = ({
-    hasError = false,
-    hasDisable = false,
-    height = "48px",
-    radius = "12px",
-    fontSize = "14px",
-    border = "1px solid #e2e8f0",
-    focusBorder = "1px solid #f59e0b",
-    errorBorder = "1px solid #ef4444",
-    disabledBorder = "1px solid #cbd5e1",
-    menuRadius = "12px",
-    optionRadius = "8px",
+  hasError = false,
+  hasDisable = false,
+  height = "48px",
+  radius = "12px",
+  fontSize = "14px",
+  border = "1px solid #e2e8f0",
+  focusBorder = "1px solid #f59e0b",
+  errorBorder = "1px solid #ef4444",
+  disabledBorder = "1px solid #cbd5e1",
+  menuRadius = "12px",
+  optionRadius = "8px",
 } = {}) => ({
-    control: (base, state) => ({
-        ...base,
-        minHeight: height === "auto" ? "48px" : height,
-        height: height === "auto" ? "auto" : height,
-        borderRadius: radius,
-        fontSize,
-        backgroundColor:
-            hasDisable || state.isDisabled ? "#f1f5f9" : "#ffffff",
-        border:
-            hasDisable || state.isDisabled
-                ? disabledBorder
-                : hasError
-                    ? errorBorder
-                    : state.isFocused
-                        ? focusBorder
-                        : border,
-        boxShadow:
-            hasDisable || state.isDisabled
-                ? "none"
-                : state.isFocused
-                    ? hasError
-                        ? "0 0 0 3px rgba(239, 68, 68, 0.15)"
-                        : "0 0 0 3px rgba(245, 158, 11, 0.18)"
-                    : "none",
-        opacity: hasDisable || state.isDisabled ? 0.65 : 1,
-        cursor: hasDisable || state.isDisabled ? "not-allowed" : "pointer",
-        overflow: "visible",
-        transition: "all 0.2s ease",
+  control: (base, state) => ({
+    ...base,
+    minHeight: height === "auto" ? "48px" : height,
+    height: height === "auto" ? "auto" : height,
+    borderRadius: radius,
+    fontSize,
+    backgroundColor:
+      hasDisable || state.isDisabled ? "#f1f5f9" : "#ffffff",
+    border:
+      hasDisable || state.isDisabled
+        ? disabledBorder
+        : hasError
+          ? errorBorder
+          : state.isFocused
+            ? focusBorder
+            : border,
+    boxShadow:
+      hasDisable || state.isDisabled
+        ? "none"
+        : state.isFocused
+          ? hasError
+            ? "0 0 0 3px rgba(239, 68, 68, 0.15)"
+            : "0 0 0 3px rgba(245, 158, 11, 0.18)"
+          : "none",
+    opacity: hasDisable || state.isDisabled ? 0.65 : 1,
+    cursor: hasDisable || state.isDisabled ? "not-allowed" : "pointer",
+    overflow: "visible",
+    transition: "all 0.2s ease",
 
-        "&:hover": {
-            border:
-                hasDisable || state.isDisabled
-                    ? disabledBorder
-                    : hasError
-                        ? errorBorder
-                        : focusBorder,
-        },
-    }),
+    "&:hover": {
+      border:
+        hasDisable || state.isDisabled
+          ? disabledBorder
+          : hasError
+            ? errorBorder
+            : focusBorder,
+    },
+  }),
 
-    valueContainer: (base) => ({
-        ...base,
-        minHeight: height === "auto" ? "48px" : height,
-        height: height === "auto" ? "auto" : height,
-        padding: "0 12px",
-        fontSize,
-        flexWrap: "wrap",
-    }),
+  valueContainer: (base) => ({
+    ...base,
+    minHeight: height === "auto" ? "48px" : height,
+    height: height === "auto" ? "auto" : height,
+    padding: "0 12px",
+    fontSize,
+    flexWrap: "wrap",
+  }),
 
-    input: (base) => ({
-        ...base,
-        margin: 0,
-        padding: 0,
-        fontSize,
-    }),
+  input: (base) => ({
+    ...base,
+    margin: 0,
+    padding: 0,
+    fontSize,
+  }),
 
-    placeholder: (base) => ({
-        ...base,
-        color: "#94a3b8",
-        fontWeight: 500,
-        fontSize,
-    }),
+  placeholder: (base) => ({
+    ...base,
+    color: "#94a3b8",
+    fontWeight: 500,
+    fontSize,
+  }),
 
-    singleValue: (base, state) => ({
-        ...base,
-        color: hasDisable || state.isDisabled ? "#94a3b8" : "#0f172a",
-        fontWeight: 600,
-        fontSize,
-    }),
+  singleValue: (base, state) => ({
+    ...base,
+    color: hasDisable || state.isDisabled ? "#94a3b8" : "#0f172a",
+    fontWeight: 600,
+    fontSize,
+  }),
 
-    indicatorsContainer: (base) => ({
-        ...base,
-        minHeight: height === "auto" ? "48px" : height,
-        height: height === "auto" ? "auto" : height,
-        alignItems: "center",
-    }),
+  indicatorsContainer: (base) => ({
+    ...base,
+    minHeight: height === "auto" ? "48px" : height,
+    height: height === "auto" ? "auto" : height,
+    alignItems: "center",
+  }),
 
-    dropdownIndicator: (base, state) => ({
-        ...base,
-        padding: "4px",
-        color:
-            hasDisable || state.isDisabled
-                ? "#cbd5e1"
-                : state.isFocused
-                    ? "#f59e0b"
-                    : "#64748b",
+  dropdownIndicator: (base, state) => ({
+    ...base,
+    padding: "4px",
+    color:
+      hasDisable || state.isDisabled
+        ? "#cbd5e1"
+        : state.isFocused
+          ? "#f59e0b"
+          : "#64748b",
 
-        "&:hover": {
-            color:
-                hasDisable || state.isDisabled
-                    ? "#cbd5e1"
-                    : "#f59e0b",
-        },
-    }),
+    "&:hover": {
+      color:
+        hasDisable || state.isDisabled
+          ? "#cbd5e1"
+          : "#f59e0b",
+    },
+  }),
 
-    clearIndicator: (base) => ({
-        ...base,
-        padding: "4px",
-        display: hasDisable ? "none" : "flex",
-        color: "#94a3b8",
+  clearIndicator: (base) => ({
+    ...base,
+    padding: "4px",
+    display: hasDisable ? "none" : "flex",
+    color: "#94a3b8",
 
-        "&:hover": {
-            color: "#ef4444",
-        },
-    }),
+    "&:hover": {
+      color: "#ef4444",
+    },
+  }),
 
-    indicatorSeparator: () => ({
-        display: "none",
-    }),
+  indicatorSeparator: () => ({
+    display: "none",
+  }),
 
-    menu: (base) => ({
-        ...base,
-        width: "100%",
-        minWidth: "100%",
-        maxWidth: "380px",
-        borderRadius: menuRadius,
-        zIndex: 9999,
-        border: "1px solid #e5e7eb",
-        backgroundColor: "#ffffff",
-        boxShadow: "0 12px 20px rgba(0,0,0,0.08)",
-        marginTop: "6px",
-        padding: "6px",
-        overflow: "hidden",
-    }),
+  menu: (base) => ({
+    ...base,
+    width: "100%",
+    minWidth: "100%",
+    maxWidth: "380px",
+    borderRadius: menuRadius,
+    zIndex: 9999,
+    border: "1px solid #e5e7eb",
+    backgroundColor: "#ffffff",
+    boxShadow: "0 12px 20px rgba(0,0,0,0.08)",
+    marginTop: "6px",
+    padding: "6px",
+    overflow: "hidden",
+  }),
 
-    menuList: (base) => ({
-        ...base,
-        maxHeight: "200px",
-        overflowY: "auto",
-        padding: 0,
-        scrollbarWidth: "thin",
-    }),
+  menuList: (base) => ({
+    ...base,
+    maxHeight: "200px",
+    overflowY: "auto",
+    padding: 0,
+    scrollbarWidth: "thin",
+  }),
 
-    option: (base, state) => ({
-        ...base,
-        backgroundColor: state.isDisabled
-            ? "#f8fafc"
-            : state.isSelected
-                ? "#0f172a"
-                : state.isFocused
-                    ? "#fef3c7"
-                    : "transparent",
+  option: (base, state) => ({
+    ...base,
+    backgroundColor: state.isDisabled
+      ? "#f8fafc"
+      : state.isSelected
+        ? "#0f172a"
+        : state.isFocused
+          ? "#fef3c7"
+          : "transparent",
 
-        color: state.isDisabled
-            ? "#94a3b8"
-            : state.isSelected
-                ? "#ffffff"
-                : "#334155",
+    color: state.isDisabled
+      ? "#94a3b8"
+      : state.isSelected
+        ? "#ffffff"
+        : "#334155",
 
-        borderRadius: optionRadius,
-        marginBlock: "2px",
-        padding: "10px 12px",
-        fontSize,
-        fontWeight: 500,
-        cursor: state.isDisabled ? "not-allowed" : "pointer",
-        whiteSpace: "normal",
-        wordBreak: "break-word",
-        transition: "all 0.2s ease",
-    }),
+    borderRadius: optionRadius,
+    marginBlock: "2px",
+    padding: "10px 12px",
+    fontSize,
+    fontWeight: 500,
+    cursor: state.isDisabled ? "not-allowed" : "pointer",
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    transition: "all 0.2s ease",
+  }),
 
-    multiValue: (base, { data }) => ({
-        ...base,
-        backgroundColor: data.color || "#1e293b",
-        borderRadius: "8px",
-        paddingLeft: "4px",
-    }),
+  multiValue: (base, { data }) => ({
+    ...base,
+    backgroundColor: data.color || "#1e293b",
+    borderRadius: "8px",
+    paddingLeft: "4px",
+  }),
 
-    multiValueLabel: (base) => ({
-        ...base,
-        color: "#ffffff",
-        fontWeight: 600,
-        fontSize,
-    }),
+  multiValueLabel: (base) => ({
+    ...base,
+    color: "#ffffff",
+    fontWeight: 600,
+    fontSize,
+  }),
 
-    multiValueRemove: (base, { data }) => ({
-        ...base,
-        color: "#ffffff",
-        borderRadius: "6px",
+  multiValueRemove: (base, { data }) => ({
+    ...base,
+    color: "#ffffff",
+    borderRadius: "6px",
 
-        ":hover": {
-            backgroundColor: data.color || "#1e293b",
-            color: "#ffffff",
-        },
-    }),
+    ":hover": {
+      backgroundColor: data.color || "#1e293b",
+      color: "#ffffff",
+    },
+  }),
 });
 
 const getInputClass = (hasError = false, hasDisable = false) => {
@@ -930,7 +995,7 @@ function extractStageData(data, stage) {
   // console.log("details:", userData?.details);
 
   if (!Array.isArray(userData?.details)) {
-    console.log("details not found or not array");
+    // console.log("details not found or not array");
     return [];
   }
 
@@ -956,7 +1021,7 @@ function extractStageData(data, stage) {
     });
   });
 
-  console.log("Final Result:", result);
+  // console.log("Final Result:", result);
 
   return result;
 }
@@ -965,7 +1030,6 @@ function extractStageData(data, stage) {
 
 
 const downloadHolidayExcel = () => {
-  // BULK HOLIDAY DATA (BS DATE)
   const data = [
     {
       "S.N": 1,
@@ -984,144 +1048,334 @@ const downloadHolidayExcel = () => {
     },
   ];
 
-  // CREATE SHEET
-  const worksheet = XLSX.utils.json_to_sheet(data, {
-    origin: "A3",
-  });
+  const workbook = XLSX.utils.book_new();
 
-  // TITLE
-  worksheet["A1"] = {
-    t: "s",
-    v: "Holiday Schedule Sample",
-    s: {
-      font: {
-        bold: true,
-        sz: 18,
-        color: { rgb: "FFFFFF" },
-      },
-      fill: {
-        fgColor: { rgb: "F59E0B" },
-      },
-      alignment: {
-        horizontal: "center",
-        vertical: "center",
-      },
-      border: {
-        top: { style: "thin", color: { rgb: "F59E0B" } },
-        bottom: { style: "thin", color: { rgb: "F59E0B" } },
-        left: { style: "thin", color: { rgb: "F59E0B" } },
-        right: { style: "thin", color: { rgb: "F59E0B" } },
-      },
-    },
+  // EIMCTA professional palette
+  const COLORS = {
+    amber: "D97706",
+    amberLight: "FEF3C7",
+    amberPale: "FFFBEB",
+    slate: "334155",
+    slateDark: "1E293B",
+    slateLight: "F1F5F9",
+    white: "FFFFFF",
+    text: "334155",
+    muted: "64748B",
+    border: "CBD5E1",
+    greenLight: "F0FDF4",
   };
 
-  // MERGE TITLE (A1:C1)
+  const worksheet = XLSX.utils.aoa_to_sheet([
+    [
+      "EVEREST INTERNATIONAL MANAGEMENT CONSULTANCY & TRAINING AGENCY (EIMCTA)",
+    ],
+    [
+      "Kagesworimanohara-05, Kathmandu, Nepal | everestconsultrain.com | +977-01-5903211 | info@everestconsultrain.com",
+    ],
+    ["HOLIDAY SCHEDULE — BULK UPLOAD TEMPLATE"],
+    [
+      "Instructions: Enter one holiday per row. Use the BS date format YYYY-MM-DD. Keep the column headings unchanged.",
+    ],
+    [""],
+    ["S.N", "Holiday Title", "Date (BS)"],
+  ]);
+
+  // Add sample data starting from row 7 (A7)
+  XLSX.utils.sheet_add_json(worksheet, data, {
+    origin: "A7",
+    skipHeader: true,
+  });
+
+  const range = XLSX.utils.decode_range(worksheet["!ref"]);
+  const lastDataRow = range.e.r;
+
+  // Merge company heading, contact line, title, and instructions
   worksheet["!merges"] = [
-    {
-      s: { r: 0, c: 0 },
-      e: { r: 0, c: 2 },
-    },
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } },
+    { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } },
   ];
 
-  // COLUMN WIDTHS
-  worksheet["!cols"] = [
-    { wch: 10 }, // S.N
-    { wch: 35 }, // Holiday Title
-    { wch: 20 }, // Date (BS)
-  ];
+  // Reusable cell styles
+  const border = {
+    top: { style: "thin", color: { rgb: COLORS.border } },
+    bottom: { style: "thin", color: { rgb: COLORS.border } },
+    left: { style: "thin", color: { rgb: COLORS.border } },
+    right: { style: "thin", color: { rgb: COLORS.border } },
+  };
 
-  // HEADER STYLE
-  const headerStyle = {
+  const applyStyle = (cell, style) => {
+    if (worksheet[cell]) {
+      worksheet[cell].s = style;
+    }
+  };
+
+  // Company heading
+  applyStyle("A1", {
     font: {
+      name: "Calibri",
       bold: true,
-      sz: 12,
-      color: { rgb: "FFFFFF" },
+      sz: 14,
+      color: { rgb: COLORS.white },
     },
-    fill: {
-      fgColor: { rgb: "F59E0B" },
-    },
+    fill: { fgColor: { rgb: COLORS.slateDark } },
     alignment: {
       horizontal: "center",
       vertical: "center",
+      wrapText: true,
     },
-    border: {
-      top: { style: "thin", color: { rgb: "F59E0B" } },
-      bottom: { style: "thin", color: { rgb: "F59E0B" } },
-      left: { style: "thin", color: { rgb: "F59E0B" } },
-      right: { style: "thin", color: { rgb: "F59E0B" } },
-    },
-  };
+  });
 
-  // BODY STYLE
-  const bodyStyle = {
+  // Contact details
+  applyStyle("A2", {
     font: {
-      sz: 11,
-      color: { rgb: "374151" },
+      name: "Calibri",
+      sz: 9,
+      color: { rgb: COLORS.slate },
     },
-    fill: {
-      fgColor: { rgb: "FFFFFF" },
+    fill: { fgColor: { rgb: COLORS.slateLight } },
+    alignment: {
+      horizontal: "center",
+      vertical: "center",
+      wrapText: true,
     },
+  });
+
+  // Document title
+  applyStyle("A3", {
+    font: {
+      name: "Calibri",
+      bold: true,
+      sz: 15,
+      color: { rgb: COLORS.white },
+    },
+    fill: { fgColor: { rgb: COLORS.amber } },
+    alignment: {
+      horizontal: "center",
+      vertical: "center",
+      wrapText: true,
+    },
+  });
+
+  // Instructions
+  applyStyle("A4", {
+    font: {
+      name: "Calibri",
+      italic: true,
+      sz: 10,
+      color: { rgb: "78350F" },
+    },
+    fill: { fgColor: { rgb: COLORS.amberLight } },
     alignment: {
       horizontal: "left",
       vertical: "center",
+      wrapText: true,
     },
-    border: {
-      top: { style: "thin", color: { rgb: "FCD34D" } },
-      bottom: { style: "thin", color: { rgb: "FCD34D" } },
-      left: { style: "thin", color: { rgb: "FCD34D" } },
-      right: { style: "thin", color: { rgb: "FCD34D" } },
+  });
+
+  // Table header
+  const headerStyle = {
+    font: {
+      name: "Calibri",
+      bold: true,
+      sz: 11,
+      color: { rgb: COLORS.white },
     },
+    fill: { fgColor: { rgb: COLORS.slate } },
+    alignment: {
+      horizontal: "center",
+      vertical: "center",
+      wrapText: true,
+    },
+    border,
   };
 
-  // ALTERNATE ROW STYLE
-  const alternateRowStyle = {
-    ...bodyStyle,
-    fill: {
-      fgColor: { rgb: "FFFBEB" },
-    },
-  };
+  ["A6", "B6", "C6"].forEach((cell) =>
+    applyStyle(cell, headerStyle)
+  );
 
-  // APPLY HEADER & BODY STYLES
-  for (const cellAddress in worksheet) {
-    if (cellAddress.startsWith("!")) continue;
+  // Table body with alternating row colors
+  for (let R = 6; R <= lastDataRow; R++) {
+    for (let C = 0; C <= 2; C++) {
+      const address = XLSX.utils.encode_cell({
+        r: R,
+        c: C,
+      });
 
-    const cell = XLSX.utils.decode_cell(cellAddress);
-    const row = cell.r;
+      if (!worksheet[address]) continue;
 
-    // HEADER ROW (Row 3)
-    if (row === 2) {
-      worksheet[cellAddress].s = headerStyle;
-    }
-    // BODY ROWS
-    else if (row > 2) {
-      worksheet[cellAddress].s =
-        row % 2 === 0
-          ? alternateRowStyle
-          : bodyStyle;
+      if (R === 6) continue;
+
+      const isAlternate = R % 2 === 0;
+
+      worksheet[address].s = {
+        font: {
+          name: "Calibri",
+          sz: 10,
+          color: { rgb: COLORS.text },
+        },
+        fill: {
+          fgColor: {
+            rgb: isAlternate
+              ? COLORS.amberPale
+              : COLORS.white,
+          },
+        },
+        alignment: {
+          horizontal: C === 1 ? "left" : "center",
+          vertical: "center",
+          wrapText: true,
+        },
+        border,
+      };
     }
   }
 
-  // CENTER ALIGN S.N & DATE COLUMNS
-  const range = XLSX.utils.decode_range(worksheet["!ref"]);
+  // Add blank upload rows for future entries
+  const templateRows = 20;
+  const firstBlankRow = lastDataRow + 1;
+  const finalRow = Math.max(
+    lastDataRow,
+    firstBlankRow + templateRows - 1
+  );
 
-  for (let R = 3; R <= range.e.r; ++R) {
-    ["A", "C"].forEach((col) => {
-      const cellAddress = `${col}${R + 1}`;
+  for (let R = firstBlankRow; R <= finalRow; R++) {
+    for (let C = 0; C <= 2; C++) {
+      const address = XLSX.utils.encode_cell({
+        r: R,
+        c: C,
+      });
 
-      if (worksheet[cellAddress]) {
-        worksheet[cellAddress].s = {
-          ...worksheet[cellAddress].s,
+      worksheet[address] = {
+        t: "s",
+        v: "",
+        s: {
+          font: {
+            name: "Calibri",
+            sz: 10,
+            color: { rgb: COLORS.text },
+          },
+          fill: {
+            fgColor: {
+              rgb: R % 2 === 0
+                ? COLORS.amberPale
+                : COLORS.white,
+            },
+          },
           alignment: {
-            horizontal: "center",
+            horizontal: C === 1 ? "left" : "center",
             vertical: "center",
           },
-        };
-      }
-    });
+          border,
+        },
+      };
+    }
   }
 
-  // CREATE WORKBOOK
-  const workbook = XLSX.utils.book_new();
+  // Legal footer below the table
+  const footerRow = finalRow + 2;
+
+  worksheet[`A${footerRow + 1}`] = {
+    t: "s",
+    v: "© EIMCTA | Confidential internal template. Please verify holiday titles and B.S. dates before uploading.",
+    s: {
+      font: {
+        name: "Calibri",
+        italic: true,
+        sz: 9,
+        color: { rgb: COLORS.muted },
+      },
+      alignment: {
+        horizontal: "left",
+        vertical: "center",
+        wrapText: true,
+      },
+    },
+  };
+
+  worksheet["!merges"].push({
+    s: { r: footerRow, c: 0 },
+    e: { r: footerRow, c: 2 },
+  });
+
+  // Column widths
+  worksheet["!cols"] = [
+    { wch: 10 },
+    { wch: 38 },
+    { wch: 20 },
+  ];
+
+  // Row heights
+  worksheet["!rows"] = [
+    { hpt: 30 },
+    { hpt: 24 },
+    { hpt: 34 },
+    { hpt: 32 },
+    { hpt: 8 },
+    { hpt: 26 },
+  ];
+
+  // Date validation: accept ISO-style B.S. date entries.
+  // Excel validation is a usability aid; validate again in the backend.
+  if (!worksheet["!dataValidation"]) {
+    worksheet["!dataValidation"] = [];
+  }
+
+  worksheet["!dataValidation"].push({
+    type: "textLength",
+    operator: "equal",
+    formula1: "10",
+    sqref: `C7:C${finalRow + 1}`,
+    showErrorMessage: true,
+    errorTitle: "Invalid date format",
+    error: "Enter the B.S. date as YYYY-MM-DD.",
+    showInputMessage: true,
+    promptTitle: "B.S. Date",
+    prompt: "Example: 2083-07-04",
+  });
+
+  // Freeze headings and enable filters on the actual data table
+  worksheet["!freeze"] = {
+    xSplit: 0,
+    ySplit: 6,
+    topLeftCell: "A7",
+    activePane: "bottomLeft",
+    state: "frozen",
+  };
+
+  worksheet["!autofilter"] = {
+    ref: `A6:C${lastDataRow}`,
+  };
+
+  // Print settings
+  worksheet["!pageSetup"] = {
+    paperSize: 9,
+    orientation: "portrait",
+    fitToWidth: 1,
+    fitToHeight: 0,
+  };
+
+  worksheet["!fitToPage"] = true;
+
+  worksheet["!margins"] = {
+    left: 0.35,
+    right: 0.35,
+    top: 0.5,
+    bottom: 0.5,
+    header: 0.2,
+    footer: 0.2,
+  };
+
+  worksheet["!headerFooter"] = {
+    oddHeader: "&LEIMCTA - Holiday Schedule&R&D",
+    oddFooter:
+      "&Linfo@everestconsulting.com&CPage &P of &N&R&F",
+  };
+
+  worksheet["!views"] = [
+    { showGridLines: false },
+  ];
 
   XLSX.utils.book_append_sheet(
     workbook,
@@ -1129,53 +1383,94 @@ const downloadHolidayExcel = () => {
     "Holiday Upload"
   );
 
-  // DOWNLOAD FILE
   XLSX.writeFile(
     workbook,
-    "holiday_bulk_upload_sample.xlsx"
+    "EIMCTA_Holiday_Bulk_Upload.xlsx"
   );
 };
 
 
-
 // this for upload excel file only
-const readExcelFile = (file) =>
-  new Promise((resolve, reject) => {
-    if (!file) return reject("No file selected");
 
-    const reader = new FileReader();
 
-    reader.readAsArrayBuffer(file);
+const useReadExcelFile = () => {
+  const [holidays, setHolidays] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-    reader.onload = (event) => {
-      try {
-        const workbook = XLSX.read(event.target.result, {
-          type: "buffer",
-        });
-
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-
-        // Skip title row and blank row
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-          defval: "",
-          range: 2,
-        });
-
-        const formattedData = jsonData.map((item, idx) => ({
-          sn: Number(item["S.N"]) || idx + 1,
-          holidayTitle: item["Holiday Title"]?.toString().trim() || "",
-          dateBs: item["Date (BS)"]?.toString().trim() || "",
-        }));
-
-        resolve(formattedData);
-      } catch (error) {
-        reject(error);
+  const readExcelFile = (file) =>
+    new Promise((resolve, reject) => {
+      if (!file) {
+        reject(new Error("No file selected"));
+        return;
       }
-    };
 
-    reader.onerror = reject;
-  });
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        try {
+          const workbook = XLSX.read(event.target.result, {
+            type: "array",
+          });
+
+          const sheetName = workbook.SheetNames[0];
+
+          if (!sheetName) {
+            throw new Error("Excel sheet not found");
+          }
+
+          const worksheet = workbook.Sheets[sheetName];
+
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+            defval: "",
+            range: 5,
+            blankrows: false,
+          });
+
+          const holidays = jsonData
+            .map((item) => ({
+              title: String(item["Holiday Title"] || "").trim(),
+              date: String(item["Date (BS)"] || "").trim(),
+            }))
+            .filter((holiday) => holiday.title && holiday.date);
+
+          resolve(holidays);
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      reader.onerror = () =>
+        reject(new Error("Failed to read the Excel file"));
+
+      reader.readAsArrayBuffer(file);
+    });
+
+  const handleExcelUpload = async (file) => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const result = await readExcelFile(file);
+      setHolidays(result);
+
+      return result;
+    } catch (error) {
+      setHolidays([]);
+      setError(error.message || "Failed to read Excel file");
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    holidays,
+    loading,
+    error,
+    readExcelFile: handleExcelUpload,
+  };
+};
 
 const formatNepaliDate = (iso) => {
   if (!iso) return '';
@@ -1183,13 +1478,13 @@ const formatNepaliDate = (iso) => {
   const months = ['Baisakh', 'Jestha', 'Ashadh', 'Shrawan', 'Bhadra', 'Ashwin', 'Kartik', 'Mangsir', 'Poush', 'Magh', 'Falgun', 'Chaitra'];
   return `${months[m - 1]} ${d}, ${y}`;
 };
- const formatNepaliNumeric = (iso) => iso ? iso.split('T')[0].replaceAll('-', '/') : '';
+const formatNepaliNumeric = (iso) => iso ? iso.split('T')[0].replaceAll('-', '/') : '';
 
 
 export {
-  formatNepaliNumeric,formatNepaliDate,
-  readExcelFile, extractStageData, downloadMultiplePdf, downloadHolidayExcel,
+  formatNepaliNumeric, formatNepaliDate,
+  useReadExcelFile, extractStageData, downloadMultiplePdf, downloadHolidayExcel,
   downloadAsPdf, ClientEmp_form, leaveManagementFields,
   organizations, attendanceManagementFields, menus, getCountdown,
-  Dropstyle, ValidateStyle, getInputClass
+  Dropstyle, ValidateStyle, getInputClass, getUserRole, getMenusForUser
 };

@@ -120,7 +120,7 @@ const ActionButtons = ({ row, onActionClick }) => {
         >
           {/* Assign Task */}
           <button
-            onClick={() => console.log("Assign Task clicked")}
+            onClick={() => /* console.log("Assign Task clicked") */ undefined}
             className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-100 text-sm"
           >
             📝 Assign Task
@@ -128,7 +128,7 @@ const ActionButtons = ({ row, onActionClick }) => {
 
           {/* Mark as Complete */}
           <button
-            onClick={() => console.log("Mark Complete clicked")}
+            onClick={() => /* console.log("Mark Complete clicked") */ undefined}
             className="w-full text-left px-3 py-2 rounded-md hover:bg-green-100 text-sm text-green-600"
           >
             ✅ Mark Complete
@@ -136,7 +136,7 @@ const ActionButtons = ({ row, onActionClick }) => {
 
           {/* Schedule Meeting */}
           <button
-            onClick={() => console.log("Schedule Meeting clicked")}
+            onClick={() => /* console.log("Schedule Meeting clicked") */ undefined}
             className="w-full text-left px-3 py-2 rounded-md hover:bg-blue-100 text-sm text-blue-600"
           >
             📅 Schedule Meeting
@@ -144,7 +144,7 @@ const ActionButtons = ({ row, onActionClick }) => {
 
           {/* Send Reminder */}
           <button
-            onClick={() => console.log("Send Reminder clicked")}
+            onClick={() => /* console.log("Send Reminder clicked") */ undefined}
             className="w-full text-left px-3 py-2 rounded-md hover:bg-yellow-100 text-sm text-yellow-700"
           >
             ⏰ Send Reminder

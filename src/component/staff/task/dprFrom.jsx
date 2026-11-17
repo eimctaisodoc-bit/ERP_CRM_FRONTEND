@@ -53,7 +53,7 @@ import Select from 'react-select';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const DprForm = ({ isDpr, setIsDpr }) => {
-  console.log('From dpr', isDpr);
+  // console.log('From dpr', isDpr);
 
   // State for Header/General Info
   const [dprInfo, setDprInfo] = useState({
@@ -189,7 +189,7 @@ export const DprForm = ({ isDpr, setIsDpr }) => {
     );
   };
 
-  console.log(selectedJob);
+  // console.log(selectedJob);
 
   const handleAdd = (val) => {
     const trimmed = val.trim();
@@ -305,20 +305,19 @@ export const DprForm = ({ isDpr, setIsDpr }) => {
 
   // Professional font stack
   const fontStyle = { fontFamily: "'Roboto Slab', serif", fontWeight: 600 };
-  console.log('DPr', isDpr);
+  // console.log('DPr', isDpr);
 
   if (!isDpr) return null;
 
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
+      <div>
         {/* Backdrop */}
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-300"
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-md"
           style={{ zIndex: 9998 }}
         />
 
@@ -843,7 +842,7 @@ export const DprForm = ({ isDpr, setIsDpr }) => {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     </AnimatePresence>
   );
 };
@@ -863,7 +862,7 @@ const OthersModal = ({ isOpen, onClose, onAdd }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
 
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="h-1.5 bg-orange-500" />

@@ -407,7 +407,8 @@ const RecruitmentForm = ({ onClose }) => {
   const visibleFields = getVisibleFields();
 
   return (
-    <div className="fixed inset-0 bg-slate-400/50 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
       <div className="bg-white w-full max-w-7xl h-[95vh] md:h-[85vh] rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative">
         
         <button onClick={onClose} className="absolute top-5 right-5 z-[60] cursor-pointer p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 rounded-full transition-all">
@@ -793,7 +794,8 @@ const MarriageDetailsForm = ({ formData, onChange, errors, setShowMarriageForm, 
     setShowMarriageForm(false);
   };
   return (
-    <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 animate-in fade-in">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
       <div className="relative bg-white w-full max-w-2xl overflow-y-auto p-10 rounded-3xl shadow-2xl border border-slate-100">
         <button onClick={handleCloseModal} className="absolute cursor-pointer top-6 right-6 text-slate-400 hover:text-red-500 transition-colors bg-slate-50 hover:bg-red-50 p-2 rounded-full"><X size={20} /></button>
         <div className="flex items-center gap-4 mb-10 pb-6 border-b border-slate-100">

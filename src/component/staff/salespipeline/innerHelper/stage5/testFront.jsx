@@ -17,7 +17,7 @@ import {
     WidthType,
     VerticalAlign,
 } from "docx";
-import JSZip from "jszip";
+// import JSZip from "jszip";
 
 import logo from '../../../../../assest/eimcta.png';
 import iso from '../../../../../assest/iso.png';
@@ -419,5 +419,5 @@ export async function BuildSlaDocx() {
 
     const rawBlob = await Packer.toBlob(doc);
     return await repairDocxBlob(rawBlob);
-    
+
 }

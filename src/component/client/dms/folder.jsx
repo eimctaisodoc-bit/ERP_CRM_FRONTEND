@@ -1092,7 +1092,7 @@ const ShareSlider = ({ isOpen, onClose, selectedFiles }) => {
             {/* Backdrop */}
             {isOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+                    className="fixed inset-0 bg-black/60 backdrop-blur-md"
                     onClick={onClose}
                 />
             )}
@@ -1237,7 +1237,8 @@ const ShareSlider = ({ isOpen, onClose, selectedFiles }) => {
 
 const DocumentDetailModal = ({ doc, onClose }) => {
     return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center animate-in fade-in duration-200">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
             <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom sm:zoom-in duration-200 max-h-[90dvh] flex flex-col">
                 <div className="bg-amber-500 p-4 sm:p-6 text-white relative flex-shrink-0">
                     <button
@@ -1347,4 +1348,3 @@ const DocumentDetailModal = ({ doc, onClose }) => {
         </div>
     );
 };
-

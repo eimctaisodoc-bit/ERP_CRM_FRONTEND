@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 
 export const CreateTask = ({  onclose }) => {
-  console.log(onclose)
+  // console.log(onclose)
   const [activeTab, setActiveTab] = useState('client');
   const [selectedNames, setSelectedNames] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -277,8 +277,7 @@ export const CreateTask = ({  onclose }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0
-             bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-md"
             // onClick={onclose}
           />
 

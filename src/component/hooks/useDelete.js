@@ -1,9 +1,10 @@
 import React from 'react'
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../api/axios";
-import { 
+import {
     // Delete_Stage1_ScheduleOnly,
-    Deleteadmin, DeleteBranch, DeleteMeetings_,deleteNote, deletecalls, deletmsg,DeleteStaff, Deleteproposal } from "../../api/role.api";
+    Deleteadmin, DeleteBranch, DeleteMeetings_, deleteNote, deletecalls, deletmsg, DeleteStaff, Deleteproposal, DeleteSalesLead
+} from "../../api/role.api";
 export const UseDelete = () => {
 
     const queryClient = useQueryClient();
@@ -24,7 +25,7 @@ export const UseDelete = () => {
                 queryKey: ["notes", variables.parms.MainID]
             });
 
-            console.log("Deleted successfully!");
+            // console.log("Deleted successfully!");
         },
         onError: (err) => {
             console.error("Delete failed", err);
@@ -39,7 +40,7 @@ export const UseDelete = () => {
                 queryKey: ["deleteCall", variables.parms.MainID]
             });
 
-            console.log("Deleted successfully!");
+            // console.log("Deleted successfully!");
         },
         onError: (err) => {
             console.error("Delete failed", err);
@@ -54,7 +55,7 @@ export const UseDelete = () => {
                 queryKey: ["deleteMsg", variables.parms.MainID]
             });
 
-            console.log("Deleted successfully!");
+            // console.log("Deleted successfully!");
         },
         onError: (err) => {
             console.error("Delete failed", err);
@@ -69,7 +70,7 @@ export const UseDelete = () => {
                 queryKey: ["deleteproposal", variables.parms.MainID]
             });
 
-            console.log("Deleted successfully!");
+            // console.log("Deleted successfully!");
         },
         onError: (err) => {
             console.error("Delete failed", err);
@@ -84,7 +85,7 @@ export const UseDelete = () => {
                 queryKey: ["deleteMeet", variables.parms.MainID]
             });
 
-            console.log("Deleted successfully!");
+            // console.log("Deleted successfully!");
         },
         onError: (err) => {
             console.error("Delete failed", err);
@@ -92,34 +93,44 @@ export const UseDelete = () => {
     });
     const Deleteadmin_ = useMutation({
         mutationFn: Deleteadmin,
-        
+
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({
                 queryKey: ["deleteadmin"]
             });
 
-            console.log("Deleted successfully!");
+            // console.log("Deleted successfully!");
         },
         onError: (err) => {
             console.error("Delete failed", err);
         }
     });
-    const DeleteBranch_ = useMutation({ mutationFn: DeleteBranch });
+    const DeleteBranch_ = useMutation({
+        mutationFn: DeleteBranch, onSuccess: (data, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: ["deletebranch"]
+            });
+
+            // console.log("Deleted successfully!");
+        }
+    });
+
     const DeleteStaff_ = useMutation({
         mutationFn: DeleteStaff,
-        
+
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({
                 queryKey: ["deletestaff"]
             });
 
-            console.log("Deleted successfully!");
+            // console.log("Deleted successfully!");
         },
         onError: (err) => {
             console.error("Delete failed", err);
         }
     });
 
+    const DeleteSalesLead_ = useMutation({ mutationFn: DeleteSalesLead });
 
     return {
         // delete_stage1_scheduleOnly,
@@ -130,6 +141,7 @@ export const UseDelete = () => {
         DeleteMeeting,
         Deleteadmin_,
         DeleteBranch_,
-        DeleteStaff_
+        DeleteStaff_,
+        DeleteSalesLead_
     }
-}   
+}    

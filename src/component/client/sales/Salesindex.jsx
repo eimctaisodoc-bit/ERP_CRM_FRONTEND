@@ -71,7 +71,7 @@ const WorkspaceWindow = ({ card, onClose }) => {
             zIndex: 50,
         };
     const dynamicCard = card.comp ?? null;
-    console.log("🚀 ~ file: Salesindex.jsx:172 ~ WorkspaceWindow ~ dynamicCard:", dynamicCard)
+    // console.log("🚀 ~ file: Salesindex.jsx:172 ~ WorkspaceWindow ~ dynamicCard:", dynamicCard)
     return (
         <div
             style={windowStyles}

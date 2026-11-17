@@ -174,9 +174,9 @@ const DPR_form = () => {
                 errorElement.focus({ preventScroll: true });
             }
         } else {
-            console.log("Form successfully validated and submitted!", {
-                formData, selectedJobs, activities
-            });
+            // console.log("Form successfully validated and submitted!", {
+            //     formData, selectedJobs, activities
+            // });
             alert("Form submitted successfully! Check console for data payload.");
         }
     };

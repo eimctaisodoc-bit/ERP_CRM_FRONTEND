@@ -3,36 +3,60 @@ import Select from "react-select";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../component/hooks/useAuth.js";
 import { socket } from "../socket_client/scoket.js";
+import { ArrowLeft, Info, RefreshCw, ShieldBan } from "lucide-react";
 import InputField from "../component/inputField";
 import { ErrorNotify } from "../component/hotToaster.jsx";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
-// Configuration for multi-sized ambient background particles (Dust & Glow Specks)
-const AMBER_PARTICLES = [
-    { id: 1, size: "w-2 h-2", top: "12%", left: "18%", duration: 6, delay: 0, opacity: 0.5, blur: "blur-none" },
-    { id: 2, size: "w-3.5 h-3.5", top: "28%", left: "82%", duration: 8, delay: 1, opacity: 0.7, blur: "blur-xs" },
-    { id: 3, size: "w-1.5 h-1.5", top: "68%", left: "12%", duration: 7, delay: 0.5, opacity: 0.4, blur: "blur-none" },
-    { id: 4, size: "w-5 h-5", top: "78%", left: "75%", duration: 9, delay: 2, opacity: 0.3, blur: "blur-sm" },
-    { id: 5, size: "w-2.5 h-2.5", top: "42%", left: "88%", duration: 5.5, delay: 1.5, opacity: 0.6, blur: "blur-none" },
-    { id: 6, size: "w-3 h-3", top: "15%", left: "48%", duration: 10, delay: 0.8, opacity: 0.5, blur: "blur-none" },
-    { id: 7, size: "w-4 h-4", top: "88%", left: "32%", duration: 7.5, delay: 1.2, opacity: 0.4, blur: "blur-xs" },
-    { id: 8, size: "w-1.5 h-1.5", top: "38%", left: "8%", duration: 6.5, delay: 0.3, opacity: 0.8, blur: "blur-none" },
-    { id: 9, size: "w-6 h-6", top: "52%", left: "22%", duration: 11, delay: 1.8, opacity: 0.25, blur: "blur-md" },
-    { id: 10, size: "w-2 h-2", top: "82%", left: "55%", duration: 8.5, delay: 0.4, opacity: 0.6, blur: "blur-none" },
+// Professional background config: ledger grid + softly highlighted cells
+const GRID_CELL = 56; // px. Grid size; highlighted cells sit on this same grid
+// n = columns from centre line (negative = left), row = rows from top
+const GRID_CELLS = [
+    { n: -9, row: 3, duration: 5, delay: 0.5, pause: 4 },
+    { n: 8, row: 2, duration: 6, delay: 2.5, pause: 5 },
+    { n: -6, row: 9, duration: 5.5, delay: 4, pause: 4.5 },
+    { n: 10, row: 7, duration: 6.5, delay: 1.5, pause: 3.5 },
+    { n: -11, row: 6, duration: 5, delay: 6, pause: 5 },
+    { n: 6, row: 11, duration: 6, delay: 3.2, pause: 4 },
+    { n: -3, row: 0, duration: 5, delay: 7.5, pause: 6 },
+    { n: 4, row: 1, duration: 5.5, delay: 5, pause: 5.5 },
 ];
+const GRID_EDGE_FADE = "radial-gradient(ellipse 85% 75% at 50% 45%, #000 30%, transparent 100%)";
+
+// ISO certifications advertised on the comet tails (each comet has its own colour)
+// axis: "x" = horizontal grid line, "y" = vertical grid line
+// dir:  1 = left→right / top→bottom, -1 = right→left / bottom→top
+// line: horizontal = row index from the top, vertical = column index from the centre line
+// color = comet head and tail, ink = darker shade used for the readable letters
+const COMETS = [
+    { id: 1, code: "ISO 9001", text: "Quality Management", axis: "x", dir: 1, line: 2, color: "#f59e0b", ink: "#b45309", length: 100, duration: 16, delay: 0, pause: 2 },
+    { id: 2, code: "ISO 21001", text: "Educational Organizations", axis: "x", dir: -1, line: 5, color: "#0ea5e9", ink: "#0369a1", length: 100, duration: 19, delay: 4, pause: 1.5 },
+    { id: 3, code: "ISO 14001", text: "Environmental Management", axis: "x", dir: 1, line: 9, color: "#10b981", ink: "#047857", length: 100, duration: 17, delay: 8, pause: 2.5 },
+    { id: 4, code: "ISO 45001", text: "Occupational Health & Safety", axis: "y", dir: 1, line: -6, color: "#f43f5e", ink: "#be123c", length: 100, duration: 14, delay: 2, pause: 2 },
+    { id: 5, code: "ISO 22000", text: "Food Safety", axis: "x", dir: -1, line: 12, color: "#84cc16", ink: "#4d7c0f", length: 100, duration: 15, delay: 11, pause: 3 },
+    { id: 6, code: "ISO 27001", text: "Information Security", axis: "y", dir: -1, line: 6, color: "#8b5cf6", ink: "#6d28d9", length: 100, duration: 14, delay: 6, pause: 2.5 },
+];
+
+// Wave that travels through the letters (pure CSS, so ~200 letters stay cheap to animate)
+const WAVE_CSS = `
+@keyframes isoWaveY { 0%, 100% { transform: translateY(0); } 25% { transform: translateY(-3px); } 75% { transform: translateY(3px); } }
+@keyframes isoWaveX { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+`;
 
 const LoginForm = () => {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
+    const [accountDisabled, setAccountDisabled] = useState(false);
     const { login } = useAuth();
 
     useEffect(() => {
         const message = sessionStorage.getItem("IsAutoLogOut");
+        /* console.log("Auto Logout Message:", message); */
         if (!message) return;
         sessionStorage.removeItem("IsAutoLogOut");
         ErrorNotify(message, 8000);
     }, []);
-    
+
     const [formData, setFormData] = useState({
         username: "",
         password: "",
@@ -56,6 +80,7 @@ const LoginForm = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        setAccountDisabled(false);
         login.mutate(formData, {
             onSuccess: (user) => {
                 const token = user?.user?.token;
@@ -67,10 +92,11 @@ const LoginForm = () => {
                 const userData = {
                     id: user.user.id,
                     userName: user.user.username,
-                    role: user.user.role
+                    role: user.user.role,
+                    jobRole: user.user.jobRole,
                 };
                 sessionStorage.setItem("user", JSON.stringify(userData));
-                
+
                 socket.auth = { token };
                 if (!socket.connected) socket.connect();
 
@@ -85,7 +111,13 @@ const LoginForm = () => {
                 targetRoute ? navigate(targetRoute) : ErrorNotify("Access denied");
             },
             onError: (error) => {
-                ErrorNotify("Token Expired. LogIn Again" || "Login failed");
+                if (["ADMIN_DISABLED", "STAFF_DISABLED", "CLIENT_DISABLED"].includes(error?.response?.data?.code)) {
+                    setAccountDisabled(true);
+                    return;
+                }
+
+                const message = error?.response?.data?.message || "Login failed";
+                ErrorNotify(message);
             }
         });
     };
@@ -108,10 +140,10 @@ const LoginForm = () => {
 
     const itemVariants = {
         hidden: { opacity: 0, y: 15 },
-        visible: { 
-            opacity: 1, 
-            y: 0, 
-            transition: { duration: 0.5, ease: "easeOut" } 
+        visible: {
+            opacity: 1,
+            y: 0,
+            transition: { duration: 0.5, ease: "easeOut" }
         }
     };
 
@@ -148,256 +180,98 @@ const LoginForm = () => {
     const labelStyle = "block text-sm font-semibold text-slate-700 mb-1.5";
     const inputClass = "w-full text-sm border-slate-200 bg-white rounded-lg focus:ring-4 focus:ring-amber-500/15 focus:border-amber-600 transition-all py-2.5 shadow-sm";
 
-    return (
-        <div className="relative flex items-center justify-center min-h-screen bg-slate-50 overflow-hidden font-sans [perspective:1200px]">
-            
-            {/* ================= BACKGROUND 3D MULTI-SIZE PARTICLE FIELD ================= */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
-                
-                {/* 1. Deep Atmospheric Premium Gradients */}
-                <div className="absolute -top-32 -left-32 w-[32rem] h-[32rem] bg-amber-400/10 rounded-full blur-[100px]" />
-                <div className="absolute bottom-0 right-0 w-[40rem] h-[40rem] bg-amber-600/5 rounded-full blur-[120px]" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[30rem] h-[30rem] bg-orange-300/10 rounded-full blur-[80px]" />
+    if (accountDisabled) {
+        return (
+            <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 px-4 font-sans">
 
-                {/* 2. Micro & Medium Ambient Dust Particles */}
-                {AMBER_PARTICLES.map((p) => (
-                    <motion.div
-                        key={p.id}
-                        className={`absolute rounded-full bg-gradient-to-tr from-amber-500 to-amber-200 ${p.size} ${p.blur}`}
-                        style={{ top: p.top, left: p.left }}
-                        animate={{
-                            y: [0, -40, 0],
-                            x: [0, 20, -15, 0],
-                            opacity: [p.opacity, p.opacity * 1.5, p.opacity],
-                            scale: [1, 1.3, 0.9, 1],
-                        }}
-                        transition={{
-                            duration: p.duration,
-                            repeat: Infinity,
-                            delay: p.delay,
-                            ease: "easeInOut",
-                        }}
-                    />
-                ))}
+                {/* Background Decoration */}
+                <div className="absolute -top-32 -right-32 h-80 w-80 rounded-full bg-red-100/50 blur-3xl" />
+                <div className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-amber-100/40 blur-3xl" />
 
-                {/* 3. NEW: Premium 3D Security Shield (Top-Right Area) */}
-                <motion.div 
-                    className="absolute top-[12%] right-[18%] w-24 h-24 md:w-32 md:h-32 opacity-80"
-                    animate={{
-                        y: [0, -15, 0],
-                        rotateY: [-15, 15, -15],
-                        rotateX: [5, -5, 5],
-                    }}
-                    transition={{
-                        duration: 8,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                >
-                    <svg viewBox="0 0 100 120" fill="none" className="w-full h-full drop-shadow-2xl">
-                        <defs>
-                            <linearGradient id="shieldLeft" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stopColor="#fef3c7" stopOpacity="0.9" />
-                                <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.6" />
-                            </linearGradient>
-                            <linearGradient id="shieldRight" x1="100%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stopColor="#d97706" stopOpacity="0.7" />
-                                <stop offset="100%" stopColor="#b45309" stopOpacity="0.3" />
-                            </linearGradient>
-                            <filter id="glow">
-                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                                <feMerge>
-                                    <feMergeNode in="coloredBlur"/>
-                                    <feMergeNode in="SourceGraphic"/>
-                                </feMerge>
-                            </filter>
-                        </defs>
-                        {/* Left Half */}
-                        <path d="M50 5 L10 25 V60 C10 85 30 110 50 118 Z" fill="url(#shieldLeft)" stroke="#f59e0b" strokeWidth="1" strokeOpacity="0.5"/>
-                        {/* Right Half */}
-                        <path d="M50 5 L90 25 V60 C90 85 70 110 50 118 Z" fill="url(#shieldRight)" stroke="#f59e0b" strokeWidth="1" strokeOpacity="0.3"/>
-                        {/* Security Checkmark */}
-                        <path d="M35 60 L45 70 L65 45" stroke="#ffffff" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)"/>
-                    </svg>
-                </motion.div>
+                <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/50 sm:p-10">
 
-                {/* 4. Hero 3D Isometric Glass Cube (Bottom-Right) */}
-                <motion.div 
-                    className="absolute bottom-[18%] right-[10%] w-32 h-32 md:w-40 md:h-40 opacity-70"
-                    animate={{
-                        y: [0, -25, 0],
-                        rotateX: [0, 15, 0],
-                        rotateY: [0, -30, 0],
-                        rotateZ: [0, 5, 0],
-                    }}
-                    transition={{
-                        duration: 9,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                >
-                    <svg viewBox="0 0 200 200" fill="none" className="w-full h-full drop-shadow-xl">
-                        <defs>
-                            <linearGradient id="cubeTop" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stopColor="#fef3c7" stopOpacity="0.85" />
-                                <stop offset="100%" stopColor="#fde68a" stopOpacity="0.4" />
-                            </linearGradient>
-                            <linearGradient id="cubeLeft" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.6" />
-                                <stop offset="100%" stopColor="#d97706" stopOpacity="0.2" />
-                            </linearGradient>
-                            <linearGradient id="cubeRight" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.65" />
-                                <stop offset="100%" stopColor="#ea580c" stopOpacity="0.25" />
-                            </linearGradient>
-                        </defs>
-                        <polygon points="100,30 160,65 100,100 40,65" fill="url(#cubeTop)" stroke="#f59e0b" strokeOpacity="0.3" strokeWidth="1" />
-                        <polygon points="40,65 100,100 100,170 40,135" fill="url(#cubeLeft)" stroke="#f59e0b" strokeOpacity="0.3" strokeWidth="1" />
-                        <polygon points="100,100 160,65 160,135 100,170" fill="url(#cubeRight)" stroke="#f59e0b" strokeOpacity="0.3" strokeWidth="1" />
-                    </svg>
-                </motion.div>
+                    {/* Status Icon */}
+                    <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-red-100 bg-red-50">
+                        <ShieldBan
+                            size={30}
+                            strokeWidth={1.8}
+                            className="text-red-500"
+                        />
+                    </div>
 
-                {/* 5. Medium 3D Floating Prism (Bottom-Left) */}
-                <motion.div 
-                    className="absolute bottom-[22%] left-[8%] w-24 h-24 md:w-32 md:h-32 opacity-75"
-                    animate={{
-                        y: [0, -20, 0],
-                        rotateX: [15, 45, 15],
-                        rotateY: [-10, -40, -10],
-                        scale: [0.95, 1.05, 0.95],
-                    }}
-                    transition={{
-                        duration: 10,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                >
-                    <svg viewBox="0 0 100 100" fill="none" className="w-full h-full drop-shadow-lg">
-                        <defs>
-                            <linearGradient id="prismGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stopColor="#fde68a" stopOpacity="0.8" />
-                                <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.4" />
-                            </linearGradient>
-                            <linearGradient id="prismGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stopColor="#ea580c" stopOpacity="0.5" />
-                                <stop offset="100%" stopColor="#9a3412" stopOpacity="0.15" />
-                            </linearGradient>
-                        </defs>
-                        <polygon points="50,5 90,50 50,95 10,50" fill="url(#prismGrad1)" stroke="#f59e0b" strokeOpacity="0.4" strokeWidth="1" />
-                        <line x1="50" y1="5" x2="50" y2="95" stroke="#fbbf24" strokeOpacity="0.6" strokeWidth="1" />
-                        <line x1="10" y1="50" x2="90" y2="50" stroke="#f59e0b" strokeOpacity="0.4" strokeWidth="1" />
-                    </svg>
-                </motion.div>
+                    {/* Heading */}
+                    <div className="space-y-2">
+                        <span className="inline-flex items-center rounded-full border border-red-100 bg-red-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-red-600">
+                            Access Restricted
+                        </span>
 
-                {/* 6. Hero 3D Glossy Sphere (Top-Left) */}
-                <motion.div 
-                    className="absolute top-[18%] left-[12%] w-28 h-28 md:w-36 md:h-36 opacity-85"
-                    animate={{
-                        y: [0, 20, 0],
-                        x: [0, 15, 0],
-                        scale: [1, 1.05, 1],
-                    }}
-                    transition={{
-                        duration: 11,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                >
-                    <svg viewBox="0 0 100 100" fill="none" className="w-full h-full filter drop-shadow-xl">
-                        <defs>
-                            <radialGradient id="sphereGrad3D" cx="35%" cy="35%" r="65%">
-                                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
-                                <stop offset="25%" stopColor="#fde68a" stopOpacity="0.8" />
-                                <stop offset="65%" stopColor="#f59e0b" stopOpacity="0.5" />
-                                <stop offset="100%" stopColor="#9a3412" stopOpacity="0.2" />
-                            </radialGradient>
-                        </defs>
-                        <circle cx="50" cy="50" r="45" fill="url(#sphereGrad3D)" />
-                    </svg>
-                </motion.div>
+                        <h2 className="text-2xl font-bold tracking-tight text-slate-800">
+                            Account Disabled
+                        </h2>
 
-                {/* 7. 3D Rotating Torus Ring (Mid-Right Edge) */}
-                <motion.div 
-                    className="absolute top-[50%] right-[3%] w-20 h-20 md:w-28 md:h-28 opacity-60"
-                    animate={{
-                        y: [0, -16, 0],
-                        rotateX: [20, 70, 20],
-                        rotateZ: [0, 180, 360],
-                    }}
-                    transition={{
-                        duration: 14,
-                        repeat: Infinity,
-                        ease: "linear"
-                    }}
-                >
-                    <svg viewBox="0 0 100 100" fill="none" className="w-full h-full">
-                        <defs>
-                            <linearGradient id="ringGrad3D" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stopColor="#fef3c7" stopOpacity="0.9" />
-                                <stop offset="50%" stopColor="#f59e0b" stopOpacity="0.5" />
-                                <stop offset="100%" stopColor="#c2410c" stopOpacity="0.2" />
-                            </linearGradient>
-                        </defs>
-                        <ellipse cx="50" cy="50" rx="42" ry="22" stroke="url(#ringGrad3D)" strokeWidth="6" transform="rotate(-20 50 50)" />
-                    </svg>
-                </motion.div>
+                        <p className="mx-auto max-w-sm text-sm leading-6 text-slate-500">
+                            Your account has been temporarily disabled by the
+                            administrator. You currently cannot access the
+                            EIMCTA ERP workspace.
+                        </p>
+                    </div>
 
-                {/* 8. Small Floating 3D Crystal Gem (Top-Center) */}
-                <motion.div 
-                    className="absolute top-[8%] left-[45%] w-12 h-12 md:w-16 md:h-16 opacity-70"
-                    animate={{
-                        y: [0, -18, 0],
-                        rotateZ: [0, -30, 0],
-                        rotateY: [0, 60, 0],
-                    }}
-                    transition={{
-                        duration: 7,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                >
-                    <svg viewBox="0 0 100 100" fill="none" className="w-full h-full drop-shadow-md">
-                        <polygon points="50,10 85,35 85,70 50,90 15,70 15,35" fill="rgba(253, 230, 138, 0.6)" stroke="#f59e0b" strokeOpacity="0.6" strokeWidth="1.5" />
-                        <line x1="50" y1="10" x2="50" y2="90" stroke="#f59e0b" strokeOpacity="0.5" strokeWidth="1" />
-                        <line x1="15" y1="35" x2="85" y2="35" stroke="#f59e0b" strokeOpacity="0.4" strokeWidth="1" />
-                    </svg>
-                </motion.div>
+                    {/* Information */}
+                    <div className="mt-7 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
+                        <div className="flex items-start gap-3">
+                            <Info
+                                size={18}
+                                className="mt-0.5 shrink-0 text-amber-600"
+                            />
+                            <div>
+                                <p className="text-sm font-semibold text-slate-700">
+                                    Need assistance?
+                                </p>
+                                <p className="mt-1 text-xs leading-5 text-slate-500">
+                                    Please contact your administrator to verify
+                                    your account status and request access.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
 
-                {/* 9. Large 3D Pyramid (Mid-Left Edge) */}
-                <motion.div 
-                    className="absolute top-[45%] left-[2%] w-24 h-24 md:w-32 md:h-32 opacity-50"
-                    animate={{
-                        y: [0, 30, 0],
-                        rotateX: [15, -10, 15],
-                        rotateY: [0, 25, 0],
-                    }}
-                    transition={{
-                        duration: 12,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                >
-                    <svg viewBox="0 0 120 120" fill="none" className="w-full h-full drop-shadow-xl">
-                        <defs>
-                            <linearGradient id="pyrSide1" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stopColor="#fef3c7" stopOpacity="0.8" />
-                                <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.4" />
-                            </linearGradient>
-                            <linearGradient id="pyrSide2" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stopColor="#ea580c" stopOpacity="0.5" />
-                                <stop offset="100%" stopColor="#9a3412" stopOpacity="0.1" />
-                            </linearGradient>
-                        </defs>
-                        <polygon points="60,15 105,95 15,95" fill="url(#pyrSide1)" stroke="#f59e0b" strokeOpacity="0.3" strokeWidth="1" />
-                        <polygon points="60,15 105,95 60,105" fill="url(#pyrSide2)" stroke="#f59e0b" strokeOpacity="0.2" strokeWidth="1" />
-                    </svg>
-                </motion.div>
+                    {/* Actions */}
+                    <div className="mt-7 flex flex-col gap-3">
 
+                        <button
+                            type="button"
+                            onClick={() => window.location.reload()}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-amber-600 active:scale-[0.98]"
+                        >
+                            <RefreshCw size={17} />
+                            Refresh Status
+                        </button>
+
+                    </div>
+
+                    {/* Footer */}
+                    <div className="mt-8 border-t border-slate-100 pt-5">
+                        <p className="text-xs font-medium tracking-wide text-slate-400">
+                            EIMCTA ERP & CRM SYSTEM
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-400">
+                            Secure Workspace · Account Access Management
+                        </p>
+                    </div>
+                </div>
             </div>
-            {/* ================= END BACKGROUND FIELD ================= */}
+        );
+    }
+
+    return (
+        <div className="relative flex items-center justify-center min-h-screen bg-slate-50 overflow-hidden font-sans">
+
+            {/* ================= PROFESSIONAL BACKGROUND ================= */}
+            <LoginBackground />
+            {/* ================= END BACKGROUND ================= */}
 
             {/* Login Card - Professional / Premium UI */}
-            <motion.div 
+            <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
@@ -418,7 +292,7 @@ const LoginForm = () => {
                         Enter your credentials to authenticate.
                     </p>
                 </motion.div>
-                
+
                 <form onSubmit={handleSubmit} className="space-y-5">
                     {/* Username */}
                     <motion.div variants={itemVariants}>
@@ -493,6 +367,187 @@ const LoginForm = () => {
                     </motion.div>
                 </form>
             </motion.div>
+        </div>
+    );
+};
+
+// One comet travelling along a single grid line. Its tail dissolves into wavy letters
+// (an ISO certification), like a banner trailing behind it.
+const GridComet = ({ code, text, axis, dir, line, color, ink, length, duration, delay, pause }) => {
+    const horizontal = axis === "x";
+    const reverse = dir === -1;
+
+    // ISO code in bold, then the scope in medium weight
+    const chars = [
+        ...Array.from(code).map((ch) => ({ ch, bold: true })),
+        ...Array.from(` – ${text}`).map((ch) => ({ ch, bold: false })),
+    ];
+    const last = chars.length - 1;
+    // Letters nearest the comet are strongest and fade out along the tail
+    const nearestIsLast = !(horizontal && reverse);
+
+    // Track sits exactly on the grid line (line is 1px wide, track is 2px)
+    const trackStyle = horizontal
+        ? { top: line * GRID_CELL - 0.5, left: 0, right: 0, height: 2 }
+        : { left: `calc(50% - ${GRID_CELL / 2 + 0.5}px + ${line * GRID_CELL}px)`, top: 0, bottom: 0, width: 2 };
+
+    // Same duration + linear easing on both movers: the outer one covers the track,
+    // the inner one covers the comet's own length, so it enters and leaves fully off-screen
+    const slide = reverse ? ["0%", "-100%"] : ["0%", "100%"];
+    const motionProps = horizontal ? { x: slide } : { y: slide };
+    const transition = { duration, delay, repeat: Infinity, repeatDelay: pause, ease: "linear" };
+
+    const cometStyle = horizontal
+        ? {
+            top: 0,
+            height: "100%",
+            ...(reverse ? { left: "100%" } : { right: "100%" }),
+            display: "flex",
+            flexDirection: reverse ? "row-reverse" : "row",
+            alignItems: "center",
+        }
+        : {
+            left: 0,
+            width: "100%",
+            ...(reverse ? { top: "100%" } : { bottom: "100%" }),
+            display: "flex",
+            flexDirection: reverse ? "column-reverse" : "column",
+            alignItems: "center",
+        };
+
+    const labelStyle = {
+        whiteSpace: "nowrap",
+        fontSize: 12,
+        lineHeight: 1,
+        letterSpacing: "0.12em",
+        color: ink,
+        textShadow: "0 0 6px rgba(255, 255, 255, 0.95)",
+        position: "relative",
+        flexShrink: 0,
+        ...(horizontal
+            ? { top: -10 }
+            : { writingMode: "vertical-rl", left: 10, transform: reverse ? "rotate(180deg)" : undefined }),
+    };
+
+    const tailStyle = horizontal
+        ? { width: length, height: 2, flexShrink: 0, background: `linear-gradient(${reverse ? "to left" : "to right"}, transparent, ${color})` }
+        : { width: 2, height: length, flexShrink: 0, background: `linear-gradient(${reverse ? "to top" : "to bottom"}, transparent, ${color})` };
+
+    const headStyle = {
+        width: 6,
+        height: 6,
+        flexShrink: 0,
+        borderRadius: "9999px",
+        background: color,
+        boxShadow: `0 0 10px 3px ${color}`,
+        ...(horizontal
+            ? (reverse ? { marginRight: -3 } : { marginLeft: -3 })
+            : (reverse ? { marginBottom: -3 } : { marginTop: -3 })),
+    };
+
+    return (
+        <div className="absolute" style={trackStyle}>
+            <motion.div
+                className="absolute top-0 left-0"
+                style={{ width: "100%", height: "100%" }}
+                animate={motionProps}
+                transition={transition}
+            >
+                <motion.div className="absolute" style={cometStyle} animate={motionProps} transition={transition}>
+                    {/* DOM order is tail-end → head; flex direction mirrors it for reversed comets */}
+                    <div style={labelStyle}>
+                        {chars.map((c, i) => {
+                            const d = nearestIsLast ? last - i : i;
+                            return (
+                                <span
+                                    key={i}
+                                    style={{
+                                        display: "inline-block",
+                                        whiteSpace: "pre",
+                                        fontWeight: c.bold ? 700 : 500,
+                                        opacity: 1 - 0.55 * (d / last),
+                                        animation: `${horizontal ? "isoWaveY" : "isoWaveX"} 1.8s ease-in-out ${(i * 0.12).toFixed(2)}s infinite`,
+                                    }}
+                                >
+                                    {c.ch}
+                                </span>
+                            );
+                        })}
+                    </div>
+                    <div style={tailStyle} />
+                    <div style={headStyle} />
+                </motion.div>
+            </motion.div>
+        </div>
+    );
+};
+
+// Professional background: quiet ledger grid, amber cell highlights and comets running along the grid lines
+const LoginBackground = () => {
+    const reduceMotion = useReducedMotion();
+
+    return (
+        <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 select-none overflow-hidden"
+        >
+            <style>{WAVE_CSS}</style>
+            {/* Soft corner glows (static gradients, no blur filters) */}
+            <div
+                className="absolute inset-0"
+                style={{
+                    backgroundImage: [
+                        "radial-gradient(60rem 40rem at 0% 0%, rgba(251, 191, 36, 0.14), transparent 60%)",
+                        "radial-gradient(52rem 38rem at 100% 100%, rgba(217, 119, 6, 0.10), transparent 60%)",
+                    ].join(", "),
+                }}
+            />
+
+            {/* Grid + cells share one mask so both fade out toward the edges */}
+            <div
+                className="absolute inset-0"
+                style={{ maskImage: GRID_EDGE_FADE, WebkitMaskImage: GRID_EDGE_FADE }}
+            >
+                <div
+                    className="absolute inset-0"
+                    style={{
+                        backgroundImage:
+                            "linear-gradient(to right, rgba(148, 163, 184, 0.22) 1px, transparent 1px), linear-gradient(to bottom, rgba(148, 163, 184, 0.22) 1px, transparent 1px)",
+                        backgroundSize: `${GRID_CELL}px ${GRID_CELL}px`,
+                        backgroundPosition: "50% 0",
+                    }}
+                />
+
+                {!reduceMotion &&
+                    GRID_CELLS.map((c, i) => (
+                        <motion.div
+                            key={i}
+                            className="absolute"
+                            style={{
+                                width: GRID_CELL,
+                                height: GRID_CELL,
+                                top: c.row * GRID_CELL,
+                                left: `calc(50% - ${GRID_CELL / 2}px + ${c.n * GRID_CELL}px)`,
+                                background: "rgba(245, 158, 11, 0.10)",
+                                border: "1px solid rgba(217, 119, 6, 0.28)",
+                                boxSizing: "border-box",
+                            }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: [0, 1, 0] }}
+                            transition={{
+                                duration: c.duration,
+                                delay: c.delay,
+                                repeat: Infinity,
+                                repeatDelay: c.pause,
+                                ease: "easeInOut",
+                            }}
+                        />
+                    ))}
+
+                {/* Comets travelling along the grid lines */}
+                {!reduceMotion &&
+                    COMETS.map((c) => <GridComet key={c.id} {...c} />)}
+            </div>
         </div>
     );
 };

@@ -8,12 +8,12 @@ export const loginUser = async (data) => {
 
 export const getMe = async () => {
   const res = await api.get("/api/auth/me", { withCredentials: true });
-  console.log('User data:', res.data);
+  /* console.log('User data:', res.data); */
   return res.data;
 };
 
 export const logoutUser = async () => {
-  const { data } = await api.post("/api/auth/logout");
+  const { data } = await api.post("/api/auth/logout", {}, { withCredentials: true });
   return data;
 };
 

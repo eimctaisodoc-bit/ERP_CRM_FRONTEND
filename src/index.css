@@ -1,38 +1,36 @@
-
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&family=Tagesschrift&display=swap');
-
 @import "tailwindcss";
 
+@theme {
+  --font-primary: "Roboto Slab", serif;
+}
+
+@layer base {
+  body {
+    @apply font-primary font-extralight;
+  }
+}
 
 body::-webkit-scrollbar {
-  width: 0px;
+  width: 0;
   background: transparent;
   display: none;
 }
-body {
-  font-family: 'Roboto Slab', serif;
-}
+
 .custom-scrollbar::-webkit-scrollbar {
-  width: 0px;
+  width: 0;
   background: transparent;
   display: none;
 }
 
-
-/* Hide scrollbar for IE, Edge and Firefox */
 .custom-scrollbar {
   -ms-overflow-style: none;
-  /* IE and Edge */
   scrollbar-width: none;
-  /* Firefox */
 }
 
 input:focus {
   box-shadow: none;
 }
 
-
-/* Nepali Datepicker faded UI fix */
 .nepali-date-picker,
 .nepali-date-picker *,
 .date-picker,
@@ -54,47 +52,6 @@ input:focus {
   color: #0f172a !important;
 }
 
-/* From Uiverse.io by elijahgummer */
-.sales_btn {
-  font: inherit;
-  background-color: #f0f0f0;
-  border: 0;
-  color: #242424;
-  border-radius: 0.5em;
-  font-size: 1.35rem;
-  padding: 0.375em 1em;
-  font-weight: 600;
-  text-shadow: 0 0.0625em 0 #fff;
-  box-shadow: inset 0 0.0625em 0 0 #f4f4f4, 0 0.0625em 0 0 #efefef,
-    0 0.125em 0 0 #ececec, 0 0.25em 0 0 #e0e0e0, 0 0.3125em 0 0 #dedede,
-    0 0.375em 0 0 #dcdcdc, 0 0.425em 0 0 #cacaca, 0 0.425em 0.5em 0 #cecece;
-  transition: 0.15s ease;
-  cursor: pointer;
-}
-
-.sales_btn:active {
-  translate: 0 0.225em;
-  box-shadow: inset 0 0.03em 0 0 #f4f4f4, 0 0.03em 0 0 #efefef,
-    0 0.0625em 0 0 #ececec, 0 0.125em 0 0 #e0e0e0, 0 0.125em 0 0 #dedede,
-    0 0.2em 0 0 #dcdcdc, 0 0.225em 0 0 #cacaca, 0 0.225em 0.375em 0 #cecece;
-}
-
-.sales_btn.amber_glow {
-  translate: 0 0.225em;
-  background-color: #fffdfa;
-  color: #b36b00;
-  box-shadow:
-    inset 0 0.03em 0 0 #ffffff,
-    0 0.03em 0 0 #ffca28,
-    0 0.0625em 0 0 #ffb300,
-    0 0.125em 0 0 #ffa000,
-    0 0.125em 0 0 #ff8f00,
-    0 0.2em 0 0 #ff6f00,
-    0 0.225em 0 0 #e65100,
-    0 0.225em 1.25em 0 rgba(255, 160, 0, 0.6);
-}
-
-/*  for download animation  */
 @keyframes wave {
   0% {
     transform: translateX(0);
@@ -122,7 +79,7 @@ input:focus {
 .animate-wave-slow {
   animation: wave-slow 5s linear infinite;
 }
-/* animated border  */
+
 @keyframes rotate-border {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
@@ -138,66 +95,49 @@ input:focus {
   isolation: isolate;
   overflow: hidden;
   z-index: 0;
-  
-  /* Base styling */
-  border: 1px solid #e2e8f0; /* slate-200 */
-  border-radius: 12px; /* lg */
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
   background: #ffffff;
-  
-  /* Smooth transitions */
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Gradient border layer - Enhanced with multiple colors and smoother gradient */
 .animated-border-card::before {
   content: '';
   position: absolute;
   inset: -50%;
   z-index: -2;
-  
-  /* Advanced conic gradient with more color stops for smoother transitions */
   background: conic-gradient(
     from 0deg at 50% 50%,
     transparent 0deg,
-    #fef3c7 60deg,   /* amber-100 */
-    #fbbf24 120deg,   /* amber-400 */
-    #f97316 180deg,   /* orange-500 */
-    #fb923c 240deg,   /* orange-400 */
-    #fed7aa 300deg,   /* orange-200 */
+    #fef3c7 60deg,
+    #f59e0b 120deg,
+    #ea580c 180deg,
+    #f59e0b 240deg,
+    #fffbeb 300deg,
     transparent 360deg
   );
-  
   animation: rotate-border 3s linear infinite;
   opacity: 0;
   transform-origin: center center;
   transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  
-  /* Smoother rendering */
   will-change: transform, opacity;
   pointer-events: none;
 }
 
-/* Inner mask with subtle shadow */
 .animated-border-card::after {
   content: '';
   position: absolute;
   inset: 2px;
   z-index: -1;
-  
   background: #ffffff;
-  border-radius: 10px; /* Slightly less than parent */
-  
-  /* Subtle inner shadow for depth */
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
-  
+  border-radius: 10px;
+  box-shadow: inset 0 2px 4px color-mix(in srgb, #0f172a 2%, transparent);
   opacity: 0;
   transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  
   will-change: opacity;
   pointer-events: none;
 }
 
-/* Optional: Add a subtle glow animation */
 .animated-border-card:hover::before {
   opacity: 0.7;
   animation: rotate-border 2s linear infinite;
@@ -207,16 +147,14 @@ input:focus {
   opacity: 1;
 }
 
-/* Professional hover effects */
 .animated-border-card:hover {
   border-color: transparent;
   transform: translateY(-2px);
-  box-shadow: 
-    0 10px 25px -5px rgba(249, 115, 22, 0.1),
-    0 8px 10px -6px rgba(249, 115, 22, 0.05);
+  box-shadow:
+    0 10px 25px -5px color-mix(in srgb, #ea580c 10%, transparent),
+    0 8px 10px -6px color-mix(in srgb, #ea580c 5%, transparent);
 }
 
-/* Optional: Add a subtle scale effect for the content */
 .animated-border-card > * {
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -225,7 +163,6 @@ input:focus {
   transform: scale(1.02);
 }
 
-/* Alternative: Smooth variant with softer edges */
 .animated-border-card.smooth {
   border-radius: 16px;
 }
@@ -234,37 +171,34 @@ input:focus {
   border-radius: 14px;
 }
 
-/* Premium variant with metallic effect */
 .animated-border-card.premium::before {
   background: conic-gradient(
     from 0deg at 50% 50%,
     transparent 0deg,
-    #fef9c3 45deg,   /* amber-200 */
-    #fbbf24 90deg,    /* amber-400 */
-    #f97316 135deg,   /* orange-500 */
-    #f59e0b 180deg,   /* amber-600 */
-    #f97316 225deg,   /* orange-500 */
-    #fcd34d 270deg,   /* amber-300 */
-    #fef3c7 315deg,   /* amber-100 */
+    #fef3c7 45deg,
+    #f59e0b 90deg,
+    #ea580c 135deg,
+    #f59e0b 180deg,
+    #ea580c 225deg,
+    #f59e0b 270deg,
+    #fef3c7 315deg,
     transparent 360deg
   );
   filter: blur(2px);
 }
 
-/* Fast variant for more dynamic motion */
 .animated-border-card.fast:hover::before {
   animation-duration: 1.5s;
 }
 
-/* Subtle variant for elegant appearance */
 .animated-border-card.subtle::before {
   opacity: 0;
   background: conic-gradient(
     from 0deg at 50% 50%,
     transparent,
-    #fcd34d 90deg,   /* amber-300 */
-    #fbbf24 180deg,   /* amber-400 */
-    #fcd34d 270deg,   /* amber-300 */
+    #f59e0b 90deg,
+    #f59e0b 180deg,
+    #f59e0b 270deg,
     transparent 360deg
   );
 }
@@ -273,46 +207,26 @@ input:focus {
   opacity: 0.4;
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .animated-border-card {
-    background: #1e293b; /* slate-800 */
-    border-color: #334155; /* slate-700 */
-  }
-  
-  .animated-border-card::after {
-    background: #1e293b; /* slate-800 */
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
-  }
-  
-  .animated-border-card:hover {
-    box-shadow: 
-      0 10px 25px -5px rgba(249, 115, 22, 0.2),
-      0 8px 10px -6px rgba(249, 115, 22, 0.1);
-  }
-}
-
-/* Reduced motion preference support */
 @media (prefers-reduced-motion: reduce) {
   .animated-border-card::before {
     animation-duration: 4s;
   }
-  
+
   .animated-border-card:hover {
     transform: none;
   }
-  
+
   .animated-border-card:hover > * {
     transform: none;
   }
 }
-/* Loader gradient   */
+
 .loader-gradient {
-  background: linear-gradient(90deg, #f59e0b, #fb923c, #fbbf24);
+  background: linear-gradient(90deg, #f59e0b, #ea580c, #f59e0b);
   padding: 4px;
   border-radius: 50%;
 }
-/* chat bg pulse */
+
 @keyframes pulseGlow {
   0% {
     background-position: 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0 0, 0 0;

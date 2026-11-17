@@ -54,7 +54,7 @@ const Dashboard = () => {
   }, [isOpen]);
 
   return (
-    <>
+    <div className="min-h-screen bg-white">
 
       <div>
         <div ref={asideRef}>
@@ -66,7 +66,7 @@ const Dashboard = () => {
         <Navbar
           isOpen={isOpen}
           toggleSidebar={() => setIsOpen(!isOpen)}
-            isOnline={isOnRoleRoute && isConnected}
+          isOnline={isOnRoleRoute && isConnected}
         />
       </div>
       <main className={`flex-1 ${isOpen ? "ml-67" : "ml-0 md:ml-20"} p-2   ${isAuthLoading ? 'mt-48' : 'mt-16'} bg-white `}>
@@ -75,7 +75,7 @@ const Dashboard = () => {
         }
 
       </main>
-    </>
+    </div>
   );
 };
 

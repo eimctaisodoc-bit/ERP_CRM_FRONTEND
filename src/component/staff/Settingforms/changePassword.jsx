@@ -42,7 +42,7 @@ export const ChangePassword = () => {
             return;
         }
         // Handle password change logic here
-        console.log('Password change submitted', formData);
+        // console.log('Password change submitted', formData);
     };
 
     const requirements = [
