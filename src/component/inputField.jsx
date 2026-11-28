@@ -9,6 +9,7 @@ const InputField = ({ label, type = 'text', name, value, onChange, placeholder }
                     className="block text-gray-700  text-md  mb-1 font-['Roboto_Slab']"
                 >
                     {label}
+                    {/* <span className="text-red-500">*</span> */}
                 </label>
             )}
             <input

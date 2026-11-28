@@ -38,17 +38,21 @@ import {
   UserCog,
   UserRound,
   Users,
+  LoaderCircle,
 } from "lucide-react";
 
 import NepaliDateInput from "../../../../nepalidate/testDate";
 import NepaliDate from "nepali-date-converter";
 import { UseAdd } from "../../../../hooks/useadd";
+
 import { SuccessNotify, ErrorNotify } from "../../../../hotToaster";
 import {
   provinceDistricts,
   getDistrictNames,
   getLocalLevelNames,
 } from "../../../../province";
+import { useGet } from "../../../../hooks/useGet";
+import { useAuth } from "../../../../hooks/useAuth";
 
 const ORANGE = "#E87A24";
 const MAX_ALT_CONTACTS = 5;
@@ -232,8 +236,8 @@ const initialLeadData = {
   assignedSalesRep: "",
   ProductInterested: [],
   provinceNumber: null, // { label, value }
-  province: null,
-  district: null,
+  provinceName: null,
+  districtName: null,
   localLevel: null,
   salesManager: "",
   notes: "",
@@ -246,8 +250,8 @@ const initialOrgData = {
   registrationNumber: "",
   vatPan: "",
   provinceNumber: null, // { label, value }
-  province: null,
-  district: null,
+  provinceName: null,
+  districtName: null,
   localLevel: null,
   orgTelephone: "",
   orgEmail: "",
@@ -326,8 +330,8 @@ const getDateString = (input) => {
 };
 
 const getLeadDateFromRecord = (record) => {
-  const lead = record?.lead || record?.leadDetails?.[0] || {};
-  const own = record?.ownership || record?.ownershipDetails?.[0] || {};
+  const lead = record?.leadDetails?.[0] || record?.lead || {};
+  const own = record?.ownershipDetails?.[0] || record?.ownership || {};
   return getDateString(own.LeadPickDate ?? lead.LeadPickDate);
 };
 
@@ -344,7 +348,9 @@ const val = (o) => (o && typeof o === "object" ? o.value || "" : o || "");
 // Province number is no longer shown in the UI, but it is still sent to the backend.
 // Uses the stored value, and falls back to deriving it from the selected province.
 const getProvinceNumber = (place) =>
-  val(place.provinceNumber) || provinceNumbers[val(place.province)] || "";
+  val(place.provinceNumber) ||
+  provinceNumbers[val(place.provinceName)] ||
+  "";
 
 const toOption = (value, options = []) => {
   const v = getOptionValue(value);
@@ -374,19 +380,21 @@ const toTimeInputValue = (value) => {
 
 // API record -> form state.
 const formValuesFromLead = (record) => {
-  const lead = record?.lead || record?.leadDetails?.[0] || {};
-  const org = record?.organization || record?.organizationDetails?.[0] || {};
-  const own = record?.ownership || record?.ownershipDetails?.[0] || {};
+  const lead = record?.leadDetails?.[0] || record?.lead || {};
+  const org = record?.organizationDetails?.[0] || record?.organization || {};
+  const own = record?.ownershipDetails?.[0] || record?.ownership || {};
   const str = toFormString;
 
   const place = (a, b = {}) => ({
     provinceNumber: numberOption(
-      Number(getOptionValue(a.provinceNumber ?? b.provinceNumber)) ||
-        provinceNumbers[str(a.province ?? b.province)],
+      Number(getOptionValue(a.provinceNumber)) ||
+        provinceNumbers[str(a.provinceName)] ||
+        Number(getOptionValue(b.provinceNumber)) ||
+        provinceNumbers[str(b.provinceName)],
     ),
-    province: toOption(a.province ?? b.province),
-    district: toOption(a.district ?? b.district),
-    localLevel: toOption(a.localLevel ?? b.localLevel),
+    provinceName: toOption(a.provinceName),
+    districtName: toOption(a.districtName),
+    localLevel: toOption(a.localLevel),
   });
 
   const orgStrings = [
@@ -420,7 +428,11 @@ const formValuesFromLead = (record) => {
     },
     organization: {
       ...initialOrgData,
-      ...place(org),
+      ...place({
+        ...org,
+        provinceName: org.provinceName || org.province,
+        districtName: org.districtName || org.district,
+      }),
       ...Object.fromEntries(orgStrings.map((k) => [k, str(org[k])])),
       organizationType: toOption(org.organizationType, organizationType),
       industryType: toOption(org.industyType, industries), // (sic) API field name
@@ -499,8 +511,11 @@ const computeErrors = (lead, org, isEducation) => {
     "org.organizationType",
     !org.organizationType && "Select an organization type",
   );
-  add("org.province", !org.province && "Select a province");
-  add("org.district", org.province && !org.district && "Select a district");
+  add("org.provinceName", !org.provinceName && "Select a province");
+  add(
+    "org.districtName",
+    org.provinceName && !org.districtName && "Select a district",
+  );
   add("org.orgTelephone", phoneError(org.orgTelephone, "Telephone"));
   add("org.orgEmail", emailError(org.orgEmail, "Organization email"));
 
@@ -559,8 +574,11 @@ const computeErrors = (lead, org, isEducation) => {
     "lead.assignedSalesRep",
     isEmpty(lead.assignedSalesRep) && "Enter the assigned sales representative",
   );
-  add("lead.province", !lead.province && "Select a province");
-  add("lead.district", lead.province && !lead.district && "Select a district");
+  add("lead.provinceName", !lead.provinceName && "Select a province");
+  add(
+    "lead.districtName",
+    lead.provinceName && !lead.districtName && "Select a district",
+  );
 
   return errs;
 };
@@ -1046,23 +1064,23 @@ function SuccessAnimation({ isEdit, reduceMotion }) {
 ========================================================= */
 
 function useLocation(data, patchData) {
-  const province = data.province?.value;
-  const district = data.district?.value;
+  const provinceName = data.provinceName?.value;
+  const districtName = data.districtName?.value;
 
   const provinces = useMemo(
     () => toOptions(Object.keys(provinceDistricts)),
     [],
   );
   const districts = useMemo(
-    () => (province ? toOptions(getDistrictNames(province)) : []),
-    [province],
+    () => (provinceName ? toOptions(getDistrictNames(provinceName)) : []),
+    [provinceName],
   );
   const localLevels = useMemo(
     () =>
-      province && district
-        ? toOptions(getLocalLevelNames(province, district))
+      provinceName && districtName
+        ? toOptions(getLocalLevelNames(provinceName, districtName))
         : [],
-    [province, district],
+    [provinceName, districtName],
   );
 
   return {
@@ -1071,12 +1089,13 @@ function useLocation(data, patchData) {
     localLevels,
     onProvince: (value) =>
       patchData({
-        province: value,
+        provinceName: value,
         provinceNumber: numberOption(value && provinceNumbers[value.value]),
-        district: null,
+        districtName: null,
         localLevel: null,
       }),
-    onDistrict: (value) => patchData({ district: value, localLevel: null }),
+    onDistrict: (value) =>
+      patchData({ districtName: value, localLevel: null }),
   };
 }
 
@@ -1096,6 +1115,7 @@ export default function LeadFormStepper({
   salesRepOptions = [],
   salesManagerOptions = [],
 }) {
+  console.log('data from lead page  ==========',data)
   const { addOrgLeadDetails } = UseAdd();
   const reduceMotion = useReducedMotion();
   const selectedData = data ?? initialData;
@@ -1131,6 +1151,24 @@ export default function LeadFormStepper({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [, setStaffDetailsError] = useState(null);
+  const [staffData, setStaffData] = useState(null);
+  const { useMe } = useAuth();
+  const { id } = useMe?.data?.user?.decoded || {};
+  const provinceName = String(
+    staffData?.provinceName ?? staffData?.province ?? "",
+  ).trim();
+  const districtName = String(
+    staffData?.districtName ?? staffData?.district ?? "",
+  ).trim();
+  const localLevelName = String(
+    staffData?.localLevelName ?? staffData?.locallevel ?? "",
+  ).trim();
+  const { GetMeDetails_, getCROSales_ } = useGet({
+    currentUser: useMe?.data?.user?.decoded,
+    isAuthLoading: useMe?.isLoading,
+    locationDetails: { provinceName, districtName, localLevelName },
+  });
 
   const { lead: leadData, organization: orgData } = values;
   const contacts = orgData.alternativeContacts;
@@ -1164,6 +1202,124 @@ export default function LeadFormStepper({
   const orgLoc = useLocation(orgData, (changes) =>
     patch("organization", changes),
   );
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchEmployeeLocation = async () => {
+      if (useMe?.isLoading || !id) return;
+
+      setStaffDetailsError(null);
+
+      try {
+        const response = await GetMeDetails_.mutateAsync({
+          params: { id },
+        });
+        const staffData = response?.data;
+
+        if (!active) return;
+
+        console.debug("[GetMeDetails_] complete response:", response);
+        console.debug("[GetMeDetails_] incoming API location object:", staffData);
+        setStaffData(staffData);
+        const provinceName = String(
+          staffData?.provinceName ?? staffData?.province ?? "",
+        ).trim();
+        const districtName = String(
+          staffData?.districtName ?? staffData?.district ?? "",
+        ).trim();
+        const localLevelName = String(
+          staffData?.localLevelName ?? staffData?.locallevel ?? "",
+        ).trim();
+        console.debug("[GetMeDetails_] extracted location values:", {
+          province: provinceName,
+          district: districtName,
+          locallevel: localLevelName,
+        });
+
+        const changes = {};
+
+        if (provinceName) {
+          changes.provinceName = toOption(provinceName, leadLoc.provinces);
+          changes.provinceNumber = numberOption(
+            provinceNumbers[provinceName] || "",
+          );
+        }
+
+        if (districtName) {
+          const districtOptions = provinceName
+            ? toOptions(getDistrictNames(provinceName))
+            : [];
+          changes.districtName = toOption(districtName, districtOptions);
+        }
+
+        if (localLevelName) {
+          const localLevelOptions =
+            provinceName && districtName
+              ? toOptions(getLocalLevelNames(provinceName, districtName))
+              : [];
+          changes.localLevel = toOption(localLevelName, localLevelOptions);
+        }
+
+        console.debug("[GetMeDetails_] values passed to location inputs:", {
+          province: changes.provinceName,
+          district: changes.districtName,
+          locallevel: changes.localLevel,
+        });
+
+        if (Object.keys(changes).length > 0) {
+          setValues((previous) => ({
+            ...previous,
+            lead: {
+              ...previous.lead,
+              ...changes,
+            },
+          }));
+        }
+      } catch (fetchError) {
+        if (!active) return;
+        setStaffDetailsError(fetchError);
+      }
+    };
+
+    fetchEmployeeLocation();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    id,
+    useMe?.isLoading,
+    GetMeDetails_?.mutateAsync,
+  ]);
+
+  useEffect(() => {
+    console.debug("[GetMeDetails_] final selected values displayed:", {
+      province: leadData.provinceName,
+      district: leadData.districtName,
+      locallevel: leadData.localLevel,
+    });
+  }, [leadData.provinceName, leadData.districtName, leadData.localLevel]);
+
+  useEffect(() => {
+    if (
+      editMode ||
+      getCROSales_?.isPending ||
+      !getCROSales_?.data?.data
+    ) {
+      return;
+    }
+
+    const { croFullName, salesFullName } = getCROSales_.data.data;
+    setValues((previous) => ({
+      ...previous,
+      lead: {
+        ...previous.lead,
+        assignedSalesRep: salesFullName || "",
+        salesManager: croFullName || "",
+      },
+    }));
+  }, [editMode, getCROSales_?.data, getCROSales_?.isPending]);
 
   /* ------------------------ validation ------------------------ */
 
@@ -1255,8 +1411,8 @@ export default function LeadFormStepper({
 
   const normalizePayload = () => {
     const existing =
-      selectedData?.organization ||
       selectedData?.organizationDetails?.[0] ||
+      selectedData?.organization ||
       {};
     const services = (
       Array.isArray(leadData.ProductInterested)
@@ -1279,8 +1435,8 @@ export default function LeadFormStepper({
         ProductInterested: services,
         notes: leadData.notes.trim(),
         provinceNumber: getProvinceNumber(leadData),
-        province: val(leadData.province),
-        district: val(leadData.district),
+        provinceName: val(leadData.provinceName),
+        districtName: val(leadData.districtName),
         localLevel: val(leadData.localLevel),
         salesManager: manager,
         LeadPickDate: leadDate,
@@ -1304,8 +1460,8 @@ export default function LeadFormStepper({
         registrationNumber: orgData.registrationNumber.trim(),
         vatPan: orgData.vatPan.trim(),
         provinceNumber: getProvinceNumber(orgData),
-        province: val(orgData.province),
-        district: val(orgData.district),
+        provinceName: val(orgData.provinceName),
+        districtName: val(orgData.districtName),
         localLevel: val(orgData.localLevel),
         orgTelephone: orgData.orgTelephone.trim(),
         orgEmail: orgData.orgEmail.trim(),
@@ -1487,32 +1643,39 @@ export default function LeadFormStepper({
     );
   };
 
-  const renderLocation = (title, data, loc, field) => (
+  const renderLocation = (
+    title,
+    data,
+    loc,
+    field,
+    isSalesLeadLocation = false,
+  ) => (
     <Group title={title} icon={MapPin}>
-      {/* Province number is intentionally not shown; it is set from the province and sent in the payload. */}
+      {/* Province number is intentionally hidden and sent in the payload. */}
       <SelectField
-        {...field("province")}
+        {...field("provinceName")}
         label="Province"
         icon={MapIcon}
         required
         options={loc.provinces}
         onChange={loc.onProvince}
+        isDisabled={isSalesLeadLocation}
       />
       <SelectField
-        {...field("district")}
+        {...field("districtName")}
         label="District"
         icon={MapPinned}
         required
         options={loc.districts}
         onChange={loc.onDistrict}
-        isDisabled={!data.province}
+        isDisabled={isSalesLeadLocation || !data.provinceName}
       />
       <SelectField
         {...field("localLevel")}
         label="Local Level"
         icon={Landmark}
         options={loc.localLevels}
-        isDisabled={!data.district}
+        isDisabled={isSalesLeadLocation || !data.districtName}
       />
     </Group>
   );
@@ -1818,7 +1981,13 @@ export default function LeadFormStepper({
         )}
       </Group>
 
-      {renderLocation("Lead Location", leadData, leadLoc, leadField)}
+      {renderLocation(
+        "Lead Location",
+        leadData,
+        leadLoc,
+        leadField,
+        true,
+      )}
 
       <Group title="Lead Dates" icon={CalendarDays}>
         <DateField
@@ -2028,17 +2197,9 @@ export default function LeadFormStepper({
             disabled={isSubmitting}
             className={BTN_PRIMARY}
           >
-            {isSubmitting ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                {editMode ? "Updating..." : "Creating..."}
-              </>
-            ) : (
-              <>
-                {editMode ? "Update Lead" : "Create Lead"}
-                <Check size={16} />
-              </>
-            )}
+            {isSubmitting && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+            {editMode ? "Update Lead" : "Create Lead"}
+            <Check size={16} />
           </motion.button>
         )}
       </div>

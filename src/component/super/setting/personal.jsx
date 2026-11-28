@@ -21,12 +21,14 @@ import {
   Users,
   Save,
   X,
+  AlertCircle,
   Github,
   CircleUserRound,
   ShieldCheck,
   Link as LinkIcon
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Skeleton } from "../../skeleton";
 
 // Theme Configuration for Social Media & Profile Fields
 const SOCIAL_MEDIA_CONFIG = [
@@ -59,6 +61,7 @@ export const Personal = () => {
     "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
   );
   const [totalEmployees, setTotalEmployees] = useState(0);
+  const [discardConfirm, setDiscardConfirm] = useState(false);
 
   const [profile, setProfile] = useState({
     // Basic Information
@@ -205,9 +208,7 @@ export const Personal = () => {
   };
 
   const handleDiscardChanges = () => {
-    if (window.confirm("Are you sure you want to discard all changes?")) {
-      window.location.reload();
-    }
+    setDiscardConfirm(true);
   };
 
   // const roles = ["CEO", "Managing Director", "Manager", "System Administrator", "HR Manager", "Finance Head", "Team Lead"];
@@ -236,6 +237,24 @@ export const Personal = () => {
               </div>
             </div>
           </div>
+          {discardConfirm && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setDiscardConfirm(false)} />
+              <div role="alertdialog" aria-modal="true" aria-labelledby="super-discard-confirm-title" className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-600"><AlertCircle className="h-5 w-5" /></span>
+                  <div>
+                    <h2 id="super-discard-confirm-title" className="text-sm font-bold text-slate-900 sm:text-base">Discard changes?</h2>
+                    <p className="mt-1 text-xs font-medium text-slate-500">Unsaved profile changes will be lost.</p>
+                  </div>
+                </div>
+                <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button type="button" className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50" onClick={() => setDiscardConfirm(false)}>Cancel</button>
+                  <button type="button" className="cursor-pointer rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600" onClick={() => window.location.reload()}>Discard</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl  border border-amber-500 overflow-hidden">
@@ -261,20 +280,15 @@ export const Personal = () => {
 
                       {/* Upload Progress Overlay */}
                       {uploading && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <div
+                          role="status"
+                          aria-live="polite"
+                          aria-label={`Profile photo upload ${uploadProgress}%`}
+                          className="absolute inset-0 flex items-center justify-center bg-black/50"
+                        >
                           <div className="text-center">
-                            <div className="w-20 h-20 mx-auto mb-2">
-                              <div className="relative">
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                </div>
-
-                              </div>
-                              <span className="text-white  font-semibold text-sm">
-                                {uploadProgress}%
-                                <p className="text-white text-sm">Uploading...</p>
-                              </span>
-                            </div>
-
+                            <span className="text-sm font-semibold text-white">{uploadProgress}%</span>
+                            <Skeleton className="mx-auto mt-2 h-3 w-16 rounded-full" />
                           </div>
                         </div>
                       )}

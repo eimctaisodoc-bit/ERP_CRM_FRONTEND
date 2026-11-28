@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { User } from "lucide-react";
 import HeroOverlay from "../../overlay";
 import { useOnlineUsers } from "../../hooks/useOnlineuser";
+import { Skeleton } from "../../skeleton";
 
 /* =========================================================
    CONSTANTS & HELPERS
@@ -185,10 +186,17 @@ const Admin_Report = () => {
 
             <div className="px-6 py-8">
                 {isLoading ? (
-                    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-6 text-center">
-                        <p className="text-slate-500 dark:text-slate-400 animate-pulse">
-                            Loading online users...
-                        </p>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="Loading online users">
+                        {[0, 1, 2].map((index) => (
+                            <div key={index} className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                                <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
+                                <div className="min-w-0 flex-1 space-y-2">
+                                    <Skeleton className="h-4 w-2/3 rounded-full" />
+                                    <Skeleton className="h-3 w-1/2 rounded-full" />
+                                </div>
+                                <Skeleton className="h-3 w-3 rounded-full" />
+                            </div>
+                        ))}
                     </div>
                 ) : visibleUsers.length === 0 ? (
                     <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-6 text-center shadow-sm">

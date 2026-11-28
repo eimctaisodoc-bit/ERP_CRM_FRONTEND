@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-    X, User, Mail, Lock, KeyRound, Loader2, RefreshCw, ShieldCheck,
+    X, User, Mail, Lock, KeyRound, RefreshCw, ShieldCheck, LoaderCircle, Eye, EyeOff,
     Building2, Phone, Info, AlertCircle
 } from "lucide-react";
 import { AnimatePresence, motion, MotionConfig } from "framer-motion";
@@ -13,6 +13,8 @@ import {
     SuccessNotify
 } from "../../../hotToaster";
 import { UseAdd } from "../../../hooks/useadd";
+import { useEdit } from "../../../hooks/useEdit";
+import { Skeleton } from "../../../skeleton";
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
@@ -170,14 +172,26 @@ const ReadOnlyField = ({ id, label, icon: Icon, value, className = "" }) => (
 export const ClientCreateCredential = ({
     onClose,
     onSuccess,
-    organizations = []
+    organizations = [],
+    id,
+    isedit = false,
+    emailAddress = "",
+    organizationName = "",
+    organizationEmail = "",
+    organizationTelephone = "",
+    username = ""
 }) => {
     const { ClientCredit_ } = UseAdd();
+    const { editClients_,
+    } = useEdit()
+
+    console.log("ID", id, "organizations", organizations);
 
     const [open, setOpen] = useState(true); // drives the exit animation
     const [email, setEmail] = useState(null); // CreatableSelect option
     const [userName, setUserName] = useState("");
-    const [password, setPassword] = useState(() => generatePassword());
+    const [password, setPassword] = useState(() => isedit ? "" : generatePassword());
+    const [showPassword, setShowPassword] = useState(false);
     const [regenerating, setRegenerating] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
@@ -194,6 +208,13 @@ export const ClientCreateCredential = ({
         // Organization emails take priority over contact-person emails.
         organizations.forEach((org) => add(org.orgEmail, org, "Organization email"));
         organizations.forEach((org) => add(org.contactPersonEmail, org, "Contact person"));
+        if (organizationEmail) {
+            add(organizationEmail, organizations[0] || {
+                organizationName,
+                orgEmail: organizationEmail,
+                orgTelephone: organizationTelephone
+            }, "Organization email");
+        }
 
         return {
             emailMap: map,
@@ -204,12 +225,19 @@ export const ClientCreateCredential = ({
                 kind
             }))
         };
-    }, [organizations]);
+    }, [organizations, organizationEmail, organizationName, organizationTelephone]);
 
     const matchedOrg = useMemo(
         () => (email?.value ? emailMap.get(email.value.toLowerCase())?.org ?? null : null),
         [email, emailMap]
     );
+
+    useEffect(() => {
+        if (!isedit) return;
+        const initialEmail = emailAddress?.trim();
+        setEmail(initialEmail ? { value: initialEmail, label: initialEmail } : null);
+        setUserName(username?.trim() || "");
+    }, [isedit, emailAddress, username]);
 
     /* ---------------- Close handling ---------------- */
     const requestClose = useCallback(() => {
@@ -242,7 +270,7 @@ export const ClientCreateCredential = ({
         // Username follows the organization name linked to the selected email.
         if (next) {
             const org = emailMap.get(next.value.toLowerCase())?.org ?? null;
-            setUserName(generateUsername(org?.organizationName, next.value));
+            setUserName(generateUsername(org?.organizationName || organizationName, next.value));
         } else {
             setUserName("");
         }
@@ -260,7 +288,7 @@ export const ClientCreateCredential = ({
         clearTimeout(regenTimer.current);
         regenTimer.current = setTimeout(() => {
             setPassword(generatePassword());
-            setUserName(generateUsername(matchedOrg?.organizationName, email?.value));
+            setUserName(generateUsername(matchedOrg?.organizationName || organizationName, email?.value));
             setErrors((prev) => ({ ...prev, userName: undefined }));
             setRegenerating(false);
         }, 400);
@@ -286,28 +314,52 @@ export const ClientCreateCredential = ({
         if (loading || regenerating || !validate()) return;
 
         setLoading(true);
-        waitingNotify(TOAST_MESSAGE);
+        waitingNotify(isedit ? "Updating client credentials..." : TOAST_MESSAGE);
 
         try {
+            const trimmedUserName = userName.trim();
             const payload = {
-                email: email.value,
-                userName: userName.trim(),
-                password,
-                confirmPassword: password, // generated value, always matches
+                organizationID: id ?? null,
+
                 role: ROLE,
-                ...pickOrgFields(matchedOrg), // null for every field when the email isn't linked
-                _id: matchedOrg?._id ?? null // organization primary key
+                userName: trimmedUserName,
+                username: trimmedUserName,
+                password,
+                confirmPassword: password,
+
+                province: matchedOrg?.province ?? "",
+                district: matchedOrg?.districtName ?? "",
+                isoStandardCode: matchedOrg?.standard?.[0] ?? null,
+                officeEmail: matchedOrg?.orgEmail || email.value,
+                officaPhone: matchedOrg?.orgTelephone ?? "",
+                handledBranches: matchedOrg?.handledBranches ?? [],
+
+                email: email.value,
+                ...pickOrgFields(matchedOrg)
             };
 
-            const response = await ClientCredit_.mutateAsync({ payload });
-
-            if (response?.emailSent === false) {
-                ErrorNotify(
-                    response.message ||
-                    "Client credentials were created, but the email could not be sent."
-                );
+            let response;
+            if (isedit) {
+                if (!id) throw new Error("Client ID is missing.");
+                response = await editClients_.mutateAsync({
+                    id,
+                    username: trimmedUserName,
+                    password: password || undefined,
+                    confirmPassword: password || undefined,
+                    isActive: matchedOrg?.isActive
+                });
+                SuccessNotify(response?.msg || response?.message || "Client credentials updated successfully!");
             } else {
-                SuccessNotify(response?.message || "Client credentials created successfully!");
+                response = await ClientCredit_.mutateAsync({ payload });
+
+                if (response?.emailSent === false) {
+                    ErrorNotify(
+                        response.message ||
+                        "Client credentials were created, but the email could not be sent."
+                    );
+                } else {
+                    SuccessNotify(response?.message || "Client credentials created successfully!");
+                }
             }
 
             onSuccess?.();
@@ -316,7 +368,7 @@ export const ClientCreateCredential = ({
             console.error("Submission Error:", err);
             ErrorNotify(err.response?.data?.message || err.message || "Something went wrong.");
         } finally {
-            dismissWaitingNotify(TOAST_MESSAGE);
+            dismissWaitingNotify(isedit ? "Updating client credentials..." : TOAST_MESSAGE);
             setLoading(false);
         }
     };
@@ -442,7 +494,7 @@ export const ClientCreateCredential = ({
                                             id="client-credential-title"
                                             className="text-xl font-extrabold leading-tight text-[#422026]"
                                         >
-                                            Create client login
+                                            {isedit ? "Edit client login" : "Create client login"}
                                         </h2>
                                         <p className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-slate-500">
                                             <KeyRound size={12} />
@@ -531,20 +583,20 @@ export const ClientCreateCredential = ({
                                             id="org-name"
                                             label="Organization name"
                                             icon={Building2}
-                                            value={matchedOrg?.organizationName}
+                                            value={matchedOrg?.organizationName || organizationName}
                                             className="sm:col-span-2"
                                         />
                                         <ReadOnlyField
                                             id="org-email"
                                             label="Organization email"
                                             icon={Mail}
-                                            value={matchedOrg?.orgEmail}
+                                            value={matchedOrg?.orgEmail || organizationEmail}
                                         />
                                         <ReadOnlyField
                                             id="org-telephone"
                                             label="Organization telephone"
                                             icon={Phone}
-                                            value={matchedOrg?.orgTelephone}
+                                            value={matchedOrg?.orgTelephone || organizationTelephone}
                                         />
                                     </motion.div>
                                     {email && !matchedOrg && (
@@ -568,7 +620,7 @@ export const ClientCreateCredential = ({
                                                 disabled={regenerating || loading}
                                                 className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-100 bg-[#FFF7ED] px-2.5 py-1 text-xs font-bold text-[#E87A24] transition-colors duration-200 hover:bg-[#FFEDD5] hover:text-[#EA580C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 disabled:cursor-not-allowed disabled:opacity-60"
                                             >
-                                                <RefreshCw size={12} className={regenerating ? "animate-spin" : ""} />
+                                                {regenerating ? <LoaderCircle className="h-3 w-3 animate-spin text-amber-600" strokeWidth={2.5} /> : <RefreshCw size={12} />}
                                                 Regenerate
                                             </button>
                                         }
@@ -613,14 +665,25 @@ export const ClientCreateCredential = ({
                                                 />
                                                 <input
                                                     id="client-password"
-                                                    type="password"
+                                                    type={showPassword ? "text" : "password"}
                                                     readOnly
                                                     value={password}
                                                     disabled={regenerating}
                                                     placeholder="••••••••••••"
                                                     autoComplete="new-password"
-                                                    className={`${inputBase} cursor-default border-slate-200 pr-3 font-bold tracking-wider focus:border-slate-200 focus:ring-0 ${regenerating ? "opacity-50" : ""}`}
+                                                    className={`${inputBase} cursor-default border-slate-200 pr-10 font-bold tracking-wider focus:border-slate-200 focus:ring-0 ${regenerating ? "opacity-50" : ""}`}
                                                 />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword((visible) => !visible)}
+                                                    disabled={regenerating || !password}
+                                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                                    className={`${iconButton} absolute right-2 top-1/2 -mt-3 disabled:cursor-not-allowed disabled:opacity-50`}
+                                                >
+                                                    {showPassword
+                                                        ? <EyeOff size={16} aria-hidden="true" />
+                                                        : <Eye size={16} aria-hidden="true" />}
+                                                </button>
                                             </div>
                                         </Field>
                                     </div>
@@ -644,14 +707,8 @@ export const ClientCreateCredential = ({
                                     whileTap={submitDisabled ? undefined : { scale: 0.98 }}
                                     className="flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:from-amber-600 hover:to-orange-600 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                    {loading ? (
-                                        <>
-                                            <Loader2 size={16} className="animate-spin" />
-                                            Creating account...
-                                        </>
-                                    ) : (
-                                        "Create client login"
-                                    )}
+                                    {loading && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+                                    {isedit ? "Update client login" : "Create client login"}
                                 </motion.button>
                             </div>
                         </motion.div>

@@ -14,6 +14,15 @@ import {
   Createstaff,
   getOfficeHoliday,
   postOfficeHoliday,
+  CreateRecruitmentstaff,
+  CreateRecruitmentFORSUPER,
+  // clients
+  resetclientPassword,
+  // note 
+  S_CreateNote,
+  A_CreateNote,
+  C_CreateNote,
+  ST_CreateNote,
 } from "../../api/role.api";
 
 export const UseAdd = ({ isEnabled = false } = {}) => {
@@ -110,6 +119,61 @@ export const UseAdd = ({ isEnabled = false } = {}) => {
       // console.log("proposal:", data);
     },
   });
+
+  const CreateRecruitmentFORSUPER_ = useMutation({
+    mutationFn: CreateRecruitmentFORSUPER,
+    onSuccess: (data) => {
+      queryClient.setQueryData(["S_recruitment"], data.user);
+      console.log("proposal:", data);
+    },
+  });
+
+  const CreateRecruitmentstaff_ = useMutation({
+    mutationFn: CreateRecruitmentstaff,
+    onSuccess: (data) => {
+      queryClient.setQueryData(["createRecruitmentFORADMIN"], data.user);
+      // console.log("proposal:", data);
+    },
+  });
+
+  const resetclientPassword_ = useMutation({
+    mutationFn: resetclientPassword,
+    onSuccess: (data) => {
+      queryClient.setQueryData(["resetclientPassword"], data.user);
+      // console.log("proposal:", data);
+    },
+  });
+
+  const S_CreateNote_ = useMutation({
+    mutationFn: S_CreateNote,
+    onSuccess: (data) => {
+      queryClient.setQueryData(["Snote"], data.user);
+      // console.log("proposal:", data);
+    },
+  });
+  const A_CreateNote_ = useMutation({
+    mutationFn: A_CreateNote,
+    onSuccess: (data) => {
+      queryClient.setQueryData(["Anote"], data.user);
+    },
+  });
+
+
+  const C_CreateNote_ = useMutation({
+    mutationFn: C_CreateNote,
+    onSuccess: (data) => {
+      queryClient.setQueryData(["Cnote"], data.user);
+    },
+  });
+
+
+  const ST_CreateNote_ = useMutation({
+    mutationFn: ST_CreateNote,
+    onSuccess: (data) => {
+      queryClient.setQueryData(["STnote"], data.user);
+    },
+  });
+
   return {
     addOrgLeadDetails,
     // addMsg_call_sch,
@@ -128,5 +192,14 @@ export const UseAdd = ({ isEnabled = false } = {}) => {
     Createstaff_,
     Office_uploadHoliday,
     saveOfficeHoliday,
+    CreateRecruitmentFORSUPER_,
+    CreateRecruitmentstaff_,
+    // clients
+    resetclientPassword_,
+    // note 
+    S_CreateNote_,
+     A_CreateNote_,
+  C_CreateNote_,
+  ST_CreateNote_,
   };
 };

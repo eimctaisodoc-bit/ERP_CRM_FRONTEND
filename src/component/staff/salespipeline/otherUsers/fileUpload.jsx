@@ -5,7 +5,9 @@ import {
   X,
   Download,
   CheckCircle2,
+  LoaderCircle,
 } from "lucide-react";
+import { Skeleton } from "../../../skeleton";
 
 const ALLOWED = [".xlsx", ".xls"];
 
@@ -223,7 +225,9 @@ export default function FileUpload({
               {status === "uploading" && (
                 <div className="mt-4 cursor-pointer">
                   <div className="mb-2 flex justify-between text-xs text-slate-500">
-                    <span>Uploading...</span>
+                    <span role="status" aria-label="Upload in progress">
+                      <Skeleton className="h-3 w-16 rounded-full" />
+                    </span>
                     <span>{progress}%</span>
                   </div>
 
@@ -270,11 +274,11 @@ export default function FileUpload({
 
           <button
             onClick={handleUpload}
-            disabled={
-              !file &&
-              status !== "done"
-            }
-            className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition
+            aria-busy={status === "uploading"}
+            aria-label={status === "uploading" ? "Uploading file" : undefined}
+            disabled={status === "uploading" || (!file && status !== "done")}
+            aria-busy={status === "uploading"}
+            className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70
               ${
                 !file &&
                 status !== "done"
@@ -283,11 +287,8 @@ export default function FileUpload({
                  
               }`}
           >
-            {status === "done"
-              ? "Import Again"
-              : status === "uploading"
-              ? "Uploading..."
-              : "Start Import"}
+            {status === "uploading" && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+            {status === "done" ? "Import Again" : "Start Import"}
           </button>
         </div>
       </div>

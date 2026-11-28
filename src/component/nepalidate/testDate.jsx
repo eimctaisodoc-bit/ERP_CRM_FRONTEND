@@ -6,6 +6,7 @@ import "@zener/nepali-datepicker-react/index.css";
 export default function NepaliDateInput({
     value,
     onDateChange,
+    onChange,
     placeholder = "Select Date",
     isToday = false,
 }) {
@@ -20,6 +21,7 @@ export default function NepaliDateInput({
         if (isPastDate(value)) {
             setDate(null);
             onDateChange?.("");
+            onChange?.("");
         }
     }, [value, isToday]);
 
@@ -27,6 +29,7 @@ export default function NepaliDateInput({
         if (!selectedDate) {
             setDate(null);
             onDateChange?.("");
+            onChange?.("");
             return;
         }
 
@@ -38,6 +41,7 @@ export default function NepaliDateInput({
 
         setDate(selectedDate);
         onDateChange?.(formattedDate);
+        onChange?.(formattedDate);
     };
 
     const validValue = isPastDate(value) ? null : value;
@@ -52,7 +56,7 @@ export default function NepaliDateInput({
                 format="YYYY-MM-DD"
                 onChange={handleChange}
                 placeholder={placeholder}
-                className="w-full cursor-pointer rounded-md border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium shadow-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                className="w-full cursor-pointer rounded-md border border-amber-300 bg-white px-3.5 py-2.5 text-sm font-medium shadow-sm transition-all focus:border-amber-400 focus:outline-none focus:amber-2 focus:ring-amber-100"
             />
         </div>
     );

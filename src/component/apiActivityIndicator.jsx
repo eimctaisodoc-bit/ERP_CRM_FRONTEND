@@ -2,6 +2,7 @@ import React from 'react'
 import { useEffect, useState } from "react";
 import { getActiveApiRequestCount } from "../api/axios";
 
+
 export const ApiActivityIndicator = () => {
   const [activeRequests, setActiveRequests] = useState(getActiveApiRequestCount);
 
@@ -21,10 +22,11 @@ export const ApiActivityIndicator = () => {
     <div
       role="status"
       aria-live="polite"
+      aria-label="Background requests in progress"
       className="fixed right-4 top-4 z-100 flex items-center gap-2 rounded-full border border-blue-100 bg-white/95 px-3 py-2 text-xs font-medium text-slate-700 shadow-lg backdrop-blur"
     >
-      <span className="h-2 w-2 animate-pulse rounded-full bg-blue-600" />
-      Working...
+      <span>Working...</span>
+     
     </div>
   );
 };

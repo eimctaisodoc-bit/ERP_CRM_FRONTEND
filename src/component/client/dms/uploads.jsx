@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Upload, File, X, CheckCircle2, FilesIcon, UploadCloud } from "lucide-react";
+import { Skeleton } from "../../skeleton";
 
 export const S_FileUpload_ = () => {
     const [uploading, setUploading] = useState(false);
@@ -87,9 +88,17 @@ export const S_FileUpload_ = () => {
                         {/* Progress Bar Container */}
                         <div className="w-full">
                             <div className="flex justify-between mb-1">
-                                <span className="text-[9px] font-medium text-orange-600">
-                                    {progress < 100 ? "Uploading..." : "Complete"}
-                                </span>
+                                {progress < 100 ? (
+                                    <span
+                                        role="status"
+                                        aria-label="Upload in progress"
+                                        className="text-[9px] font-medium text-orange-600"
+                                    >
+                                        <Skeleton className="h-2 w-14 rounded-full" />
+                                    </span>
+                                ) : (
+                                    <span className="text-[9px] font-medium text-orange-600">Complete</span>
+                                )}
                                 <span className="text-[9px] text-slate-500">{progress}%</span>
                             </div>
                             <div className="w-full bg-slate-100 rounded-full h-1.5">

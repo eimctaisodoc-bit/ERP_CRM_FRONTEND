@@ -1,18 +1,181 @@
 import React, { useState, useMemo, useEffect, useId, useRef } from "react";
-import Select from "react-select";
+import Select, { components as selectComponents } from "react-select";
 import {
-    Users, FileText, Search, X, Check, Building2, Crown,
-    LoaderCircle, UserRound, Clock, AlertTriangle,
-    Plus, Trash2, CheckCircle2, MapPin, Car, Paperclip, ShieldAlert,
-    ChevronDown, ChevronUp, Upload, Edit3, Download, Info,
-    Save, MessageSquareText, Package
+    Users, FileText, Search, X, Check, Minus, Building2, Crown,
+    UserRound, Clock, AlertTriangle, CalendarDays, MapPin,
+    Plus, Trash2, CheckCircle2, Car, Paperclip,
+    ChevronDown, Upload, Pencil, Download, Info,
+    Save, Package, LoaderCircle
 } from "lucide-react";
 import { useGet } from "../hooks/useGet";
+import { Skeleton } from "../skeleton";
 
-const selectStyles = {
-    control: (baseStyles) => ({ ...baseStyles, cursor: "pointer" }),
-    option: (baseStyles) => ({ ...baseStyles, cursor: "pointer" }),
+// ── Theme tokens ──────────────────────────────────────────────────────────────
+// Surface: pure white. Neutrals: slate. Accent: amber. Status colours: red / emerald.
+// Contrast rules used everywhere in this file:
+//   amber-500 fill  → slate-900 content   (primary buttons, checked boxes)
+//   amber-600       → icons, borders      (≥ 3:1 on white)
+//   amber-700 / 800 → accent text         (≥ 5:1 on white and on amber-50)
+const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2";
+const FOCUS_INSET = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-500";
+const FOCUS_WITHIN = "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-amber-500 has-[:focus-visible]:ring-offset-2";
+
+// Inputs / textareas
+const FIELD_BASE = "w-full rounded-lg border bg-white text-sm text-slate-900 shadow-xs outline-none transition placeholder:text-slate-500 focus:ring-4 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-500";
+const FIELD_NORMAL = "border-slate-300 hover:border-slate-400 focus:border-amber-500 focus:ring-amber-500/15";
+const FIELD_INVALID = "border-red-500 hover:border-red-500 focus:border-red-500 focus:ring-red-500/15";
+const inputClass = (invalid = false, size = "h-10 px-3") =>
+    `${FIELD_BASE} ${size} ${invalid ? FIELD_INVALID : FIELD_NORMAL}`;
+const textareaClass = (invalid = false, size = "min-h-20 px-3 py-2.5") =>
+    `${FIELD_BASE} ${size} resize-y leading-relaxed ${invalid ? FIELD_INVALID : FIELD_NORMAL}`;
+
+// Surfaces & type
+const CARD = "rounded-xl border border-slate-200 bg-white";
+const PANEL = "rounded-xl border border-slate-200 bg-slate-50/70 p-4";
+const LABEL = "text-sm font-medium text-slate-700";
+const HEADING = "flex items-center gap-2 text-sm font-semibold text-slate-900";
+const HINT = "text-xs text-slate-500";
+
+// Buttons: one height (h-10) for regular, one (h-8) for compact; four semantic variants.
+const BTN_BASE = `inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-lg font-semibold transition-colors disabled:cursor-not-allowed ${FOCUS}`;
+const BTN_SIZES = {
+    md: "h-10 gap-2 px-4 text-sm",
+    sm: "h-8 gap-1.5 px-3 text-xs",
 };
+const BTN_VARIANTS = {
+    primary: "bg-amber-500 text-slate-900 shadow-xs hover:bg-amber-400 active:bg-amber-600 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none",
+    secondary: "border border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 active:bg-slate-100 disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400",
+    outline: "border border-amber-500 bg-white text-amber-800 hover:bg-amber-50 active:bg-amber-100 disabled:border-slate-200 disabled:bg-white disabled:text-slate-400",
+    ghost: "text-amber-800 hover:bg-amber-50 active:bg-amber-100 disabled:bg-transparent disabled:text-slate-400",
+    danger: "bg-red-600 text-white shadow-xs hover:bg-red-700 active:bg-red-800 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none",
+    dangerOutline: "border border-red-300 bg-white text-red-700 hover:bg-red-50 active:bg-red-100 disabled:border-slate-200 disabled:text-slate-400",
+};
+const makeBtn = (variant, size = "md") => `${BTN_BASE} ${BTN_SIZES[size]} ${BTN_VARIANTS[variant]}`;
+
+const btnPrimary = makeBtn("primary");
+const btnPrimarySm = makeBtn("primary", "sm");
+const btnSecondary = makeBtn("secondary");
+const btnSecondarySm = makeBtn("secondary", "sm");
+const btnGhostSm = makeBtn("ghost", "sm");
+const btnDangerSm = makeBtn("danger", "sm");
+const btnDangerOutlineSm = makeBtn("dangerOutline", "sm");
+
+const ICON_BTN_BASE = `inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-500 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`;
+const iconBtn = `${ICON_BTN_BASE} hover:bg-slate-100 hover:text-slate-900`;
+const iconBtnDanger = `${ICON_BTN_BASE} hover:bg-red-50 hover:text-red-600`;
+
+// A whole-row selectable option (used for the Yes / No radios).
+const optionCardClass = (selected) =>
+    `group inline-flex h-10 cursor-pointer items-center gap-2.5 rounded-lg border px-3.5 text-sm font-medium transition-colors ${selected
+        ? "border-amber-500 bg-amber-50 text-slate-900"
+        : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50"}`;
+
+// ── react-select, themed to match the inputs ──
+const makeSelectStyles = (hasError) => ({
+    control: (base, state) => ({
+        ...base,
+        minHeight: 40,
+        cursor: "pointer",
+        fontSize: 14,
+        flexWrap: "nowrap",
+        borderRadius: 8,
+        backgroundColor: state.isDisabled ? "#f8fafc" : "#ffffff",
+        borderColor: hasError ? "#ef4444" : state.isFocused ? "#f59e0b" : "#cbd5e1",
+        boxShadow: state.isFocused
+            ? `0 0 0 4px ${hasError ? "rgba(239,68,68,0.15)" : "rgba(245,158,11,0.15)"}`
+            : "0 1px 2px rgba(15,23,42,0.05)",
+        "&:hover": { borderColor: hasError ? "#ef4444" : state.isFocused ? "#f59e0b" : "#94a3b8" },
+    }),
+    valueContainer: (base) => ({ ...base, padding: "2px 10px", gap: 4 }),
+    singleValue: (base) => ({ ...base, color: "#0f172a" }),
+    input: (base) => ({ ...base, color: "#0f172a" }),
+    placeholder: (base) => ({ ...base, color: "#64748b" }),
+    dropdownIndicator: (base, state) => ({
+        ...base,
+        padding: "0 10px",
+        color: state.isFocused ? "#b45309" : "#64748b",
+        transition: "transform 150ms ease",
+        transform: state.selectProps.menuIsOpen ? "rotate(180deg)" : "none",
+        "&:hover": { color: "#b45309" },
+    }),
+    clearIndicator: (base) => ({ ...base, padding: "0 6px", color: "#64748b", "&:hover": { color: "#b45309" } }),
+    menu: (base) => ({
+        ...base,
+        marginTop: 4,
+        overflow: "hidden",
+        borderRadius: 8,
+        border: "1px solid #e2e8f0",
+        boxShadow: "0 12px 28px -10px rgba(15,23,42,0.22)",
+    }),
+    menuList: (base) => ({ ...base, padding: 4 }),
+    option: (base, state) => ({
+        ...base,
+        cursor: "pointer",
+        fontSize: 14,
+        borderRadius: 6,
+        fontWeight: state.isSelected ? 600 : 400,
+        color: state.isSelected ? "#78350f" : "#0f172a",
+        backgroundColor: state.isSelected ? "#fef3c7" : state.isFocused ? "#fffbeb" : "#ffffff",
+        ":active": { backgroundColor: "#fde68a" },
+    }),
+    noOptionsMessage: (base) => ({ ...base, fontSize: 14, color: "#64748b" }),
+    multiValue: (base) => ({ ...base, backgroundColor: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 6 }),
+    multiValueLabel: (base) => ({ ...base, color: "#92400e", fontWeight: 500, fontSize: 13 }),
+    multiValueRemove: (base) => ({
+        ...base,
+        color: "#92400e",
+        cursor: "pointer",
+        borderRadius: "0 5px 5px 0",
+        ":hover": { backgroundColor: "#fde68a", color: "#78350f" },
+    }),
+    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+});
+
+// Lucide icons inside react-select so every control in the form uses the same icon set.
+const DropdownIndicator = (props) => (
+    <selectComponents.DropdownIndicator {...props}>
+        <ChevronDown className="h-4 w-4" aria-hidden="true" />
+    </selectComponents.DropdownIndicator>
+);
+
+const MultiValueRemove = (props) => (
+    <selectComponents.MultiValueRemove {...props}>
+        <X className="h-3.5 w-3.5" aria-hidden="true" />
+    </selectComponents.MultiValueRemove>
+);
+
+// Optional leading icon (calendar, map pin …) passed to AppSelect through the `icon` prop.
+function SelectControl({ children, ...props }) {
+    const Icon = props.selectProps.leadingIcon;
+    return (
+        <selectComponents.Control {...props}>
+            {Icon && <Icon className="ml-3 h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />}
+            {children}
+        </selectComponents.Control>
+    );
+}
+
+const SELECT_COMPONENTS = {
+    DropdownIndicator,
+    MultiValueRemove,
+    Control: SelectControl,
+    IndicatorSeparator: null,
+};
+
+// Menu renders in a portal so it is never clipped by the scrolling modal body.
+function AppSelect({ hasError = false, icon, ...props }) {
+    return (
+        <Select
+            {...props}
+            leadingIcon={icon}
+            components={SELECT_COMPONENTS}
+            styles={makeSelectStyles(hasError)}
+            menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+            menuPosition="fixed"
+            className="text-sm"
+        />
+    );
+}
 
 function NoteField({ label, value, onSave, placeholder, rows = 3 }) {
     const fieldId = useId();
@@ -52,10 +215,7 @@ function NoteField({ label, value, onSave, placeholder, rows = 3 }) {
 
     return (
         <div className="space-y-2">
-            <label htmlFor={fieldId} className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase text-[#64748B]">
-                <MessageSquareText className="h-3.5 w-3.5 text-[#4A76C0]" />
-                {label}
-            </label>
+            <label htmlFor={fieldId} className={LABEL}>{label}</label>
             {isEditing ? (
                 <>
                     <textarea
@@ -70,54 +230,45 @@ function NoteField({ label, value, onSave, placeholder, rows = 3 }) {
                             }
                         }}
                         placeholder={placeholder}
-                        className="min-h-20 w-full resize-y rounded-lg border border-[#E2E8F0] bg-white p-3 text-sm text-[#1E293B] outline-none transition-colors placeholder:text-slate-400 focus:border-[#4A76C0] focus:ring-2 focus:ring-blue-100"
+                        className={textareaClass()}
                     />
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-[11px] text-slate-500">Enter to save · Shift + Enter for a new line</span>
+                        <span className={HINT}>Press Enter to save, Shift + Enter for a new line.</span>
                         <div className="flex items-center gap-2">
                             {value && (
-                                <button
-                                    type="button"
-                                    onClick={cancelEdit}
-                                    className="inline-flex h-9 cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100"
-                                >
+                                <button type="button" onClick={cancelEdit} className={btnSecondarySm}>
                                     Cancel
                                 </button>
                             )}
-                            <button
-                                type="button"
-                                onClick={saveNote}
-                                disabled={!draft.trim()}
-                                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-[#4A76C0] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#3b5f9e] disabled:cursor-not-allowed disabled:bg-slate-300"
-                            >
-                                <Save className="h-3.5 w-3.5" />
-                                {value ? "Save Note" : "Add Note"}
+                            <button type="button" onClick={saveNote} disabled={!draft.trim()} className={btnPrimarySm}>
+                                <Save className="h-3.5 w-3.5" aria-hidden="true" />
+                                {value ? "Save note" : "Add note"}
                             </button>
                         </div>
                     </div>
                 </>
             ) : (
                 <div id={fieldId} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <p className="whitespace-pre-wrap wrap-break-word text-sm text-slate-700">{value}</p>
-                    <div className="mt-2 flex items-center gap-2">
+                    <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-slate-800">{value}</p>
+                    <div className="mt-3 flex items-center gap-2">
                         <button
                             type="button"
                             onClick={() => {
                                 setDraft(value || "");
                                 setIsEditing(true);
                             }}
-                            className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                            className={btnSecondarySm}
                             aria-label={`Edit ${label.toLowerCase()}`}
                         >
-                            <Edit3 className="h-3.5 w-3.5" /> Edit
+                            <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Edit
                         </button>
                         <button
                             type="button"
                             onClick={deleteNote}
-                            className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-red-100 bg-white px-2.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                            className={btnDangerOutlineSm}
                             aria-label={`Delete ${label.toLowerCase()}`}
                         >
-                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Delete
                         </button>
                     </div>
                 </div>
@@ -543,8 +694,8 @@ function readFileWithProgress(file, onProgress) {
     });
 }
 
-function ProgressBar({ value, label, tone = "blue" }) {
-    const color = tone === "red" ? "bg-red-500" : tone === "green" ? "bg-emerald-500" : "bg-[#4A76C0]";
+function ProgressBar({ value, label, tone = "amber" }) {
+    const color = tone === "red" ? "bg-red-500" : tone === "green" ? "bg-emerald-500" : "bg-amber-500";
     return (
         <div
             role="progressbar"
@@ -552,7 +703,7 @@ function ProgressBar({ value, label, tone = "blue" }) {
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(value)}
-            className="h-1.5 w-full overflow-hidden rounded-full bg-[#E2E8F0]"
+            className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200"
         >
             <div className={`h-full rounded-full transition-[width] duration-150 ${color}`} style={{ width: `${value}%` }} />
         </div>
@@ -566,26 +717,26 @@ function FileRow({ file, downloadProgress, downloadError, onDownload, onRemove, 
     const isDownloading = typeof downloadProgress === "number";
 
     return (
-        <div className={`rounded-lg border px-3 py-2 text-[11px] ${isError ? "border-red-200 bg-red-50/60" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}>
-            <div className="flex items-center justify-between gap-2">
+        <div className={`rounded-lg border px-3 py-2.5 ${isError ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
                 <div className="flex min-w-0 items-center gap-2">
                     {isUploading ? (
-                        <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin text-[#4A76C0]" aria-hidden="true" />
+                        <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-amber-600" strokeWidth={2.5} aria-hidden="true" />
                     ) : isError ? (
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-600" aria-hidden="true" />
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" aria-hidden="true" />
                     ) : (
-                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
                     )}
-                    <span className="max-w-45 truncate font-bold text-[#1E293B]" title={file.name}>{file.name}</span>
-                    <span className="shrink-0 text-[9px] text-[#64748B]">({formatFileSize(file.size)})</span>
+                    <span className="max-w-48 truncate text-sm font-medium text-slate-900 sm:max-w-72" title={file.name}>{file.name}</span>
+                    <span className="shrink-0 text-xs text-slate-500">{formatFileSize(file.size)}</span>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-3">
-                    <span className={`whitespace-nowrap text-[10px] font-medium ${isError ? "text-red-600" : isUploading ? "text-[#4A76C0]" : "text-emerald-700"}`}>
+                <div className="flex shrink-0 items-center gap-1.5">
+                    <span className={`whitespace-nowrap text-xs font-medium ${isError ? "text-red-700" : isUploading ? "text-amber-700" : "text-emerald-700"}`}>
                         {isUploading ? `Uploading ${file.progress}%` : isError ? "Upload failed" : "Uploaded"}
                     </span>
                     {isError && onRetry && (
-                        <button type="button" onClick={onRetry} className="cursor-pointer text-[10px] font-bold text-[#4A76C0] hover:underline">
+                        <button type="button" onClick={onRetry} className={btnGhostSm}>
                             Retry
                         </button>
                     )}
@@ -594,45 +745,172 @@ function FileRow({ file, downloadProgress, downloadError, onDownload, onRemove, 
                             type="button"
                             onClick={onDownload}
                             disabled={isDownloading}
-                            className="flex cursor-pointer items-center gap-1 text-[10px] font-bold text-[#4A76C0] hover:underline disabled:cursor-wait disabled:no-underline disabled:opacity-80"
+                            className={`${btnGhostSm} disabled:cursor-wait`}
                             aria-label={isDownloading ? `Downloading ${file.name}, ${downloadProgress}%` : `Download ${file.name}`}
                         >
                             {isDownloading
-                                ? <><LoaderCircle className="h-3 w-3 animate-spin" /> {downloadProgress}%</>
-                                : <><Download className="h-3 w-3" /> Download</>}
+                                ? <><LoaderCircle className="h-3.5 w-3.5 animate-spin text-amber-600" strokeWidth={2.5} aria-hidden="true" /> {downloadProgress}%</>
+                                : <><Download className="h-3.5 w-3.5" aria-hidden="true" /> Download</>}
                         </button>
                     )}
                     <button
                         type="button"
                         onClick={onRemove}
-                        className="cursor-pointer text-[#64748B] hover:text-red-600"
+                        className={iconBtnDanger}
                         title={isUploading ? "Cancel upload" : "Remove attachment"}
                         aria-label={isUploading ? `Cancel upload of ${file.name}` : `Remove ${file.name}`}
                     >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="h-4 w-4" aria-hidden="true" />
                     </button>
                 </div>
             </div>
 
             {isUploading && (
-                <div className="mt-1.5"><ProgressBar value={file.progress || 0} label={`Upload progress for ${file.name}`} /></div>
+                <div className="mt-2"><ProgressBar value={file.progress || 0} label={`Upload progress for ${file.name}`} /></div>
             )}
             {isDownloading && (
-                <div className="mt-1.5"><ProgressBar value={downloadProgress} tone="green" label={`Download progress for ${file.name}`} /></div>
+                <div className="mt-2"><ProgressBar value={downloadProgress} tone="green" label={`Download progress for ${file.name}`} /></div>
             )}
-            {downloadError && <p className="mt-1 text-[10px] text-red-600" role="alert">{downloadError}</p>}
+            {downloadError && <p className="mt-1.5 text-xs font-medium text-red-700" role="alert">{downloadError}</p>}
         </div>
     );
 }
 
-const CustomCheckbox = ({ checked }) => (
-    <div className={`relative flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-md border transition-all duration-200 shadow-2xs ${checked
-        ? "border-[#4A76C0] bg-[#4A76C0] text-white shadow-blue-100"
-        : "border-[#E2E8F0] bg-[#FFFFFF] group-hover:border-[#4A76C0] group-hover:bg-[#F8FAFC]"
-        }`}>
-        <Check className={`h-3.5 w-3.5 text-white transition-transform duration-200 ${checked ? "scale-100 opacity-100" : "scale-0 opacity-0"}`} strokeWidth={3} />
-    </div>
-);
+// ── Checkbox & radio ──
+// Both render a visually-hidden native input (keyboard + screen-reader friendly) followed by a
+// custom indicator. Put them inside a <label className="group …"> so the whole row is clickable
+// and hovering anywhere on the row highlights the control.
+function Checkbox({ checked, onChange, indeterminate = false, disabled = false }) {
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (inputRef.current) inputRef.current.indeterminate = indeterminate && !checked;
+    }, [indeterminate, checked]);
+
+    const isOn = checked || indeterminate;
+
+    return (
+        <>
+            <input
+                ref={inputRef}
+                type="checkbox"
+                className="peer sr-only"
+                checked={checked}
+                onChange={onChange}
+                disabled={disabled}
+            />
+            <span
+                aria-hidden="true"
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-[1.5px] transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-amber-500 peer-focus-visible:ring-offset-2 ${disabled
+                    ? "cursor-not-allowed border-slate-300 bg-slate-100 text-slate-400"
+                    : isOn
+                        ? "border-amber-600 bg-amber-500 text-slate-900"
+                        : "border-slate-400 bg-white group-hover:border-amber-600"}`}
+            >
+                {checked
+                    ? <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    : indeterminate
+                        ? <Minus className="h-3.5 w-3.5" strokeWidth={3} />
+                        : null}
+            </span>
+        </>
+    );
+}
+
+function Radio({ name, checked, onChange, disabled = false }) {
+    return (
+        <>
+            <input
+                type="radio"
+                name={name}
+                className="peer sr-only"
+                checked={checked}
+                onChange={onChange}
+                disabled={disabled}
+            />
+            <span
+                aria-hidden="true"
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-amber-500 peer-focus-visible:ring-offset-2 ${disabled
+                    ? "cursor-not-allowed border-slate-300 bg-slate-100"
+                    : checked
+                        ? "border-amber-600 bg-amber-500"
+                        : "border-slate-400 bg-white group-hover:border-amber-600"}`}
+            >
+                <span className={`h-2 w-2 rounded-full bg-slate-900 transition-transform ${checked ? "scale-100" : "scale-0"}`} />
+            </span>
+        </>
+    );
+}
+
+// ── Layout & feedback building blocks ──
+function SectionHeader({ step, title, description, action }) {
+    return (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-800">
+                    {step}
+                </span>
+                <div>
+                    <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+                    <p className="text-sm text-slate-600">{description}</p>
+                </div>
+            </div>
+            {action}
+        </div>
+    );
+}
+
+function FieldLabel({ htmlFor, required = false, optional = false, children }) {
+    return (
+        <label htmlFor={htmlFor} className={LABEL}>
+            {children}
+            {required && (
+                <>
+                    <span className="ml-0.5 text-red-600" aria-hidden="true">*</span>
+                    <span className="sr-only"> (required)</span>
+                </>
+            )}
+            {optional && <span className="ml-1 font-normal text-slate-500">(optional)</span>}
+        </label>
+    );
+}
+
+function FieldError({ children }) {
+    if (!children) return null;
+    return (
+        <p className="flex items-start gap-1.5 text-xs font-medium text-red-700" role="alert">
+            <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>{children}</span>
+        </p>
+    );
+}
+
+const BANNER_TONES = {
+    error: "border-red-200 bg-red-50 text-red-800",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    info: "border-slate-200 bg-slate-50 text-slate-700",
+};
+
+function Banner({ tone = "info", icon: Icon, children, ...rest }) {
+    return (
+        <div className={`flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm ${BANNER_TONES[tone]}`} {...rest}>
+            <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <div className="min-w-0">{children}</div>
+        </div>
+    );
+}
+
+function EmptyState({ icon: Icon, title, children }) {
+    return (
+        <div className="flex flex-col items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                <Icon className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <p className="text-sm font-semibold text-slate-900">{title}</p>
+            {children && <p className="max-w-md text-sm text-slate-600">{children}</p>}
+        </div>
+    );
+}
 
 export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
     const { ScheduleUsers_ } = useGet({
@@ -645,6 +923,7 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
     } = ScheduleUsers_;
 
     const [activeTab, setActiveTab] = useState("team");
+    const titleId = useId();
     const [validationErrors, setValidationErrors] = useState({});
     const [formError, setFormError] = useState("");
     const [resourceErrors, setResourceErrors] = useState({});
@@ -662,6 +941,22 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
         const controllers = uploadControllers.current;
         return () => controllers.forEach(reader => reader.abort());
     }, []);
+
+    // Close on Escape and lock background scroll while the modal is open.
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        const onKeyDown = (event) => {
+            // Let open dropdowns handle their own Escape.
+            if (event.key === "Escape" && !event.defaultPrevented) onClose?.();
+        };
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        document.addEventListener("keydown", onKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener("keydown", onKeyDown);
+        };
+    }, [isOpen, onClose]);
 
     // UI Order 1: Project Leader selection first
     const [selectedHeadId, setSelectedHeadId] = useState(null);
@@ -729,13 +1024,6 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
     }, [selectedPersonnel]);
 
     const hasAnyPersonnelSelected = selectedPersonnel.length > 0;
-
-    // ISO 21001 State
-    const [isoTask, setIsoTask] = useState({
-        taskName: "",
-        educationalScope: "",
-        learnerRequirements: "",
-    });
 
     if (!isOpen) return null;
 
@@ -1191,167 +1479,208 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
         { value: "Public Vehicle", label: "Public Vehicle" }
     ];
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+    const clientName = typeof selectedCompany === "string"
+        ? selectedCompany
+        : selectedCompany?.label || "EIMCTA Client";
 
-            <div className="flex h-[min(96vh,900px)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-2xl ring-1 ring-slate-900/10">
+    const tabClass = (tab) => `relative inline-flex h-11 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap px-4 text-sm transition-colors ${FOCUS_INSET} ${activeTab === tab
+        ? "font-semibold text-slate-900 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-amber-500 [&>svg]:text-amber-600"
+        : "font-medium text-slate-600 hover:text-slate-900 [&>svg]:text-slate-400"}`;
+
+    return (
+        <div
+            className="animate-fade-in fixed inset-0 z-50 flex items-stretch justify-center bg-slate-900/40 sm:items-center sm:p-4"
+            onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+        >
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                className="flex h-full w-full max-w-7xl flex-col overflow-hidden bg-white shadow-xl sm:h-[min(96vh,900px)] sm:rounded-xl sm:border sm:border-slate-200"
+            >
 
                 {/* ── Header ── */}
-                <div className="flex items-center justify-between border-b border-[#E2E8F0] bg-[#FFFFFF] px-6 py-4">
-                    <div className="flex items-center gap-3.5">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#422026] text-[#FFFFFF] shadow-sm">
-                            <Building2 className="h-5 w-5 text-[#E87A24]" />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-[16px] font-extrabold tracking-tight text-[#1E293B]">
-                                    {activeTab === "team" ? "EIMCTA ERP – Individual Task Allocation" : "ISO 21001 Quality Architecture"}
+                <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-6">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700">
+                            <Building2 className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                                <h2 id={titleId} className="text-lg font-semibold tracking-tight text-slate-900">
+                                    {activeTab === "team" ? "EIMCTA ERP – Individual task allocation" : "Record"}
                                 </h2>
-                                <span className="rounded-md bg-[#4A76C0]/10 border border-[#4A76C0]/30 px-2 py-0.5 text-[10px] font-extrabold text-[#4A76C0] uppercase tracking-wider">
+                                <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
                                     ISO 21001 EOMS
                                 </span>
                             </div>
-                            <p className="text-[11px] font-medium text-[#64748B]">
-                                Client Name: <strong className="text-[#E87A24]">
-                                    {typeof selectedCompany === "string"
-                                        ? selectedCompany
-                                        : selectedCompany?.label || "EIMCTA Client"}
-                                </strong>
+                            <p className="truncate text-sm text-slate-600">
+                                Client: <span className="font-semibold text-slate-900">{clientName}</span>
                             </p>
                         </div>
                     </div>
-                    <button type="button" onClick={onClose} aria-label="Close task allocation form" className="flex cursor-pointer items-center justify-center rounded-lg p-2 text-[#64748B] transition-colors hover:bg-[#F8FAFC] hover:text-[#1E293B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                        <X className="h-5 w-5" strokeWidth={2} />
+                    <button type="button" onClick={onClose} aria-label="Close task allocation form" className={iconBtn}>
+                        <X className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                </header>
+
+                {/* ── Tabs ── */}
+                <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-200 px-2 sm:px-4" role="tablist" aria-label="Allocation sections">
+                    <button
+                        type="button"
+                        role="tab"
+                        id="allocation-tab-team"
+                        aria-selected={activeTab === "team"}
+                        aria-controls="allocation-panel"
+                        onClick={() => setActiveTab("team")}
+                        className={tabClass("team")}
+                    >
+                        <Users className="h-4 w-4" aria-hidden="true" /> Tasks &amp; personnel
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        id="allocation-tab-record"
+                        aria-selected={activeTab === "record"}
+                        aria-controls="allocation-panel"
+                        onClick={() => setActiveTab("record")}
+                        className={tabClass("record")}
+                    >
+                        <FileText className="h-4 w-4" aria-hidden="true" /> Record
                     </button>
                 </div>
 
-                {/* ── Body Layout ── */}
-                <div className="flex flex-1 overflow-hidden bg-[#F8FAFC]">
-
-                    {/* Sidebar Navigation */}
-                    <aside className="z-10 flex w-16 shrink-0 flex-col items-center gap-3 border-r border-[#E2E8F0] bg-white py-4">
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab("team")}
-                            className={`cursor-pointer rounded-xl p-3 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeTab === "team" ? "bg-[#4A76C0] text-[#FFFFFF] shadow-md shadow-blue-100 font-bold" : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E293B]"}`}
-                            title="Task & Personnel Allocation"
-                            aria-label="Task and personnel allocation"
-                            aria-pressed={activeTab === "team"}
-                        >
-                            <Users className="h-5 w-5" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab("iso")}
-                            className={`cursor-pointer rounded-xl p-3 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeTab === "iso" ? "bg-[#4A76C0] text-[#FFFFFF] shadow-md shadow-blue-100 font-bold" : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E293B]"}`}
-                            title="ISO 21001 Configuration"
-                            aria-label="ISO 21001 configuration"
-                            aria-pressed={activeTab === "iso"}
-                        >
-                            <FileText className="h-5 w-5" />
-                        </button>
-                    </aside>
-
-                    {/* Main Content Area */}
-                    <main className="flex flex-1 flex-col overflow-y-auto bg-[#F8FAFC]">
-                        {activeTab === "team" && isScheduleUsersLoading && (
-                            <div className="flex flex-1 items-center justify-center p-12 bg-[#FFFFFF]">
-                                <LoaderCircle className="h-8 w-8 animate-spin text-[#4A76C0]" />
-                            </div>
-                        )}
-
-                        {activeTab === "team" && !isScheduleUsersLoading && (
-                            <div className="flex flex-1 flex-col space-y-6 bg-[#F8FAFC] p-3 sm:p-6">
-
-                                {/* ── UI ORDER STEP 1: Project Leader Selection ── */}
-                                <div className="bg-[#FFFFFF] rounded-xl border border-[#E2E8F0] shadow-2xs p-4">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#E87A24] text-white font-extrabold text-[11px] shadow-2xs">
-                                                1
-                                            </div>
-                                            <div>
-                                                <h3 className="text-[13px] font-extrabold text-[#1E293B]">Project Leader / Executive Head Selection</h3>
-                                                <p className="text-[11px] text-[#64748B]">Designate primary management oversight for EIMCTA operations.</p>
-                                            </div>
+                {/* ── Main Content Area ── */}
+                <main
+                    id="allocation-panel"
+                    role="tabpanel"
+                    aria-labelledby={`allocation-tab-${activeTab}`}
+                    className="flex flex-1 flex-col overflow-y-auto bg-white"
+                >
+                    {activeTab === "team" && isScheduleUsersLoading && (
+                        <div className="flex-1 space-y-8 p-4 sm:p-6" aria-busy="true" aria-label="Loading team schedule">
+                            {[0, 1, 2].map((item) => (
+                                <div key={item} className="space-y-3">
+                                    <div className="flex items-center gap-3">
+                                        <Skeleton className="h-7 w-7 rounded-full" />
+                                        <div className="space-y-2">
+                                            <Skeleton className="h-4 w-48 rounded-full" />
+                                            <Skeleton className="h-3 w-72 max-w-full rounded-full" />
                                         </div>
                                     </div>
-
-                                    {headUser && (
-                                        <label className={`group flex cursor-pointer items-center gap-3.5 rounded-xl border p-3 transition-all ${selectedHead ? 'border-[#4A76C0] bg-[#4A76C0]/5 ring-1 ring-[#4A76C0]/30' : 'border-[#E2E8F0] bg-[#FFFFFF] hover:bg-[#F8FAFC]'
-                                            }`}>
-                                            <input type="checkbox" className="hidden" checked={selectedHead} onChange={toggleEomsHead} />
-                                            <CustomCheckbox checked={selectedHead} />
-                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#422026] text-[#E87A24] font-bold">
-                                                <Crown className="h-4 w-4" />
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-[12px] font-bold text-[#1E293B]">{headUser.fullname || "Project Leader"}</span>
-                                                <span className="text-[10px] font-semibold text-[#4A76C0]">{headUser.jobRole || headUser.role || "Director / Lead"}</span>
-                                            </div>
-                                        </label>
-                                    )}
+                                    <Skeleton className="h-24 w-full rounded-xl" />
                                 </div>
+                            ))}
+                        </div>
+                    )}
 
-                                {/* ── UI ORDER STEP 2: Team Member Selection ── */}
-                                <div className="bg-[#FFFFFF] rounded-xl border border-[#E2E8F0] shadow-2xs p-4">
-                                    <div className="flex items-center gap-2.5 mb-3">
-                                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#E87A24] text-white font-extrabold text-[11px] shadow-2xs">
-                                            2
-                                        </div>
-                                        <div>
-                                            <h3 className="text-[13px] font-extrabold text-[#1E293B]">Team Members & Team Allocation</h3>
-                                            <p className="text-[11px] text-[#64748B]">Select participating staff members across organizational departments.</p>
-                                        </div>
-                                    </div>
+                    {activeTab === "team" && !isScheduleUsersLoading && (
+                        <div className="flex flex-1 flex-col gap-8 p-4 sm:p-6">
 
-                                    <div className="custom-scrollbar overflow-x-auto bg-[#FFFFFF] rounded-xl border border-[#E2E8F0] p-2">
-                                        <div className="flex h-full w-max min-w-full divide-x divide-[#E2E8F0]">
+                            {/* ── STEP 1: Project Leader Selection ── */}
+                            <section>
+                                <SectionHeader
+                                    step={1}
+                                    title="Project leader / executive head"
+                                    description="Designate primary management oversight for EIMCTA operations."
+                                />
+
+                                {headUser ? (
+                                    <label className={`group flex cursor-pointer items-center gap-3 rounded-xl border p-3.5 transition-colors sm:max-w-md ${selectedHead ? "border-amber-500 bg-amber-50/60" : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"}`}>
+                                        <Checkbox checked={selectedHead} onChange={toggleEomsHead} />
+                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800">
+                                            <Crown className="h-5 w-5" aria-hidden="true" />
+                                        </span>
+                                        <span className="flex min-w-0 flex-col">
+                                            <span className="truncate text-sm font-semibold text-slate-900">{headUser.fullname || "Project Leader"}</span>
+                                            <span className="truncate text-sm text-slate-600">{headUser.jobRole || headUser.role || "Director / Lead"}</span>
+                                        </span>
+                                    </label>
+                                ) : (
+                                    <EmptyState icon={Users} title="No staff found">
+                                        There is nobody available to assign as project leader.
+                                    </EmptyState>
+                                )}
+                            </section>
+
+                            {/* ── STEP 2: Team Member Selection ── */}
+                            <section>
+                                <SectionHeader
+                                    step={2}
+                                    title="Team members"
+                                    description="Select participating staff across departments."
+                                    action={selectedUserIds.length > 0 && (
+                                        <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700" role="status">
+                                            {selectedUserIds.length} selected
+                                        </span>
+                                    )}
+                                />
+
+                                {columns.length === 0 ? (
+                                    <EmptyState icon={Users} title="No team members available">
+                                        Staff will appear here, grouped by role, once they are added.
+                                    </EmptyState>
+                                ) : (
+                                    <div className="custom-scrollbar -mx-1 overflow-x-auto px-1 pb-2">
+                                        <div className="flex w-max min-w-full items-stretch gap-3">
                                             {columns.map((col) => {
                                                 const searchTerm = searchQueries[col.id] || "";
                                                 const filteredMembers = col.members.filter(member =>
                                                     [member.name, member.role, member.officeEmail].join(" ").toLowerCase().includes(searchTerm.trim().toLowerCase())
                                                 );
                                                 const allChecked = filteredMembers.length > 0 && filteredMembers.every(m => m.checked);
+                                                const someChecked = filteredMembers.some(m => m.checked);
 
                                                 return (
-                                                    <div key={col.id} className="mr-2 flex h-full w-68 min-w-60 flex-col overflow-hidden rounded-lg border border-[#E2E8F0] bg-white shadow-2xs">
-                                                        <div className="border-b border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-[11px] font-extrabold uppercase tracking-wider text-[#1E293B]">
-                                                            {col.name} <span className="text-[#64748B]">({col.members.length})</span>
+                                                    <div key={col.id} className={`flex w-72 shrink-0 flex-col overflow-hidden ${CARD}`}>
+                                                        <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3.5 py-2.5">
+                                                            <h4 className="truncate text-sm font-semibold text-slate-900">{col.name}</h4>
+                                                            <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
+                                                                {col.members.length}
+                                                            </span>
                                                         </div>
 
-                                                        <div className="p-2 border-b border-[#E2E8F0] bg-[#FFFFFF]">
+                                                        <div className="border-b border-slate-200 p-2.5">
                                                             <div className="relative">
-                                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#64748B]" />
+                                                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
                                                                 <input
                                                                     type="text"
-                                                                    placeholder="Search member..."
+                                                                    placeholder="Search member…"
+                                                                    aria-label={`Search ${col.name} members`}
                                                                     value={searchQueries[col.id] || ""}
                                                                     onChange={(e) => handleSearch(col.id, e.target.value)}
-                                                                    className="w-full rounded-md border border-[#E2E8F0] bg-[#FFFFFF] py-1 pl-8 pr-2 text-[11px] text-[#1E293B] outline-none focus:border-[#4A76C0]"
+                                                                    className={inputClass(false, "h-9 pl-9 pr-3")}
                                                                 />
                                                             </div>
                                                         </div>
 
-                                                        <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
-                                                            <input type="checkbox" className="hidden" checked={allChecked} onChange={(e) => toggleSelectAll(filteredMembers.map(m => m.id), e.target.checked)} />
-                                                            <CustomCheckbox checked={allChecked} />
-                                                            <span className="text-[11px] font-bold text-[#1E293B]">Select All</span>
+                                                        <label className={`group flex items-center gap-3 border-b border-slate-200 px-3.5 py-2.5 transition-colors ${filteredMembers.length === 0 ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-slate-50"}`}>
+                                                            <Checkbox
+                                                                checked={allChecked}
+                                                                indeterminate={someChecked}
+                                                                disabled={filteredMembers.length === 0}
+                                                                onChange={(e) => toggleSelectAll(filteredMembers.map(m => m.id), e.target.checked)}
+                                                            />
+                                                            <span className="text-sm font-medium text-slate-900">Select all</span>
+                                                            {searchTerm.trim() && (
+                                                                <span className="ml-auto text-xs text-slate-500">{filteredMembers.length} shown</span>
+                                                            )}
                                                         </label>
 
-                                                        <div className="custom-scrollbar max-h-48 overflow-y-auto p-1.5 space-y-1">
+                                                        <div className="custom-scrollbar max-h-56 flex-1 space-y-0.5 overflow-y-auto p-1.5">
+                                                            {filteredMembers.length === 0 && (
+                                                                <p className="px-2 py-4 text-center text-sm text-slate-500">No members found.</p>
+                                                            )}
                                                             {filteredMembers.map((member) => (
                                                                 <label
                                                                     key={member.id}
-                                                                    className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer rounded-md border transition-all ${member.checked ? 'border-[#4A76C0]/40 bg-[#4A76C0]/5' : 'border-transparent hover:bg-[#F8FAFC]'
-                                                                        }`}
+                                                                    className={`group flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 transition-colors ${member.checked ? "bg-amber-50" : "hover:bg-slate-50"}`}
                                                                 >
-                                                                    <input type="checkbox" className="hidden" checked={member.checked} onChange={() => toggleMember(member.id)} />
-                                                                    <CustomCheckbox checked={member.checked} />
-                                                                    <div className="flex flex-col min-w-0 flex-1">
-                                                                        <span className="text-[11px] font-bold truncate text-[#1E293B]">{member.name}</span>
-                                                                        <span className="text-[9px] font-semibold truncate text-[#64748B]">{member.role}</span>
-                                                                    </div>
+                                                                    <Checkbox checked={member.checked} onChange={() => toggleMember(member.id)} />
+                                                                    <span className="flex min-w-0 flex-1 flex-col">
+                                                                        <span className="truncate text-sm font-medium text-slate-900">{member.name}</span>
+                                                                        <span className="truncate text-xs text-slate-500">{member.role}</span>
+                                                                    </span>
                                                                 </label>
                                                             ))}
                                                         </div>
@@ -1360,21 +1689,19 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                             })}
                                         </div>
                                     </div>
-                                </div>
+                                )}
+                            </section>
 
-                                {/* ── UI ORDER STEP 3: Individual Task Assignment for Each Selected User ── */}
+                            {/* ── STEP 3: Individual Task Assignment ── */}
+                            <section>
+                                <SectionHeader
+                                    step={3}
+                                    title="Individual task allocation"
+                                    description="Configure service, activity, schedule, location and resources for each selected person."
+                                />
+
                                 {hasAnyPersonnelSelected ? (
                                     <div className="space-y-4">
-                                        <div className="flex items-center gap-2.5 bg-[#FFFFFF] border border-[#E2E8F0] p-3 rounded-xl shadow-2xs">
-                                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#4A76C0] text-white font-extrabold text-[11px] shadow-2xs">
-                                                3
-                                            </div>
-                                            <div>
-                                                <h3 className="text-[14px] font-extrabold text-[#1E293B]">Individual Task Allocation Cards</h3>
-                                                <p className="text-[11px] text-[#64748B]">Configure separate task details, services, jobs, dates, and resources for each selected team member.</p>
-                                            </div>
-                                        </div>
-
                                         {selectedPersonnel.map((person) => {
                                             const taskData = individualTaskAllocations[person._id] ?? createDefaultAllocation();
                                             const personErrors = validationErrors[person._id] || {};
@@ -1421,50 +1748,64 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                     );
                                                 });
 
+                                            // Display-only helpers for the collapsed card header
+                                            const hasPersonErrors = Object.values(personErrors).some(Boolean);
+                                            const allocationSummary = [
+                                                taskData.service?.label,
+                                                taskData.nepaliDate?.label,
+                                                taskData.startTime && taskData.endTime ? `${taskData.startTime}–${taskData.endTime}` : "",
+                                            ].filter(Boolean).join(" · ");
+
                                             return (
-                                                <div key={person._id} className="bg-[#FFFFFF] rounded-2xl border border-[#E2E8F0] shadow-sm p-5 space-y-4 transition-all">
+                                                <div key={person._id} className={`${CARD} overflow-hidden`}>
 
-                                                    {/* User Header Badge & Minimize/Expand Toggle */}
-                                                    <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`flex h-9 w-9 items-center justify-center rounded-full font-bold shadow-2xs ${person.isHead ? "bg-[#422026] text-[#E87A24]" : "bg-[#4A76C0]/10 text-[#4A76C0] border border-[#4A76C0]/30"
-                                                                }`}>
-                                                                {person.isHead ? <Crown className="h-5 w-5" /> : <UserRound className="h-5 w-5" />}
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="text-[13px] font-extrabold text-[#1E293B]">{person.fullname}</h4>
-                                                                <span className="text-[10px] font-semibold text-[#64748B]">{person.jobRole || person.role || "EIMCTA Staff"}</span>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-[10px] font-extrabold uppercase bg-[#F8FAFC] text-[#64748B] px-2.5 py-1 rounded-full border border-[#E2E8F0]">
-                                                                {person.isHead ? "Project Leader" : "Team Member"}
+                                                    {/* User Header & Minimize/Expand Toggle */}
+                                                    <div className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-5 ${taskData.isMinimized ? "" : "border-b border-slate-200"}`}>
+                                                        <div className="flex min-w-0 items-center gap-3">
+                                                            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${person.isHead ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
+                                                                {person.isHead ? <Crown className="h-5 w-5" aria-hidden="true" /> : <UserRound className="h-5 w-5" aria-hidden="true" />}
                                                             </span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => toggleMinimizeAllocation(person._id)}
-                                                                className="flex cursor-pointer items-center gap-1 bg-[#F8FAFC] hover:bg-[#E2E8F0] text-[#1E293B] px-3 py-1.5 rounded-lg text-[11px] font-bold border border-[#E2E8F0] transition-colors"
-                                                                aria-expanded={!taskData.isMinimized}
-                                                                aria-label={`${taskData.isMinimized ? "Expand" : "Minimize"} allocation for ${person.fullname || "worker"}`}
-                                                            >
-                                                                {taskData.isMinimized ? (
-                                                                    <><span>Expand</span> <ChevronDown className="h-3.5 w-3.5" /></>
-                                                                ) : (
-                                                                    <><span>Minimize</span> <ChevronUp className="h-3.5 w-3.5" /></>
+                                                            <div className="min-w-0">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <h4 className="text-base font-semibold text-slate-900">{person.fullname}</h4>
+                                                                    <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${person.isHead ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"}`}>
+                                                                        {person.isHead ? "Project leader" : "Team member"}
+                                                                    </span>
+                                                                    {taskData.isMinimized && hasPersonErrors && (
+                                                                        <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700" role="status">
+                                                                            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Needs attention
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="truncate text-sm text-slate-600">{person.jobRole || person.role || "EIMCTA Staff"}</p>
+                                                                {taskData.isMinimized && allocationSummary && (
+                                                                    <p className="mt-0.5 truncate text-sm text-slate-500">{allocationSummary}</p>
                                                                 )}
-                                                            </button>
+                                                            </div>
                                                         </div>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleMinimizeAllocation(person._id)}
+                                                            className={btnSecondarySm}
+                                                            aria-expanded={!taskData.isMinimized}
+                                                            aria-label={`${taskData.isMinimized ? "Expand" : "Minimize"} allocation for ${person.fullname || "worker"}`}
+                                                        >
+                                                            {taskData.isMinimized ? "Expand" : "Minimize"}
+                                                            <ChevronDown className={`h-4 w-4 transition-transform ${taskData.isMinimized ? "" : "rotate-180"}`} aria-hidden="true" />
+                                                        </button>
                                                     </div>
 
                                                     {!taskData.isMinimized && (
-                                                        <div className="space-y-4 pt-2 animate-fade-in">
+                                                        <div className="animate-fade-in space-y-5 p-4 sm:p-5">
+
                                                             {/* Service & Job Dropdowns */}
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="flex flex-col gap-1">
-                                                                    <label className="text-[10px] font-extrabold uppercase text-[#64748B]">Service Category <span className="text-red-600">*</span></label>
-                                                                    <Select
-                                                                        styles={selectStyles}
+                                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    <FieldLabel htmlFor={`svc-${person._id}`} required>Service category</FieldLabel>
+                                                                    <AppSelect
+                                                                        inputId={`svc-${person._id}`}
+                                                                        hasError={Boolean(personErrors.service)}
                                                                         value={taskData.service}
                                                                         options={serviceOptions}
                                                                         onBlur={() => validateAllocationField(person._id, "service")}
@@ -1476,255 +1817,262 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                                             }
                                                                         }}
                                                                         aria-invalid={Boolean(personErrors.service)}
-                                                                        className={`text-[12px] ${personErrors.service ? "rounded-lg ring-1 ring-red-500" : ""}`}
                                                                     />
-                                                                    {personErrors.service && <p className="text-xs text-red-600">{personErrors.service}</p>}
+                                                                    <FieldError>{personErrors.service}</FieldError>
                                                                 </div>
 
-                                                                <div className="flex flex-col gap-1">
-                                                                    <label className="text-[10px] font-extrabold uppercase text-[#64748B]">Job / Activity <span className="text-red-600">*</span></label>
-                                                                    <Select
-                                                                        styles={selectStyles}
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    <FieldLabel htmlFor={`act-${person._id}`} required>Job / activity</FieldLabel>
+                                                                    <AppSelect
+                                                                        inputId={`act-${person._id}`}
+                                                                        hasError={Boolean(personErrors.activity)}
                                                                         value={taskData.activity}
                                                                         options={activityOptions}
                                                                         onBlur={() => validateAllocationField(person._id, "activity")}
                                                                         onChange={(selectedOption) => updateMemberTaskField(person._id, "activity", selectedOption)}
                                                                         aria-invalid={Boolean(personErrors.activity)}
-                                                                        className={`text-[12px] ${personErrors.activity ? "rounded-lg ring-1 ring-red-500" : ""}`}
                                                                     />
-                                                                    {personErrors.activity && <p className="text-xs text-red-600">{personErrors.activity}</p>}
+                                                                    <FieldError>{personErrors.activity}</FieldError>
                                                                 </div>
                                                             </div>
 
-                                                            {/* Date & Time Row (Improved Time Scheduling UX & Duration) */}
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div className="flex flex-col gap-1">
-                                                                    <label className="text-[10px] font-extrabold uppercase text-[#64748B]">Date [Nepali BS] <span className="text-red-600">*</span></label>
-                                                                    <Select
-                                                                        styles={selectStyles}
+                                                            {/* Date, Time & Work Location */}
+                                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    <FieldLabel htmlFor={`date-${person._id}`} required>Date (Nepali BS)</FieldLabel>
+                                                                    <AppSelect
+                                                                        inputId={`date-${person._id}`}
+                                                                        icon={CalendarDays}
+                                                                        hasError={Boolean(personErrors.nepaliDate)}
                                                                         value={taskData.nepaliDate}
                                                                         options={nepaliDateOptions}
                                                                         onBlur={() => validateAllocationField(person._id, "nepaliDate")}
                                                                         onChange={(selectedOption) => updateMemberTaskField(person._id, "nepaliDate", selectedOption)}
                                                                         aria-invalid={Boolean(personErrors.nepaliDate)}
-                                                                        className={`text-[12px] ${personErrors.nepaliDate ? "rounded-lg ring-1 ring-red-500" : ""}`}
                                                                     />
-                                                                    {personErrors.nepaliDate && <p className="text-xs text-red-600">{personErrors.nepaliDate}</p>}
+                                                                    <FieldError>{personErrors.nepaliDate}</FieldError>
                                                                 </div>
 
-                                                                <div className="flex flex-col gap-1">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <label className="text-[10px] font-extrabold uppercase text-[#64748B]">Time Schedule (Start & End) <span className="text-red-600">*</span></label>
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    <div className="flex items-center justify-between gap-2">
+                                                                        <FieldLabel htmlFor={`start-${person._id}`} required>Time (start – end)</FieldLabel>
                                                                         {workingDuration && !isTimeInvalid && (
-                                                                            <span className="text-[10px] font-extrabold text-[#4A76C0] bg-[#4A76C0]/10 px-2 py-0.5 rounded">
-                                                                                Duration: {workingDuration}
+                                                                            <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+                                                                                {workingDuration}
                                                                             </span>
                                                                         )}
                                                                     </div>
-                                                                    <div className={`flex h-9.5 items-center gap-2 rounded-md border bg-white px-3 py-1.5 text-[11px] font-bold transition-all ${isTimeInvalid || personErrors.startTime || personErrors.endTime ? "border-red-400 bg-red-50/50" : "border-[#E2E8F0]"
-                                                                        }`}>
-                                                                        <Clock className="h-4 w-4 text-[#4A76C0]" />
+                                                                    <div className={`flex h-10 items-center gap-2 rounded-lg border bg-white px-3 text-sm shadow-xs transition focus-within:ring-4 ${isTimeInvalid || personErrors.startTime || personErrors.endTime
+                                                                        ? "border-red-500 focus-within:ring-red-500/15"
+                                                                        : "border-slate-300 hover:border-slate-400 focus-within:border-amber-500 focus-within:ring-amber-500/15"}`}>
+                                                                        <Clock className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
                                                                         <input
+                                                                            id={`start-${person._id}`}
                                                                             type="time"
                                                                             required
+                                                                            aria-label="Start time"
                                                                             value={taskData.startTime || ""}
                                                                             onChange={(e) => updateMemberTaskField(person._id, "startTime", e.target.value)}
                                                                             onBlur={() => validateAllocationField(person._id, "startTime")}
                                                                             aria-invalid={Boolean(personErrors.startTime)}
-                                                                            className="bg-transparent outline-none w-28 text-[#1E293B]"
+                                                                            className="w-28 min-w-0 bg-transparent tabular-nums text-slate-900 outline-none"
                                                                         />
-                                                                        <span className="text-[#64748B]">to</span>
+                                                                        <span className="text-slate-500">to</span>
                                                                         <input
                                                                             type="time"
                                                                             required
+                                                                            aria-label="End time"
                                                                             value={taskData.endTime || ""}
                                                                             onChange={(e) => updateMemberTaskField(person._id, "endTime", e.target.value)}
                                                                             onBlur={() => validateAllocationField(person._id, "endTime")}
                                                                             aria-invalid={Boolean(personErrors.endTime)}
-                                                                            className="bg-transparent outline-none w-28 text-[#1E293B]"
+                                                                            className="w-28 min-w-0 bg-transparent tabular-nums text-slate-900 outline-none"
                                                                         />
                                                                     </div>
-                                                                    {isTimeInvalid && (
-                                                                        <span className="text-[10px] font-bold text-red-600 flex items-center gap-1 mt-0.5">
-                                                                            <AlertTriangle className="h-3 w-3 shrink-0" /> End time must be later than start time.
-                                                                        </span>
-                                                                    )}
-                                                                    {!isTimeInvalid && personErrors.endTime && <p className="text-xs text-red-600">{personErrors.endTime}</p>}
-                                                                    {personErrors.startTime && <p className="text-xs text-red-600">{personErrors.startTime}</p>}
+                                                                    {isTimeInvalid
+                                                                        ? <FieldError>End time must be later than start time.</FieldError>
+                                                                        : <FieldError>{personErrors.endTime}</FieldError>}
+                                                                    <FieldError>{personErrors.startTime}</FieldError>
+                                                                </div>
+
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    <FieldLabel htmlFor={`loc-${person._id}`} required>Work location</FieldLabel>
+                                                                    <AppSelect
+                                                                        inputId={`loc-${person._id}`}
+                                                                        icon={MapPin}
+                                                                        hasError={Boolean(personErrors.workLocation)}
+                                                                        value={taskData.workLocation}
+                                                                        options={workLocationOptions}
+                                                                        onBlur={() => validateAllocationField(person._id, "workLocation")}
+                                                                        onChange={(selectedOption) => {
+                                                                            updateMemberTaskField(person._id, "workLocation", selectedOption);
+                                                                            if (selectedOption.value === "In-Office") {
+                                                                                updateMemberTaskField(person._id, "requiresTransportation", false);
+                                                                            }
+                                                                        }}
+                                                                        aria-invalid={Boolean(personErrors.workLocation)}
+                                                                    />
+                                                                    <FieldError>{personErrors.workLocation}</FieldError>
                                                                 </div>
                                                             </div>
 
-                                                            {/* Work Location */}
-                                                            <div className="flex flex-col gap-1">
-                                                                <label className="text-[10px] font-extrabold uppercase text-[#64748B] flex items-center gap-1">
-                                                                    <MapPin className="h-3 w-3 text-[#4A76C0]" /> Work Location
-                                                                    <span className="text-red-600">*</span>
-                                                                </label>
-                                                                <Select
-                                                                    styles={selectStyles}
-                                                                    value={taskData.workLocation}
-                                                                    options={workLocationOptions}
-                                                                    onBlur={() => validateAllocationField(person._id, "workLocation")}
-                                                                    onChange={(selectedOption) => {
-                                                                        updateMemberTaskField(person._id, "workLocation", selectedOption);
-                                                                        if (selectedOption.value === "In-Office") {
-                                                                            updateMemberTaskField(person._id, "requiresTransportation", false);
-                                                                        }
-                                                                    }}
-                                                                    aria-invalid={Boolean(personErrors.workLocation)}
-                                                                    className={`text-[12px] ${personErrors.workLocation ? "rounded-lg ring-1 ring-red-500" : ""}`}
-                                                                />
-                                                                {personErrors.workLocation && <p className="text-xs text-red-600">{personErrors.workLocation}</p>}
-                                                            </div>
+                                                            {/* Conflict Check Status */}
+                                                            {conflictBooking ? (
+                                                                <Banner tone="error" icon={AlertTriangle} role="alert">
+                                                                    <strong className="font-semibold">Conflict:</strong> {person.fullname} is already booked on {conflictBooking.nepaliDate} from {conflictBooking.startTime} to {conflictBooking.endTime} ({conflictBooking.taskName}).
+                                                                </Banner>
+                                                            ) : (
+                                                                <Banner tone="success" icon={CheckCircle2}>
+                                                                    No scheduling conflicts on {taskData.nepaliDate?.label}
+                                                                </Banner>
+                                                            )}
 
-                                                            {/* Work Location & Vehicle Assignment Conditional Logic */}
+                                                            {/* Vehicle Assignment (Out-of-Office only) */}
                                                             {!isInOffice && (
-                                                                <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E8F0] space-y-3 animate-fade-in">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <label className="text-[11px] font-extrabold uppercase text-[#1E293B] flex items-center gap-1.5">
-                                                                            <Car className="h-4 w-4 text-[#4A76C0]" /> Vehicle Assignment (Outside Office)
-                                                                        </label>
-                                                                        <span className="text-[10px] font-bold text-[#64748B]">
-                                                                            {vehicleCapacity !== null ? `Capacity: ${vehicleCapacity} persons` : "Public Transit"}
+                                                                <div className={`${PANEL} animate-fade-in space-y-4`}>
+                                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                        <h5 className={HEADING}>
+                                                                            <Car className="h-4 w-4 text-amber-600" aria-hidden="true" /> Vehicle assignment (outside office)
+                                                                        </h5>
+                                                                        <span className="text-sm text-slate-600">
+                                                                            {vehicleCapacity !== null ? `Capacity: ${vehicleCapacity} persons` : "Public transit"}
                                                                         </span>
                                                                     </div>
 
-                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                                        <div className="flex flex-col gap-1">
-                                                                            <label className="text-[10px] font-extrabold uppercase text-[#64748B]">Vehicle Selection <span className="text-red-600">*</span></label>
-                                                                            <Select
-                                                                                styles={selectStyles}
+                                                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                                        <div className="flex flex-col gap-1.5">
+                                                                            <FieldLabel htmlFor={`veh-${person._id}`} required>Vehicle</FieldLabel>
+                                                                            <AppSelect
+                                                                                inputId={`veh-${person._id}`}
+                                                                                hasError={Boolean(personErrors.vehicle)}
                                                                                 value={taskData.vehicle}
                                                                                 options={vehicleOptions}
                                                                                 onBlur={() => validateAllocationField(person._id, "vehicle")}
                                                                                 onChange={(selectedOption) => updateMemberTaskField(person._id, "vehicle", selectedOption)}
                                                                                 aria-invalid={Boolean(personErrors.vehicle)}
-                                                                                className={`text-[12px] ${personErrors.vehicle ? "rounded-lg ring-1 ring-red-500" : ""}`}
                                                                             />
-                                                                            {personErrors.vehicle && <p className="text-xs text-red-600">{personErrors.vehicle}</p>}
+                                                                            <FieldError>{personErrors.vehicle}</FieldError>
                                                                         </div>
-                                                                        <div className="flex flex-col gap-1">
-                                                                            <label className="text-[10px] font-extrabold uppercase text-[#64748B]">Vehicle Registration / Details</label>
+                                                                        <div className="flex flex-col gap-1.5">
+                                                                            <FieldLabel htmlFor={`veh-reg-${person._id}`} optional>Registration / details</FieldLabel>
                                                                             <input
+                                                                                id={`veh-reg-${person._id}`}
                                                                                 type="text"
-                                                                                placeholder="Enter vehicle registration number/details..."
+                                                                                placeholder="Registration number or details…"
                                                                                 value={taskData.vehicleRegistrationNo || ""}
                                                                                 onChange={(e) => updateMemberTaskField(person._id, "vehicleRegistrationNo", e.target.value)}
-                                                                                className="h-9.5 w-full rounded-lg border border-[#E2E8F0] bg-white p-2 text-[12px] text-[#1E293B] outline-none focus:border-[#4A76C0]"
+                                                                                className={inputClass()}
                                                                             />
                                                                         </div>
                                                                     </div>
 
-                                                                    {/* Travelling Workers Selection & Seating Capacity Validation */}
-                                                                    <div className="space-y-2 pt-2 border-t border-[#E2E8F0]">
-                                                                        <div className="flex items-center justify-between text-[11px]">
-                                                                            <span className="font-extrabold text-[#1E293B]">Travelling Team Members (Excluding Primary Worker)</span>
-                                                                            <span className="font-bold text-[#4A76C0]">
-                                                                                Selected: {totalTravellingCount} / {vehicleCapacity !== null ? vehicleCapacity : "∞"} seats
+                                                                    {/* Travelling Workers & Seating Capacity */}
+                                                                    <div className="space-y-2.5 border-t border-slate-200 pt-4">
+                                                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                            <FieldLabel htmlFor={`travel-${person._id}`}>
+                                                                                Travelling team members <span className="font-normal text-slate-500">(excluding primary worker)</span>
+                                                                            </FieldLabel>
+                                                                            <span className={`text-sm font-semibold ${isVehicleOverloaded ? "text-red-600" : "text-amber-700"}`}>
+                                                                                Seats used: {totalTravellingCount} / {vehicleCapacity !== null ? vehicleCapacity : "∞"}
                                                                             </span>
                                                                         </div>
 
-                                                                        <Select
-                                                                            styles={selectStyles}
+                                                                        <AppSelect
+                                                                            inputId={`travel-${person._id}`}
+                                                                            hasError={Boolean(personErrors.travellingWorkers)}
                                                                             isMulti
                                                                             value={users.filter(u => (taskData.travellingWorkers || []).includes(u._id)).map(u => ({ value: u._id, label: `${u.fullname} (${u.jobRole || u.role || "Staff"})` }))}
                                                                             options={users.filter(u => u._id !== person._id).map(u => ({ value: u._id, label: `${u.fullname} (${u.jobRole || u.role || "Staff"})` }))}
                                                                             onChange={(selectedOpts) => updateMemberTaskField(person._id, "travellingWorkers", (selectedOpts || []).map(o => o.value))}
-                                                                            placeholder="Select additional travelling workers..."
-                                                                            className="text-[12px]"
+                                                                            placeholder="Select additional travelling workers…"
                                                                         />
 
-                                                                        <div className="flex items-center justify-between text-[10px] font-bold text-[#64748B] bg-[#FFFFFF] px-3 py-1.5 rounded-lg border border-[#E2E8F0]">
-                                                                            <span>Primary Worker: <strong>{person.fullname}</strong> (occupies 1 seat)</span>
-                                                                            <span>Available Seats: <strong className="text-[#4A76C0]">{availableSeats}</strong></span>
+                                                                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+                                                                            <span>Primary worker: <strong className="font-semibold text-slate-900">{person.fullname}</strong> (1 seat)</span>
+                                                                            <span>Available seats: <strong className="font-semibold text-amber-700">{availableSeats}</strong></span>
                                                                         </div>
 
                                                                         {isVehicleOverloaded && (
-                                                                            <p className="text-[10px] text-[#422026] bg-amber-50 p-2 rounded-lg border border-amber-200 font-bold flex items-center gap-1.5">
-                                                                                <AlertTriangle className="h-4 w-4 text-[#E87A24] shrink-0" />
-                                                                                Selected workers ({totalTravellingCount}) exceed vehicle capacity ({vehicleCapacity}). Please adjust seating.
-                                                                            </p>
+                                                                            <Banner tone="error" icon={AlertTriangle} role="alert">
+                                                                                Selected workers ({totalTravellingCount}) exceed vehicle capacity ({vehicleCapacity}). Adjust seating.
+                                                                            </Banner>
                                                                         )}
                                                                     </div>
                                                                 </div>
                                                             )}
 
-                                                            {/* Assistance Worker Assignment (Individual Note & Attachment Sections) */}
-                                                            <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E8F0] space-y-3">
-                                                                <div className="flex items-center justify-between">
-                                                                    <label className="text-[11px] font-extrabold uppercase text-[#1E293B] flex items-center gap-1.5">
-                                                                        <Users className="h-4 w-4 text-[#4A76C0]" /> Assistance Workers Assignment
-                                                                    </label>
-                                                                    <div className="flex items-center gap-4">
-                                                                        <label className="flex items-center gap-1.5 cursor-pointer text-[12px] font-bold text-[#1E293B]">
-                                                                            <input
-                                                                                type="radio"
+                                                            {/* Assistance Workers */}
+                                                            <div className={`${PANEL} space-y-4`}>
+                                                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                                                    <div>
+                                                                        <h5 className={HEADING}>
+                                                                            <Users className="h-4 w-4 text-amber-600" aria-hidden="true" /> Assistance workers
+                                                                        </h5>
+                                                                        <p className={`${HINT} mt-0.5`}>Does this task need extra people to help?</p>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2" role="radiogroup" aria-label={`Assistance required for ${person.fullname}`}>
+                                                                        <label className={optionCardClass(Boolean(taskData.requiresAssistance))}>
+                                                                            <Radio
                                                                                 name={`assistance-${person._id}`}
                                                                                 checked={Boolean(taskData.requiresAssistance)}
                                                                                 onChange={() => updateMemberTaskField(person._id, "requiresAssistance", true)}
-                                                                                className="accent-[#4A76C0]"
-                                                                            /> Yes
+                                                                            />
+                                                                            Yes
                                                                         </label>
-                                                                        <label className="flex items-center gap-1.5 cursor-pointer text-[12px] font-bold text-[#1E293B]">
-                                                                            <input
-                                                                                type="radio"
+                                                                        <label className={optionCardClass(!taskData.requiresAssistance)}>
+                                                                            <Radio
                                                                                 name={`assistance-${person._id}`}
                                                                                 checked={!taskData.requiresAssistance}
                                                                                 onChange={() => {
                                                                                     updateMemberTaskField(person._id, "requiresAssistance", false);
                                                                                     updateMemberTaskField(person._id, "assistanceWorkers", []);
                                                                                 }}
-                                                                                className="accent-[#4A76C0]"
-                                                                            /> No
+                                                                            />
+                                                                            No
                                                                         </label>
                                                                     </div>
                                                                 </div>
 
                                                                 {taskData.requiresAssistance && (
-                                                                    <div className="space-y-3 pt-2 border-t border-[#E2E8F0] animate-fade-in">
-                                                                        <div className="flex flex-col gap-1">
-                                                                            <label className="text-[10px] font-extrabold uppercase text-[#64748B]">
-                                                                                Select Assistance Team Members {taskData.requiresAssistance && <span className="text-red-600">*</span>}
-                                                                            </label>
-                                                                            <Select
-                                                                                styles={selectStyles}
+                                                                    <div className="animate-fade-in space-y-4 border-t border-slate-200 pt-4">
+                                                                        <div className="flex flex-col gap-1.5">
+                                                                            <FieldLabel htmlFor={`assist-${person._id}`} required>Assistance team members</FieldLabel>
+                                                                            <AppSelect
+                                                                                inputId={`assist-${person._id}`}
+                                                                                hasError={Boolean(personErrors.assistanceWorkers)}
                                                                                 isMulti
                                                                                 value={(taskData.assistanceWorkers || []).map(aw => ({ value: aw.workerId, label: `${aw.workerName} (${aw.workerRole})` }))}
                                                                                 options={assistanceWorkerOptions}
-                                                                                onBlur={() => {
-                                                                                    if (taskData.requiresAssistance) validateAllocationField(person._id, "assistanceWorkers");
-                                                                                }}
+                                                                                onBlur={() => validateAllocationField(person._id, "assistanceWorkers")}
                                                                                 onChange={(selectedOptions) => handleAssistanceWorkersChange(person._id, selectedOptions)}
-                                                                                placeholder="Select assistance workers..."
+                                                                                placeholder="Select assistance workers…"
                                                                                 aria-invalid={Boolean(personErrors.assistanceWorkers)}
-                                                                                className={`text-[12px] ${personErrors.assistanceWorkers ? "rounded-lg ring-1 ring-red-500" : ""}`}
                                                                             />
-                                                                            {personErrors.assistanceWorkers && <p className="text-xs text-red-600">{personErrors.assistanceWorkers}</p>}
+                                                                            <FieldError>{personErrors.assistanceWorkers}</FieldError>
                                                                         </div>
 
-                                                                        {/* Individual Assistance Worker Detail Sections */}
                                                                         {taskData.assistanceWorkers?.length > 0 && (
-                                                                            <div className="space-y-3 pt-2">
-                                                                                <span className="text-[11px] font-extrabold text-[#1E293B]">Individual Assistance Worker Details ({taskData.assistanceWorkers.length})</span>
+                                                                            <div className="space-y-3">
+                                                                                <p className="text-sm font-semibold text-slate-900">Assistance worker details ({taskData.assistanceWorkers.length})</p>
 
                                                                                 {taskData.assistanceWorkers.map((awItem, awIdx) => (
-                                                                                    <div key={awItem.workerId} className="bg-[#FFFFFF] p-3.5 rounded-xl border border-[#E2E8F0] space-y-2.5 shadow-2xs">
-                                                                                        <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2">
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#4A76C0]/10 text-[#4A76C0] font-extrabold text-[10px]">
+                                                                                    <div key={awItem.workerId} className={`${CARD} space-y-4 p-4`}>
+                                                                                        <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                                                                                            <div className="flex min-w-0 items-center gap-2.5">
+                                                                                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700">
                                                                                                     {awIdx + 1}
                                                                                                 </span>
-                                                                                                <div>
-                                                                                                    <h5 className="text-[12px] font-extrabold text-[#1E293B]">{awItem.workerName}</h5>
-                                                                                                    <span className="text-[9px] font-semibold text-[#64748B]">{awItem.workerRole}</span>
+                                                                                                <div className="min-w-0">
+                                                                                                    <h5 className="truncate text-sm font-semibold text-slate-900">{awItem.workerName}</h5>
+                                                                                                    <span className="text-xs text-slate-500">{awItem.workerRole}</span>
                                                                                                 </div>
                                                                                             </div>
                                                                                             <button
                                                                                                 type="button"
                                                                                                 onClick={() => removeAssistanceWorker(person._id, awItem.workerId)}
-                                                                                                className="cursor-pointer text-[#64748B] hover:text-red-600 text-[11px] font-bold flex items-center gap-1"
+                                                                                                className={btnDangerOutlineSm}
                                                                                             >
-                                                                                                <Trash2 className="h-3.5 w-3.5" /> Remove
+                                                                                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Remove
                                                                                             </button>
                                                                                         </div>
 
@@ -1732,18 +2080,18 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                                                             label={`Note for ${awItem.workerName}`}
                                                                                             value={awItem.note}
                                                                                             onSave={(note) => updateAssistanceWorkerField(person._id, awItem.workerId, "note", note)}
-                                                                                            placeholder="Enter instructions or notes for this assistance worker..."
+                                                                                            placeholder="Enter instructions or notes for this assistance worker…"
                                                                                             rows={2}
                                                                                         />
 
-                                                                                        <div className="space-y-1.5 pt-1">
-                                                                                            <div className="flex items-center justify-between">
-                                                                                                <span className="text-[10px] font-extrabold uppercase text-[#64748B] flex items-center gap-1">
-                                                                                                    <Paperclip className="h-3.5 w-3.5 text-[#4A76C0]" /> Individual Attachments
+                                                                                        <div className="space-y-2">
+                                                                                            <div className="flex items-center justify-between gap-2">
+                                                                                                <span className={HEADING}>
+                                                                                                    <Paperclip className="h-4 w-4 text-amber-600" aria-hidden="true" /> Attachments
                                                                                                 </span>
-                                                                                                <label className="cursor-pointer inline-flex items-center gap-1 bg-[#F8FAFC] hover:bg-[#E2E8F0] text-[#1E293B] px-2.5 py-1 rounded-md text-[11px] font-bold border border-[#E2E8F0] transition-all focus-within:ring-2 focus-within:ring-blue-500">
-                                                                                                    <Plus className="h-3 w-3 text-[#4A76C0]" />
-                                                                                                    <span>Upload File</span>
+                                                                                                <label className={`${btnSecondarySm} ${FOCUS_WITHIN}`}>
+                                                                                                    <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+                                                                                                    <span>Upload file</span>
                                                                                                     <input
                                                                                                         type="file"
                                                                                                         multiple
@@ -1753,12 +2101,10 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                                                                 </label>
                                                                                             </div>
 
-                                                                                            {assistanceFileErrors[`${person._id}:${awItem.workerId}`] && (
-                                                                                                <p className="text-xs text-red-600" role="alert">{assistanceFileErrors[`${person._id}:${awItem.workerId}`]}</p>
-                                                                                            )}
+                                                                                            <FieldError>{assistanceFileErrors[`${person._id}:${awItem.workerId}`]}</FieldError>
 
                                                                                             {awItem.attachments?.length > 0 && (
-                                                                                                <div className="space-y-1.5">
+                                                                                                <div className="space-y-2">
                                                                                                     {awItem.attachments.map((fileObj) => (
                                                                                                         <FileRow
                                                                                                             key={fileObj.id}
@@ -1782,43 +2128,39 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                             </div>
 
                                                             {/* Task Note */}
-                                                            <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-2xs">
-                                                                <NoteField
-                                                                    label={`Task note for ${person.fullname || "this worker"}`}
-                                                                    value={taskData.note}
-                                                                    onSave={(note) => updateMemberTaskField(person._id, "note", note)}
-                                                                    placeholder="Enter task notes, instructions, or specific remarks..."
-                                                                />
-                                                            </div>
+                                                            <NoteField
+                                                                label={`Task note for ${person.fullname || "this worker"}`}
+                                                                value={taskData.note}
+                                                                onSave={(note) => updateMemberTaskField(person._id, "note", note)}
+                                                                placeholder="Enter task notes, instructions, or specific remarks…"
+                                                            />
 
-                                                            {/* ── 4. RESOURCES MANAGEMENT ── */}
-                                                            <div className="bg-[#F8FAFC] p-4 rounded-xl border border-[#E2E8F0] space-y-3">
+                                                            {/* ── RESOURCES MANAGEMENT ── */}
+                                                            <div className={`${PANEL} space-y-4`}>
                                                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                                                    <label className="text-[11px] font-extrabold uppercase text-[#1E293B] flex items-center gap-1.5">
-                                                                        <Package className="h-4 w-4 text-[#4A76C0]" /> Resources & Independent File Attachments
-                                                                    </label>
-                                                                    <div className="flex items-center gap-2 text-[10px] font-bold text-[#64748B]">
+                                                                    <h5 className={HEADING}>
+                                                                        <Package className="h-4 w-4 text-amber-600" aria-hidden="true" /> Resources &amp; file attachments
+                                                                    </h5>
+                                                                    <div className="flex items-center gap-2 text-sm text-slate-600">
                                                                         {resourcesUploading > 0 && (
-                                                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#4A76C0]/10 px-2 py-0.5 text-[#4A76C0]" role="status">
-                                                                                <LoaderCircle className="h-3 w-3 animate-spin" /> Uploading {resourcesUploading} file{resourcesUploading === 1 ? "" : "s"}…
+                                                                            <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800" role="status">
+                                                                                <LoaderCircle className="h-3.5 w-3.5 animate-spin text-white" strokeWidth={2.5} aria-hidden="true" /> Uploading {resourcesUploading}
                                                                             </span>
                                                                         )}
-                                                                        <span>{resourceList.length} resource{resourceList.length === 1 ? "" : "s"} · {totalResourceFiles} file{totalResourceFiles === 1 ? "" : "s"}</span>
+                                                                        <span>{resourceList.length} resource{resourceList.length === 1 ? "" : "s"}, {totalResourceFiles} file{totalResourceFiles === 1 ? "" : "s"}</span>
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Add New Resource: name | description (1 × 2 grid) */}
-                                                                <div className="rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] p-3 shadow-2xs space-y-3">
-                                                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                                                        <div className="flex flex-col gap-1">
-                                                                            <label htmlFor={`new-res-name-${person._id}`} className="text-[10px] font-extrabold uppercase text-[#64748B]">
-                                                                                Resource name <span className="text-red-600">*</span>
-                                                                            </label>
+                                                                {/* Add New Resource */}
+                                                                <div className={`${CARD} space-y-3 p-4`}>
+                                                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                                        <div className="flex flex-col gap-1.5">
+                                                                            <FieldLabel htmlFor={`new-res-name-${person._id}`} required>Resource name</FieldLabel>
                                                                             <input
                                                                                 id={`new-res-name-${person._id}`}
                                                                                 ref={(el) => { newResourceNameRefs.current[person._id] = el; }}
                                                                                 type="text"
-                                                                                placeholder="e.g., Projector"
+                                                                                placeholder="e.g. Projector"
                                                                                 value={taskData.newResourceName || ""}
                                                                                 aria-invalid={Boolean(resourceErrors[person._id])}
                                                                                 onChange={(e) => {
@@ -1831,28 +2173,27 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                                                         handleAddResource(person._id);
                                                                                     }
                                                                                 }}
-                                                                                className={`h-9.5 w-full rounded-lg border bg-white p-2 text-[12px] text-[#1E293B] outline-none focus:border-[#4A76C0] focus:ring-2 focus:ring-blue-100 ${resourceErrors[person._id] ? "border-red-500" : "border-[#E2E8F0]"}`}
+                                                                                className={inputClass(Boolean(resourceErrors[person._id]))}
                                                                             />
+                                                                            <FieldError>{resourceErrors[person._id]}</FieldError>
                                                                         </div>
-                                                                        <div className="flex flex-col gap-1">
-                                                                            <label htmlFor={`new-res-note-${person._id}`} className="text-[10px] font-extrabold uppercase text-[#64748B]">
-                                                                                Description <span className="font-medium normal-case text-slate-400">(optional)</span>
-                                                                            </label>
+                                                                        <div className="flex flex-col gap-1.5">
+                                                                            <FieldLabel htmlFor={`new-res-note-${person._id}`} optional>Description</FieldLabel>
                                                                             <textarea
                                                                                 id={`new-res-note-${person._id}`}
                                                                                 rows={1}
                                                                                 placeholder="What is it for? Any details to remember"
                                                                                 value={taskData.newResourceNote || ""}
                                                                                 onChange={(e) => updateMemberTaskField(person._id, "newResourceNote", e.target.value)}
-                                                                                className="min-h-9.5 w-full resize-y rounded-lg border border-[#E2E8F0] bg-white p-2 text-[12px] text-[#1E293B] outline-none placeholder:text-slate-400 focus:border-[#4A76C0] focus:ring-2 focus:ring-blue-100"
+                                                                                className={textareaClass(false, "min-h-10 px-3 py-2")}
                                                                             />
                                                                         </div>
                                                                     </div>
 
                                                                     {/* Quick picks */}
                                                                     {QUICK_RESOURCES.some(name => !resourceList.some(r => r.name.trim().toLowerCase() === name.toLowerCase())) && (
-                                                                        <div className="flex flex-wrap items-center gap-1.5">
-                                                                            <span className="text-[10px] font-bold text-[#64748B]">Quick add:</span>
+                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                            <span className="text-sm text-slate-600">Quick add:</span>
                                                                             {QUICK_RESOURCES
                                                                                 .filter(name => !resourceList.some(r => r.name.trim().toLowerCase() === name.toLowerCase()))
                                                                                 .map(name => (
@@ -1864,71 +2205,65 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                                                             setResourceErrors(prev => ({ ...prev, [person._id]: "" }));
                                                                                             newResourceNameRefs.current[person._id]?.focus();
                                                                                         }}
-                                                                                        className="cursor-pointer rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-0.5 text-[10px] font-bold text-[#1E293B] transition-colors hover:border-[#4A76C0] hover:bg-[#4A76C0]/10"
+                                                                                        className={`inline-flex h-8 cursor-pointer items-center gap-1 rounded-full border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:border-amber-500 hover:bg-amber-50 hover:text-amber-800 ${FOCUS}`}
                                                                                     >
-                                                                                        + {name}
+                                                                                        <Plus className="h-3.5 w-3.5" aria-hidden="true" /> {name}
                                                                                     </button>
                                                                                 ))}
                                                                         </div>
                                                                     )}
 
-                                                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                                                        <span className="text-[11px] text-slate-500">Press Enter in the name field to add quickly.</span>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleAddResource(person._id)}
-                                                                            className="flex h-9.5 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-[#4A76C0] hover:bg-[#3b5f9e] text-white text-[12px] font-extrabold px-4 transition-all shadow-2xs"
-                                                                        >
-                                                                            <Plus className="h-4 w-4" /> Add Resource
+                                                                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                                                                        <span className={HINT}>Press Enter in the name field to add quickly.</span>
+                                                                        <button type="button" onClick={() => handleAddResource(person._id)} className={btnPrimary}>
+                                                                            <Plus className="h-4 w-4" aria-hidden="true" /> Add resource
                                                                         </button>
                                                                     </div>
-                                                                    {resourceErrors[person._id] && (
-                                                                        <p className="text-xs text-red-600" role="alert">{resourceErrors[person._id]}</p>
-                                                                    )}
                                                                 </div>
 
                                                                 {personErrors.resources && (
-                                                                    <p className="flex items-start gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700" role="alert">
-                                                                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {personErrors.resources}
-                                                                    </p>
+                                                                    <Banner tone="error" icon={AlertTriangle} role="alert">{personErrors.resources}</Banner>
                                                                 )}
 
                                                                 {/* Search (only useful once there is something to search) */}
                                                                 {resourceList.length > 1 && (
                                                                     <div className="relative">
-                                                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#64748B]" />
+                                                                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
                                                                         <input
                                                                             type="text"
-                                                                            placeholder="Search resources by name, description, or filename..."
+                                                                            placeholder="Search resources by name, description, or filename…"
                                                                             aria-label="Search resources"
                                                                             value={resourceSearchQueries[person._id] || ""}
                                                                             onChange={(e) => setResourceSearchQueries(prev => ({ ...prev, [person._id]: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] py-2 pl-9 pr-9 text-[12px] text-[#1E293B] outline-none focus:border-[#4A76C0] shadow-2xs"
+                                                                            className={inputClass(false, "h-10 pl-9 pr-10")}
                                                                         />
                                                                         {resourceSearchQueries[person._id] && (
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => setResourceSearchQueries(prev => ({ ...prev, [person._id]: "" }))}
-                                                                                className="absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer rounded p-0.5 text-[#64748B] hover:text-[#1E293B]"
+                                                                                className={`${iconBtn} absolute right-1 top-1/2 -translate-y-1/2`}
                                                                                 aria-label="Clear resource search"
                                                                             >
-                                                                                <X className="h-3.5 w-3.5" />
+                                                                                <X className="h-4 w-4" aria-hidden="true" />
                                                                             </button>
                                                                         )}
                                                                     </div>
                                                                 )}
                                                                 {resSearchQuery && resourceList.length > 1 && (
-                                                                    <p className="text-[11px] text-[#64748B]" role="status">Showing {filteredResources.length} of {resourceList.length}</p>
+                                                                    <p className="text-sm text-slate-600" role="status">Showing {filteredResources.length} of {resourceList.length}</p>
                                                                 )}
 
                                                                 {/* Resource list (limited height, scrolls internally) */}
-                                                                <div className="custom-scrollbar max-h-[34rem] overflow-y-auto space-y-3 pr-1 pt-1">
+                                                                <div className="custom-scrollbar max-h-[34rem] space-y-3 overflow-y-auto pr-1 pt-1">
                                                                     {filteredResources.length === 0 ? (
-                                                                        <div className="p-6 text-center text-[#64748B] text-[12px] bg-[#FFFFFF] rounded-xl border border-dashed border-[#CBD5E1]">
+                                                                        <EmptyState
+                                                                            icon={Package}
+                                                                            title={resourceList.length === 0 ? "No resources yet" : "No matching resources"}
+                                                                        >
                                                                             {resourceList.length === 0
-                                                                                ? "No resources yet. Add one above or pick a quick-add suggestion."
-                                                                                : "No resources match your search."}
-                                                                        </div>
+                                                                                ? "Add one above or pick a quick-add suggestion."
+                                                                                : "Try a different name, description or filename."}
+                                                                        </EmptyState>
                                                                     ) : (
                                                                         filteredResources.map(({ res: resItem, index }) => {
                                                                             const fileKey = `${person._id}:${resItem.id}`;
@@ -1939,68 +2274,58 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                                             const isDragging = dragTarget === fileKey;
 
                                                                             return (
-                                                                                <div key={resItem.id} className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#FFFFFF] shadow-2xs">
+                                                                                <div key={resItem.id} className={`overflow-hidden ${CARD}`}>
 
                                                                                     {/* Header */}
-                                                                                    <div className="flex items-center justify-between gap-2 border-b border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-2">
-                                                                                        <div className="flex min-w-0 items-center gap-2">
-                                                                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#422026] text-[#E87A24] font-extrabold text-[11px]">
+                                                                                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2.5">
+                                                                                        <div className="flex min-w-0 items-center gap-2.5">
+                                                                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-xs font-semibold text-slate-700">
                                                                                                 {index + 1}
                                                                                             </span>
-                                                                                            <span className={`truncate text-[12px] font-extrabold ${nameMissing ? "text-red-600" : "text-[#1E293B]"}`}>
+                                                                                            <span className={`truncate text-sm font-semibold ${nameMissing ? "text-red-600" : "text-slate-900"}`}>
                                                                                                 {resItem.name.trim() || "Untitled resource"}
                                                                                             </span>
                                                                                         </div>
                                                                                         <div className="flex shrink-0 items-center gap-2">
                                                                                             {uploadingHere > 0 && (
-                                                                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#4A76C0]">
-                                                                                                    <LoaderCircle className="h-3 w-3 animate-spin" /> Uploading…
+                                                                                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700">
+                                                                                                    <LoaderCircle className="h-3.5 w-3.5 animate-spin text-white" strokeWidth={2.5} aria-hidden="true" /> Uploading
                                                                                                 </span>
                                                                                             )}
-                                                                                            <span className="text-[10px] font-bold bg-[#4A76C0]/10 text-[#4A76C0] px-2 py-0.5 rounded">
-                                                                                                {fileCount} / {MAX_FILES_PER_RESOURCE} Files
+                                                                                            <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-700">
+                                                                                                {fileCount} / {MAX_FILES_PER_RESOURCE} files
                                                                                             </span>
                                                                                             {pendingDelete === fileKey ? (
-                                                                                                <div className="flex items-center gap-1.5 text-[10px] font-bold">
-                                                                                                    <span className="text-red-600">
+                                                                                                <div className="flex items-center gap-2" role="group" aria-label="Confirm resource deletion">
+                                                                                                    <span className="text-xs font-medium text-red-700">
                                                                                                         Delete{fileCount > 0 ? ` with ${fileCount} file${fileCount === 1 ? "" : "s"}` : ""}?
                                                                                                     </span>
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        onClick={() => removeResourceItem(person._id, resItem.id)}
-                                                                                                        className="cursor-pointer rounded bg-red-600 px-2 py-0.5 text-white hover:bg-red-700"
-                                                                                                    >
-                                                                                                        Yes
+                                                                                                    <button type="button" onClick={() => removeResourceItem(person._id, resItem.id)} className={btnDangerSm}>
+                                                                                                        Delete
                                                                                                     </button>
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        onClick={() => setPendingDelete("")}
-                                                                                                        className="cursor-pointer rounded border border-[#E2E8F0] bg-white px-2 py-0.5 text-[#1E293B] hover:bg-[#F8FAFC]"
-                                                                                                    >
-                                                                                                        No
+                                                                                                    <button type="button" onClick={() => setPendingDelete("")} className={btnSecondarySm}>
+                                                                                                        Cancel
                                                                                                     </button>
                                                                                                 </div>
                                                                                             ) : (
                                                                                                 <button
                                                                                                     type="button"
                                                                                                     onClick={() => requestDeleteResource(person._id, resItem)}
-                                                                                                    className="cursor-pointer rounded p-1 text-[#64748B] hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                                                                                                    className={iconBtnDanger}
                                                                                                     title="Delete resource"
                                                                                                     aria-label={`Delete ${resItem.name || `resource ${index + 1}`}`}
                                                                                                 >
-                                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                                                                                                 </button>
                                                                                             )}
                                                                                         </div>
                                                                                     </div>
 
-                                                                                    <div className="space-y-3 p-3.5">
-                                                                                        {/* Name | Description (1 × 2 grid) */}
-                                                                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-start">
-                                                                                            <div className="flex flex-col gap-1">
-                                                                                                <label htmlFor={`res-name-${person._id}-${resItem.id}`} className="text-[10px] font-extrabold uppercase text-[#64748B]">
-                                                                                                    Resource name <span className="text-red-600">*</span>
-                                                                                                </label>
+                                                                                    <div className="space-y-4 p-4">
+                                                                                        {/* Name | Description */}
+                                                                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start">
+                                                                                            <div className="flex flex-col gap-1.5">
+                                                                                                <FieldLabel htmlFor={`res-name-${person._id}-${resItem.id}`} required>Resource name</FieldLabel>
                                                                                                 <input
                                                                                                     id={`res-name-${person._id}-${resItem.id}`}
                                                                                                     type="text"
@@ -2012,23 +2337,23 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                                                                         const trimmed = e.target.value.trim();
                                                                                                         if (trimmed !== resItem.name) updateResourceField(person._id, resItem.id, "name", trimmed);
                                                                                                     }}
-                                                                                                    className={`h-9.5 w-full rounded-lg border bg-white p-2 text-[12px] font-semibold text-[#1E293B] outline-none focus:border-[#4A76C0] focus:ring-2 focus:ring-blue-100 ${nameMissing ? "border-red-400" : "border-[#E2E8F0]"}`}
+                                                                                                    className={`${inputClass(nameMissing)} font-medium`}
                                                                                                 />
-                                                                                                {nameMissing && <p className="text-[11px] text-red-600">A name is required.</p>}
+                                                                                                <FieldError>{nameMissing ? "A name is required." : ""}</FieldError>
                                                                                             </div>
                                                                                             <NoteField
                                                                                                 label="Description"
                                                                                                 value={resItem.note}
                                                                                                 onSave={(note) => updateResourceField(person._id, resItem.id, "note", note)}
-                                                                                                placeholder="Enter a description for this resource..."
+                                                                                                placeholder="Enter a description for this resource…"
                                                                                                 rows={2}
                                                                                             />
                                                                                         </div>
 
                                                                                         {/* Attachments */}
                                                                                         <div className="flex flex-col gap-2">
-                                                                                            <span className="text-[10px] font-extrabold uppercase text-[#64748B] flex items-center gap-1">
-                                                                                                <Paperclip className="h-3.5 w-3.5 text-[#4A76C0]" /> Attachments
+                                                                                            <span className={HEADING}>
+                                                                                                <Paperclip className="h-4 w-4 text-amber-600" aria-hidden="true" /> Attachments
                                                                                             </span>
 
                                                                                             {!isFull ? (
@@ -2036,16 +2361,16 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                                                                     onDragOver={(e) => { e.preventDefault(); setDragTarget(fileKey); }}
                                                                                                     onDragLeave={() => setDragTarget(prev => (prev === fileKey ? "" : prev))}
                                                                                                     onDrop={(e) => handleResourceFileDrop(person._id, resItem.id, e)}
-                                                                                                    className={`flex cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed px-3 py-4 text-center transition-colors focus-within:ring-2 focus-within:ring-blue-500 ${isDragging
-                                                                                                        ? "border-[#4A76C0] bg-[#4A76C0]/10"
-                                                                                                        : "border-[#CBD5E1] bg-[#F8FAFC] hover:border-[#4A76C0] hover:bg-[#4A76C0]/5"}`}
+                                                                                                    className={`group flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed px-3 py-5 text-center transition-colors ${FOCUS_WITHIN} ${isDragging
+                                                                                                        ? "border-amber-500 bg-amber-50"
+                                                                                                        : "border-slate-300 bg-white hover:border-amber-500 hover:bg-amber-50/50"}`}
                                                                                                 >
-                                                                                                    <Upload className="h-4 w-4 text-[#4A76C0]" />
-                                                                                                    <span className="text-[11px] font-bold text-[#1E293B]">
-                                                                                                        {isDragging ? "Drop to upload" : <>Drag files here or <span className="text-[#4A76C0] underline">browse</span></>}
+                                                                                                    <Upload className={`h-5 w-5 transition-colors ${isDragging ? "text-amber-600" : "text-slate-400 group-hover:text-amber-600"}`} aria-hidden="true" />
+                                                                                                    <span className="text-sm font-medium text-slate-900">
+                                                                                                        {isDragging ? "Drop to upload" : <>Drag files here or <span className="text-amber-700 underline underline-offset-2">browse</span></>}
                                                                                                     </span>
-                                                                                                    <span className="text-[10px] text-[#64748B]">
-                                                                                                        {MAX_FILES_PER_RESOURCE - fileCount} of {MAX_FILES_PER_RESOURCE} slots free · up to 50 MB each
+                                                                                                    <span className="text-xs text-slate-500">
+                                                                                                        {MAX_FILES_PER_RESOURCE - fileCount} of {MAX_FILES_PER_RESOURCE} slots free, up to 50 MB each
                                                                                                     </span>
                                                                                                     <input
                                                                                                         type="file"
@@ -2055,19 +2380,15 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                                                                     />
                                                                                                 </label>
                                                                                             ) : (
-                                                                                                <p className="rounded-lg bg-slate-100 px-3 py-2 text-center text-[11px] font-medium text-slate-600">
+                                                                                                <Banner tone="info" icon={Info}>
                                                                                                     Attachment limit reached ({MAX_FILES_PER_RESOURCE} of {MAX_FILES_PER_RESOURCE}). Remove a file to add another.
-                                                                                                </p>
+                                                                                                </Banner>
                                                                                             )}
 
-                                                                                            {resourceFileErrors[fileKey] && (
-                                                                                                <p className="flex items-start gap-1 text-xs text-red-600" role="alert">
-                                                                                                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /> {resourceFileErrors[fileKey]}
-                                                                                                </p>
-                                                                                            )}
+                                                                                            <FieldError>{resourceFileErrors[fileKey]}</FieldError>
 
                                                                                             {fileCount > 0 && (
-                                                                                                <div className="space-y-1.5">
+                                                                                                <div className="space-y-2">
                                                                                                     {resItem.files.map((fileObj) => (
                                                                                                         <FileRow
                                                                                                             key={fileObj.id}
@@ -2090,111 +2411,62 @@ export default function JobAssignModal({ isOpen, onClose, selectedCompany }) {
                                                                 </div>
                                                             </div>
 
-                                                            {/* Conflict Check Status */}
-                                                            <div>
-                                                                {conflictBooking ? (
-                                                                    <div className="flex items-center gap-1.5 text-[#422026] bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-lg text-[11px] font-bold">
-                                                                        <ShieldAlert className="h-4 w-4 text-[#E87A24] shrink-0" />
-                                                                        <span>Conflict Detected: {person.fullname} is already booked on {conflictBooking.nepaliDate} from {conflictBooking.startTime} to {conflictBooking.endTime} ({conflictBooking.taskName})!</span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-[11px] font-bold">
-                                                                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                                                                        <span>No Scheduling Conflicts on {taskData.nepaliDate?.label}</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
                                                         </div>
                                                     )}
-
                                                 </div>
                                             );
                                         })}
                                     </div>
                                 ) : (
-                                    <div className="flex items-center justify-center gap-2 rounded-xl border border-[#E2E8F0] bg-white p-6 text-center text-sm text-slate-600">
-                                        <Info className="h-4 w-4 shrink-0 text-blue-600" />
-                                        <span>Please select the <strong>Project Leader</strong> or at least one <strong>Team Member</strong> above to unlock individual task allocations.</span>
-                                    </div>
+                                    <EmptyState icon={Info} title="No one selected yet">
+                                        Select the <strong className="font-semibold text-slate-900">Project Leader</strong> or at least one <strong className="font-semibold text-slate-900">Team Member</strong> above to unlock individual task allocations.
+                                    </EmptyState>
                                 )}
+                            </section>
 
-                            </div>
-                        )}
+                        </div>
+                    )}
 
-                        {activeTab === "iso" && (
-                            <div className="h-full max-w-3xl overflow-y-auto bg-[#F8FAFC] p-4 sm:p-8">
-                                <div className="space-y-6 bg-[#FFFFFF] p-6 rounded-2xl border border-[#E2E8F0] shadow-sm">
-                                    <div className="border-b border-[#E2E8F0] pb-3">
-                                        <h3 className="text-base font-extrabold text-[#1E293B] tracking-tight">ISO 21001 Quality Architecture Parameters</h3>
-                                        <p className="text-[12px] text-[#64748B] mt-1">Configure EOMS requirements for educational organization management systems.</p>
-                                    </div>
-
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[11px] font-extrabold text-[#64748B] uppercase tracking-wider">Educational Task Identity</label>
-                                        <input
-                                            type="text"
-                                            value={isoTask.taskName}
-                                            onChange={(e) => setIsoTask({ ...isoTask, taskName: e.target.value })}
-                                            placeholder="e.g. Executive Curriculum Audit"
-                                            className="w-full rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] px-4 py-2.5 text-[12px] text-[#1E293B] outline-none focus:border-[#4A76C0]"
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[11px] font-extrabold text-[#64748B] uppercase tracking-wider">Educational Scope</label>
-                                        <input
-                                            type="text"
-                                            value={isoTask.educationalScope}
-                                            onChange={(e) => setIsoTask({ ...isoTask, educationalScope: e.target.value })}
-                                            placeholder="Specify departments or target learner groups..."
-                                            className="w-full rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] px-4 py-2.5 text-[12px] text-[#1E293B] outline-none focus:border-[#4A76C0]"
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[11px] font-extrabold text-[#64748B] uppercase tracking-wider">Learner Requirements & Adjustments</label>
-                                        <textarea
-                                            rows={4}
-                                            value={isoTask.learnerRequirements}
-                                            onChange={(e) => setIsoTask({ ...isoTask, learnerRequirements: e.target.value })}
-                                            placeholder="Detail accessibility needs and compliance parameters..."
-                                            className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-[#FFFFFF] px-4 py-3 text-[12px] text-[#1E293B] outline-none focus:border-[#4A76C0] leading-relaxed"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </main>
-                </div>
+                    {activeTab === "record" && (
+                        <div className="flex flex-1 flex-col gap-8 p-4 sm:p-6">
+                            <section>
+                                <SectionHeader
+                                    step={1}
+                                    title="ISO 21001 configuration"
+                                    description="EOMS requirements for this client's educational organization."
+                                />
+                                <EmptyState icon={FileText} title="Nothing configured yet">
+                                    ISO 21001 configuration for this record will appear here.
+                                </EmptyState>
+                            </section>
+                        </div>
+                    )}
+                </main>
 
                 {/* ── Footer ── */}
-                <div className="flex flex-col gap-3 border-t border-[#E2E8F0] bg-[#FFFFFF] px-4 py-4 text-[#1E293B] sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#4A76C0] text-[12px] font-extrabold text-white shadow-sm">
-                            {selectedPersonnel.length}
+                <footer className="border-t border-slate-200 bg-white px-4 py-3.5 sm:px-6">
+                    {formError && (
+                        <div className="mb-3">
+                            <Banner tone="error" icon={AlertTriangle} role="alert">{formError}</Banner>
                         </div>
-                        <span className="text-[12px] font-bold text-[#64748B]">
-                            Personnel with individual task allocations configured.
-                        </span>
+                    )}
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="flex items-center gap-2 text-sm text-slate-600">
+                            <span className="flex h-6 min-w-6 items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-1.5 text-xs font-semibold text-amber-800">
+                                {selectedPersonnel.length}
+                            </span>
+                            {selectedPersonnel.length === 1 ? "person" : "people"} with task allocations configured.
+                        </p>
+                        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                            <button type="button" onClick={onClose} className={btnSecondary}>
+                                Cancel
+                            </button>
+                            <button type="button" onClick={handleTaskSubmit} className={btnPrimary}>
+                                <Save className="h-4 w-4" aria-hidden="true" /> Submit task allocations
+                            </button>
+                        </div>
                     </div>
-                    <div className="flex flex-wrap items-center justify-end gap-3">
-                        {formError && <p className="self-center text-xs font-medium text-red-600" role="alert">{formError}</p>}
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="h-10 cursor-pointer rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-5 text-[12px] font-bold text-[#64748B] transition-colors hover:bg-[#E2E8F0] hover:text-[#1E293B]"
-                        >
-                            <span className="inline-flex items-center gap-1.5"><X className="h-4 w-4" /> Cancel</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleTaskSubmit}
-                            className="h-10 cursor-pointer rounded-lg bg-[#4A76C0] px-6 text-[12px] font-extrabold text-white shadow-md shadow-blue-100 transition-all hover:bg-[#3b5f9e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                        >
-                            <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> Confirm & Submit Task Allocations</span>
-                        </button>
-                    </div>
-                </div>
+                </footer>
             </div>
         </div>
     );

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-    Menu, Bell, User, Settings, LogOut,
-    ChevronDown, ShieldCheck, ChevronRight, ChevronLeft, Loader2
+    Menu, Bell, User, Settings, LogOut, LoaderCircle,
+    ChevronDown, ShieldCheck, ChevronRight, ChevronLeft
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionAuth } from "./utils";
@@ -233,12 +233,12 @@ const Navbar = ({ isOpen = false, toggleSidebar, isOnline = false }) => {
                     >
                         {isAuthLoading ? (
                             <>
-                                <Skeleton className="w-9 h-9 rounded-xl" index={0} />
+                                <Skeleton className="w-9 h-9 rounded-full" />
                                 <div className="hidden md:flex flex-col gap-1.5 text-left">
-                                    <Skeleton className="w-20 h-3 rounded-full" index={1} />
-                                    <Skeleton className="w-14 h-2 rounded-full opacity-60" index={2} />
+                                    <Skeleton className="w-20 h-3 rounded-full" />
+                                    <Skeleton className="w-14 h-2 rounded-full opacity-60" />
                                 </div>
-                                <Skeleton className="hidden md:block w-3.5 h-3.5 rounded-full" index={3} />
+                                <Skeleton className="hidden md:block w-3.5 h-3.5 rounded-full" />
                             </>
                         ) : (
                             <>
@@ -297,7 +297,7 @@ const Navbar = ({ isOpen = false, toggleSidebar, isOnline = false }) => {
                                 <div className="my-1.5 border-t border-slate-100/80"></div>
 
                                 <DropdownItem
-                                    icon={logout.isPending ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />}
+                                    icon={logout.isPending ? <LoaderCircle className="h-4 w-4 animate-spin text-rose-500" strokeWidth={2.5} /> : <LogOut size={16} />}
                                     label="Sign Out"
                                     variant="danger"
                                     onClick={handleLogout}

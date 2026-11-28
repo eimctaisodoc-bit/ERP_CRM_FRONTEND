@@ -1,7 +1,11 @@
 import axios from "axios";
 
+const baseURL = import.meta.env.DEV
+  ? import.meta.env.VITE_API_BACKEND_URL_Dev || "http://localhost:5000"
+  : import.meta.env.VITE_API_BACKEND_URL_PROD || "";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BACKEND_URL_Dev || import.meta.env.VITE_API_BACKEND_URL_PROD,
+  baseURL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -87,16 +91,29 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+
+
 api.interceptors.response.use(
   (response) => response,
+
   (error) => {
     const url = error.config?.url || "";
     const status = error.response?.status;
-    const message = error.response?.data?.message || "";
-    const code = error.response?.data?.code;
+    const responseData = error.response?.data || {};
+
+    const message =
+      responseData.message ||
+      responseData.error ||
+      "";
+
+    const code = responseData.code;
+    const errorType = responseData.error;
 
     const isLoginRequest = url.includes("/api/auth/login");
 
+    // ==========================================
+    // CUSTOM ERP AUTHENTICATION ERROR ONLY
+    // ==========================================
 
     const isAccountDeleted =
       status === 404 &&
@@ -105,14 +122,44 @@ api.interceptors.response.use(
         message.toLowerCase() === "user not found"
       );
 
+    const isCustomAuthError =
+      !isLoginRequest &&
+      (
+        status === 401 ||
+        isAccountDeleted
+      );
 
-    if (!isLoginRequest && (status === 401 || isAccountDeleted)) {
+    // ==========================================
+    // EXCLUDE GOOGLE DRIVE AUTHENTICATION
+    // ==========================================
+
+    const isGoogleAuthError =
+      errorType === "GOOGLE_AUTH_EXPIRED" ||
+      code === "invalid_grant" ||
+      errorType === "invalid_grant";
+
+    if (isGoogleAuthError) {
+      return Promise.reject(error);
+    }
+
+    // ==========================================
+    // ERP AUTO LOGOUT
+    // ==========================================
+
+    if (isCustomAuthError) {
+      console.error("ERP AUTHENTICATION ERROR:", {
+        url,
+        status,
+        message,
+        code,
+        response: responseData,
+      });
 
       sessionStorage.setItem(
         "IsAutoLogOut",
         isAccountDeleted
-          ? "Your account has been deleted Administrator. Please contact the administrator for further assistance."
-          : message || "Token expired. Please log in again."
+          ? "Your account has been deleted. Please contact the administrator."
+          : message || "Authentication failed. Please log in again."
       );
 
       sessionStorage.removeItem("Token");
@@ -123,10 +170,10 @@ api.interceptors.response.use(
       window.location.replace("/");
     }
 
-    console.log("API Error:", url, status, message);
-
     return Promise.reject(error);
   }
 );
+
+
 
 export default api;

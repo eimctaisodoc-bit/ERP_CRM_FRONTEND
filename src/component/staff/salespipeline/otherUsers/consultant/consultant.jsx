@@ -1,6 +1,6 @@
 import { Schedule } from "../../../../schedule/schedule";
 import React, { useEffect, useState } from "react";
-import { MainLoader } from "../../../../loader";
+import { ScheduleSkeleton } from "../../../../skeleton";
 import { useGet } from "../../../../hooks/useGet";
 import { useSessionAuth } from "../../../../utils";
 
@@ -43,15 +43,7 @@ export const Consultant_sales = () => {
         isCompaniesLoading ||
         GETEACHRECRUITMENTDETAILS_.isLoading
     ) {
-        return (
-            <div
-                className="flex min-h-screen items-center justify-center"
-                aria-busy="true"
-                aria-label="Loading schedule"
-            >
-                <MainLoader />
-            </div>
-        );
+        return <ScheduleSkeleton />;
     }
 
     if (GETEACHRECRUITMENTDETAILS_.isError) {

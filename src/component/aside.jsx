@@ -1,11 +1,12 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, LoaderCircle, LogOut } from "lucide-react";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import logo from "../assest/eimcta.png";
 import { getMenusForUser, getUserRole } from "../data/data.jsx";
 import { useAuth } from "./hooks/useAuth.js";
+import { Skeleton } from "./skeleton";
 
 const MOBILE_QUERY = "(max-width: 767px)";
 const DRAWER_WIDTH = 256; // 16rem
@@ -256,7 +257,8 @@ const Asidebar = ({ isOpen, setIsOpen }) => {
         dragMomentum={false}
         onDragEnd={handleDragEnd}
         style={isMobile ? { touchAction: "pan-y" } : undefined}
-        className="fixed inset-0 z-50 flex h-dvh max-w-full flex-col bg-white/95 backdrop-blur-xl border-r border-slate-200/80 shadow-[4px_0_24px_rgba(0,0,0,0.03)] font-['Roboto_Slab',serif] font-bold md:right-auto md:bottom-auto md:max-w-[85vw]"
+        className="fixed inset-0 z-50 flex h-full max-w-full flex-col bg-white/95 backdrop-blur-xl
+         border-r border-slate-200/80 shadow-[4px_0_24px_rgba(0,0,0,0.03)] font-['Roboto_Slab',serif] font-bold md:right-auto md:bottom-auto md:max-w-[85vw]"
       >
         {/* 1. Header (Logo & Toggle Button) */}
         <div className="relative flex h-20 items-center justify-center border-b border-slate-100/80 px-4">
@@ -266,7 +268,7 @@ const Asidebar = ({ isOpen, setIsOpen }) => {
             className="flex h-full items-center justify-center"
           >
             {isLoading ? (
-              <div className="h-10 w-32 animate-pulse rounded-full bg-slate-100" />
+              <Skeleton className="h-10 w-32 rounded-full" />
             ) : (
               <img
                 src={logo}
@@ -312,9 +314,9 @@ const Asidebar = ({ isOpen, setIsOpen }) => {
           {isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 6 }).map((_, id) => (
-                <div key={id} className="flex w-full items-center rounded-xl px-3 py-3 animate-pulse">
-                  <div className="h-5 w-5 rounded-md bg-slate-200 shrink-0" />
-                  {expanded && <div className="ml-4 h-4 bg-slate-200 rounded-full w-32" />}
+                <div key={id} className="flex w-full items-center rounded-xl px-3 py-3">
+                  <Skeleton className="h-5 w-5 shrink-0 rounded-md" />
+                  {expanded && <Skeleton className="ml-4 h-4 w-32 rounded-full" />}
                 </div>
               ))}
             </div>
@@ -355,6 +357,7 @@ const Asidebar = ({ isOpen, setIsOpen }) => {
 
           <LogoutButton
             isOpen={expanded}
+            isPending={logout.isPending}
             handleLogOut={handleLogOut}
             labelVariants={labelVariants}
             tooltipVariants={tooltipVariants}
@@ -371,7 +374,7 @@ const UserBlock = ({ isLoading, expanded, email, jobRole, tooltipVariants }) => 
   const avatarRef = useRef(null);
 
   const avatar = isLoading ? (
-    <div className="h-9 w-9 shrink-0 animate-pulse rounded-xl bg-slate-200" />
+    <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
   ) : (
     <div
       ref={avatarRef}
@@ -401,9 +404,9 @@ const UserBlock = ({ isLoading, expanded, email, jobRole, tooltipVariants }) => 
               className="ml-3 flex min-w-0 flex-col overflow-hidden whitespace-nowrap"
             >
               {isLoading ? (
-                <div className="animate-pulse space-y-2">
-                  <div className="h-3.5 w-32 rounded-full bg-slate-200" />
-                  <div className="h-3 w-20 rounded-full bg-slate-200" />
+                <div className="space-y-2">
+                  <Skeleton className="h-3.5 w-32 rounded-full" />
+                  <Skeleton className="h-3 w-20 rounded-full" />
                 </div>
               ) : (
                 <>
@@ -485,7 +488,7 @@ const NavItem = ({ item, isActive, isOpen, itemVariants, labelVariants, tooltipV
 };
 
 // Sub-component for Logout Button
-const LogoutButton = ({ isOpen, handleLogOut, labelVariants, tooltipVariants }) => {
+const LogoutButton = ({ isOpen, isPending, handleLogOut, labelVariants, tooltipVariants }) => {
   const [isHovered, setIsHovered] = useState(false);
   const anchorRef = useRef(null);
 
@@ -496,14 +499,18 @@ const LogoutButton = ({ isOpen, handleLogOut, labelVariants, tooltipVariants }) 
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
         onClick={handleLogOut}
+        disabled={isPending}
+        aria-busy={isPending}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`group relative flex w-full cursor-pointer items-center justify-center rounded-xl py-2.5 transition-all duration-200
+        className={`group relative flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-2.5 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60
           ${isOpen
             ? "px-3 bg-white border border-slate-200/80 hover:border-red-200 hover:bg-red-50/80 text-slate-600 hover:text-red-600 shadow-sm"
             : "bg-transparent text-slate-400 hover:text-red-500 hover:bg-red-50/50"}`}
       >
-        <LogOut size={18} className="shrink-0 transition-transform group-hover:-translate-x-0.5" />
+        {isPending
+          ? <LoaderCircle size={18} className="shrink-0 animate-spin text-red-500" strokeWidth={2.5} />
+          : <LogOut size={18} className="shrink-0 transition-transform group-hover:-translate-x-0.5" />}
 
         <motion.span
           variants={labelVariants}

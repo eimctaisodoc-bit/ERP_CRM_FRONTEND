@@ -19,7 +19,7 @@ import {
   getUserCredit,
   getStaffCredit,
   getLocalStorageFiles,
-  getAllRecruitment,
+  // getAllRecruitment,
   getAllBranch,
   getStaff,
   getStaffById,
@@ -29,18 +29,41 @@ import {
   GETCOMPANYOPTIONS,
   scheduleUsers,
   GetAllOrganizationDetails,
+  getCROSales,
   GetMeDetails,
+  GetMeDetails_Admin,
+  GetMeDetails_staff,
+  getInstallmentsTerms,
+  // DMS
+  getDMSFiles,
+  // clients
+  getAllClients,
+  // note
+  S_GetNote,
+  A_GetNote,
+  C_GetNote,
+  ST_GetNote,
+  // all emp for super
+  S_GetAllEmployees,
+  ByHR_Recruitment_GetAllEmployees
+
 } from "../../api/role.api";
 import { userById } from "../../api/auth.api";
 
 export const useGet = ({
   loadCompanyOptions = false,
   currentUser,
+  tag,
   isAuthLoading = true,
+  locationDetails,
   recruitmentDetailsId,
   staffRecruitmentDetailsId,
+  // note
+
 } = {}) => {
   const queryClient = useQueryClient();
+
+
 
   const GetMeDetails_ = useMutation({
     mutationFn: GetMeDetails,
@@ -53,6 +76,58 @@ export const useGet = ({
     },
   });
 
+
+  const GetMeDetails_Admin_ = useMutation({
+    mutationFn: GetMeDetails_Admin,
+
+    onSuccess: (data, params) => {
+      queryClient.setQueryData(["notes", params?.MainID], data);
+    },
+    onError: (err) => {
+      // console.log("notes error", err);
+    },
+  });
+
+  const GetMeDetails_staff_ = useMutation({
+    mutationFn: GetMeDetails_staff,
+
+    onSuccess: (data, params) => {
+      queryClient.setQueryData(["meDetails_staff", params?.MainID], data);
+    },
+    onError: (err) => {
+      // console.log("notes error", err);
+    },
+  });
+  const S_GetNote_ = useMutation({
+    mutationFn: S_GetNote,
+  });
+
+  const A_GetNote_ = useMutation({ mutationFn: A_GetNote });
+
+  const C_GetNote_ = useMutation({ mutationFn: C_GetNote });
+
+
+  const ST_GetNote_ = useMutation({ mutationFn: ST_GetNote ,
+    onSuccess: (data, params) => {
+      console.log("ST_GetNote_ data", data);
+    }
+  });
+
+
+  const getDMSFiles_ = useQuery({
+    queryKey: ["getDMSFiles"],
+    queryFn: getDMSFiles,
+    retry: false,
+    enabled: !isAuthLoading && currentUser?.role === "super_admin"  && tag === "super_dms",
+    refetchOnWindowFocus: false
+  });
+
+  const S_GetAllEmployees_ = useQuery({
+    queryKey: ["getallEmployees"],
+    queryFn: S_GetAllEmployees,
+    retry: false,
+    enabled: !isAuthLoading && currentUser?.role === "super_admin",
+  });
   const getCompanyOptions_ = useQuery({
     queryKey: ["companyOptions"],
     queryFn: getcompanyOptions,
@@ -205,7 +280,7 @@ export const useGet = ({
     },
   });
   const getStaffCredit_ = useMutation({
-    mutationFn: getStaffCredit,
+    mutationFn: (params) => getStaffCredit(params),
     onSuccess: (data, params) => {
       queryClient.setQueryData(["getCredit"], data);
     },
@@ -222,15 +297,15 @@ export const useGet = ({
       // console.log("notes error", err);
     },
   });
-  const getAllRecruitment_ = useMutation({
-    mutationFn: getAllRecruitment,
-    onSuccess: (data, params) => {
-      queryClient.setQueryData(["getAllRecruitment"], data);
-    },
-    onError: (err) => {
-      // console.log("notes error", err);
-    },
-  });
+  // const getAllRecruitment_ = useMutation({
+  //   mutationFn: getAllRecruitment,
+  //   onSuccess: (data, params) => {
+  //     queryClient.setQueryData(["getAllRecruitment"], data);
+  //   },
+  //   onError: (err) => {
+  //     // console.log("notes error", err);
+  //   },
+  // });
   const getAllBranch_ = useMutation({
     mutationFn: getAllBranch,
     onSuccess: (data, params) => {
@@ -241,7 +316,7 @@ export const useGet = ({
     },
   });
   const getStaff_ = useMutation({
-    mutationFn: getStaff,
+    mutationFn: (params) => getStaff(params),
     onSuccess: (data, params) => {
       queryClient.setQueryData(["getStaff"], data);
     },
@@ -265,11 +340,61 @@ export const useGet = ({
     retry: false,
   });
 
-  const GetAllOrganizationDetails_ = useQuery({
-    queryKey: ["GetAllOrganizationDetails"],
-    queryFn: GetAllOrganizationDetails,
-    enabled: !isAuthLoading && currentUser?.role === "staff",
+  const provinceName = String(locationDetails?.provinceName || "").trim();
+  const districtName = String(locationDetails?.districtName || "").trim();
+  const localLevelName = String(locationDetails?.localLevelName || "").trim();
+  const getCROSales_ = useQuery({
+    queryKey: [
+      "getCROSales",
+      provinceName,
+      districtName,
+      localLevelName,
+    ],
+    queryFn: () =>
+      getCROSales({ provinceName, districtName, localLevelName }),
+    enabled:
+      !isAuthLoading &&
+      currentUser?.role === "staff" &&
+      Boolean(provinceName && districtName && localLevelName),
     retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const GetAllOrganizationDetails_ = useMutation({
+    mutationFn: (params) => GetAllOrganizationDetails(params),
+    retry: false,
+  });
+
+  const getInstallmentsTerms_ = useMutation({
+    mutationFn: getInstallmentsTerms,
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(
+        ["getInstallmentsTerms", variables?.params?.MainID],
+        data
+      );
+    },
+  });
+
+
+  const getAllClients_ = useMutation({
+    mutationFn: (params) => {
+      return queryClient.fetchQuery({
+        queryKey: ["getAllClients", params?.MainID],
+        queryFn: () => getAllClients(params),
+        staleTime: 0,
+      });
+    }
+  });
+
+
+  const ByHR_Recruitment_GetAllEmployees_ = useMutation({
+    mutationFn: (params) => ByHR_Recruitment_GetAllEmployees(params),
+    onSuccess: (data, params) => {
+      queryClient.setQueryData(["ByHR_Recruitment_GetAllEmployees"], data);
+    },
+    onError: (err) => {
+      // console.log("notes error", err);
+    },
   });
 
   return {
@@ -286,7 +411,7 @@ export const useGet = ({
     getUserCredit_,
     getStaffCredit_,
     getLocalStorageFiles_,
-    getAllRecruitment_,
+    // getAllRecruitment_,
     getAllBranch_,
     getStaff_,
     getStaffById_,
@@ -294,7 +419,24 @@ export const useGet = ({
     GETEACHRECRUITMENTDETAILS_,
     getCompanyOptions_,
     GETCOMPANYOPTIONS_,
+    getCROSales_,
     ScheduleUsers_,
     GetMeDetails_,
+    GetMeDetails_Admin_,
+    GetMeDetails_staff_,
+    getInstallmentsTerms_,
+    // DMS
+    getDMSFiles_,
+    // clients
+    getAllClients_,
+    // note
+    S_GetNote_,
+    A_GetNote_,
+  C_GetNote_,
+  ST_GetNote_,
+    // FOR SUPER
+    S_GetAllEmployees_,
+    ByHR_Recruitment_GetAllEmployees_
+
   };
 };

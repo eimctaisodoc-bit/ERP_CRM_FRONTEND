@@ -13,8 +13,8 @@ import { useOnlineUsers } from './component/hooks/useOnlineuser';
 // import { useSocketListeners } from './component/hooks/usesocketListenerhook';
 import Admin_Report from './component/admin/report/report';
 // import { SalesPipeline } from './component/staff/salespipeline/sales';
-import { RecruitmentTable } from './component/admin/admin_hr/admin_hR_/recruTable';
-import Admin_Hr_Page from './component/admin/hrPage';
+// import { RecruitmentTable } from './component/admin/admin_hr/admin_hR_/recruTable';
+// import Admin_Hr_Page from './component/admin/hrPage';
 import Staff_hr_pages from './component/staff/staff_hr_pages';
 import { Admin_task_page } from './component/admin/task/admin_task_page';
 
@@ -28,19 +28,19 @@ import { Noti } from './component/staff/notification/notification';
 
 import { S_A_Setting } from './component/super/setting/setting';
 import { useAuth } from './component/hooks/useAuth';
-import { MainLoader } from './component/loader';
+import SkeletonPage from './component/skeleton';
 import { ApiActivityIndicator } from './component/apiActivityIndicator';
 import Chat from './component/admin/inbox/chat';
-import { Su_Folder_ } from './component/super/dms/folder_';
+// import { Su_Folder_ } from './component/super/dms/folder_';
 // import { A_Folder_ } from './component/admin/DMS/folder';
 import { C_Folder_ } from './component/client/dms/folder';
 import { Client_sales } from './component/client/sales/Salesindex';
 import DPR_form from './component/staff/salespipeline/otherUsers/dprForms';
 import ResetPassword from './component/pwReset/ResetPW';
-import GoogleDriveFiles from './component/super/dms/googlesfile';
+import  S_Documents  from './component/super/dms/googlesfile';
 // import { Sales } from './component/super/sales/sales';
 import { Finance } from './component/super/finance/finance';
-import { HR } from './component/super/hr/hr';
+
 import { A_folder } from './component/admin/DMS/folder';
 import { TaskSchedule } from './component/admin/scheduling/cro/taskSchedule';
 import FolderView from './component/staff/dms/folder';
@@ -51,6 +51,13 @@ import LeadsPage from './component/staff/salespipeline/trial/lead-workspace/Lead
 import ContragePage from './component/staff/salespipeline/ContractPage/contractPage';
 import Super_Contract from './component/super/sales/contract/contract';
 import NotesScheduler from './component/staff/note/note';
+import { HrPage } from './component/admin/admin_hr/hrpage';
+import { SU_HrPage } from './component/super/hr/hrpage';
+// import { TestDrive } from './component/super/dms/test';
+import S_NotesScheduler from './component/super/note/cNote';
+import { HR_RecruitmentPage } from './component/staff/forHrRecruitment/hrRec';
+import A_NotesScheduler from './component/admin/note/note';
+import C_NotesScheduler from './component/client/note/note';
 // OLD (replaced by LeadsPage): import LeadWorkspace from './component/staff/salespipeline/trial/lead-workspace/LeadWorkspace';
 // import LeadsPage from './component/staff/salespipeline/trial/lead-workspace/LeadsPage';
 
@@ -65,8 +72,8 @@ function App() {
       <I_Icon />
       <ApiActivityIndicator />
       {
-        isLoading && <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-75 z-50">
-          <MainLoader />
+        isLoading && <div className="fixed inset-0 z-50 bg-white">
+          <SkeletonPage />
         </div>
       }
       <Routes>
@@ -79,10 +86,11 @@ function App() {
               {/* <Route path="sales" element={<Sales />} /> */}
               <Route path="lead" element={<>this is lead</>} />
               <Route path="contract" element={<Super_Contract />} />
+              <Route path='notes' element={<S_NotesScheduler />} />
 
               <Route path="finance" element={<Finance />} />
               <Route path="branch" element={<BranchManagement />} />
-              <Route path="hr" element={<HR />} />
+              <Route path="hr" element={<SU_HrPage />} />
 
 
 
@@ -94,7 +102,9 @@ function App() {
               {/* <Route path="users" element={<Data_Table />} />  */}
 
               {/* <Route path="dms" element={<Su_Folder_ />} /> */}
-              <Route path="dms" element={<GoogleDriveFiles />} />
+              {/* <Route path="dms" element={<GoogleDriveFiles />} /> */}
+              <Route path="dms" element={<S_Documents />} />
+
               <Route path="settings" element={<S_A_Setting />} />
             </Route>
           </Route>
@@ -103,7 +113,9 @@ function App() {
             <Route path="/admin" element={<Dashboard />}>
               <Route index element="" />
               <Route path="report" element={<Admin_Report />} />
-              <Route path="hr" element={<Admin_Hr_Page />} />
+              {/* <Route path="hr" element={<Admin_Hr_Page />} /> */}
+              {/* <Route path="hr" element={<HrPage />} /> */}
+              <Route path="note" element={<A_NotesScheduler />} />
               <Route path="tasks" element={<Admin_task_page />} />
               <Route path="finance" element={<Finance />} />
               <Route path="settings" element={<A_Setting />} />
@@ -112,6 +124,8 @@ function App() {
               <Route path="sales" element={<TaskSchedule />} />
               <Route path="lead" element={<LeadMgmt />} />
               <Route path="dms" element={<A_folder />} />
+
+
               {/* <Route path="settings" element="hi" /> */}
               {/* <Route path="users" element={<Data_Table />} /> */}
             </Route>
@@ -135,6 +149,10 @@ function App() {
               {/* <Route path="users" element={<Data_Table />} /> */}
               <Route path="dms" element={<FolderView />} />
               <Route path="settings" element={<S_Setting />} />
+              {/* for jobposition hr */}
+              <Route path="hr/recruitment" element={<HR_RecruitmentPage />} />
+
+
             </Route>
           </Route>
           <Route element={<ProtectedRoute roles={["client"]} />}>
@@ -143,6 +161,7 @@ function App() {
               {/* <Route path="hr" element={<Client_Hr_Page />} /> */}
               {/* <Route path="users" element={<Data_Table />} /> */}
               <Route path="sales" element={<Client_sales />} />
+              <Route path="note" element={<C_NotesScheduler />} />
               {/*  */}
               <Route path="dms" element={<C_Folder_ />} />
               <Route path="settings" element={<S_Setting />} />

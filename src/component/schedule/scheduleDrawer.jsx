@@ -117,16 +117,16 @@ export default function ScheduleDrawer({ isOpen, onClose, fromDate, toDate, acti
                                 aria-label="Loading schedule details"
                             >
                                 <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-5">
-                                    <Skeleton className="mb-3 h-4 w-32 rounded-md" index={0} />
-                                    <Skeleton className="h-4 w-48 max-w-full rounded-md" index={1} />
+                                    <Skeleton className="mb-3 h-4 w-32 rounded-md" />
+                                    <Skeleton className="h-4 w-48 max-w-full rounded-md" />
                                 </div>
                                 <section className="space-y-3">
-                                    <Skeleton className="mb-4 h-5 w-56 max-w-full rounded-md" index={2} />
+                                    <Skeleton className="mb-4 h-5 w-56 max-w-full rounded-md" />
                                     {[3, 4].map((index) => (
                                         <div key={index} className="space-y-3 rounded-xl border border-slate-200 p-4">
-                                            <Skeleton className="h-4 w-2/3 rounded-md" index={index} />
-                                            <Skeleton className="h-3 w-1/2 rounded-md" index={index + 2} />
-                                            <Skeleton className="h-3 w-3/4 rounded-md" index={index + 4} />
+                                            <Skeleton className="h-4 w-2/3 rounded-md" />
+                                            <Skeleton className="h-3 w-1/2 rounded-md" />
+                                            <Skeleton className="h-3 w-3/4 rounded-md" />
                                         </div>
                                     ))}
                                 </section>

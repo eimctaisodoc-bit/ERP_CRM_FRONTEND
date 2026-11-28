@@ -1,7 +1,8 @@
 // src/component/hotToaster.jsx
 import toast from "react-hot-toast";
 import React, { useEffect, useRef, useState } from "react";
-import { CheckCircle2, AlertCircle, Loader2, X } from "lucide-react";
+import { CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Skeleton } from "./skeleton";
 
 const base = {
   minWidth: "280px",
@@ -56,13 +57,28 @@ export const SuccessNotify = (message = "Success!", options = {}) =>
 
 export const waitingNotify = (message = "Processing...", options = {}) => {
   const id = options.id ?? `waiting-${message}`;
-  toast.loading(message, {
-    id,
-    position: POSITION,
-    ariaProps: { role: "status", "aria-live": "polite" },
-    ...build("warning"),
-    ...options,
-  });
+  toast.custom(
+    (t) => (
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label={message}
+        className={`flex min-w-[280px] items-center gap-3 rounded-xl border px-4 py-3 shadow-lg transition-all ${
+          t.visible ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+        }`}
+        style={{ ...base, ...themes.warning }}
+      >
+       {message}
+      </div>
+    ),
+    {
+      id,
+      duration: 5000,
+      position: POSITION,
+      ariaProps: { role: "status", "aria-live": "polite" },
+      ...options,
+    },
+  );
   return id;
 };
 

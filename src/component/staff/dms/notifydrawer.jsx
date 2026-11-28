@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { File, FileArchive, FileAudio, FileCode, FileImage, FileSpreadsheet, FileText, FileVideo, Check } from 'lucide-react';
+import { File, FileArchive, FileAudio, FileCode, FileImage, FileSpreadsheet, FileText, FileVideo, Check, LoaderCircle } from 'lucide-react';
+import { Skeleton } from '../../skeleton';
 
 /* ------------------------------------------------------------------ */
 /* Motion presets                                                      */
@@ -141,15 +142,6 @@ const MotionButton = ({ className = '', disabled, children, ...props }) => (
   </motion.button>
 );
 
-const Skeleton = ({ className = '' }) => (
-  <motion.div
-    aria-hidden="true"
-    className={`rounded-md bg-slate-200 ${className}`}
-    animate={{ opacity: [0.45, 0.9, 0.45] }}
-    transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-  />
-);
-
 const ComposeSkeleton = () => (
   <div className="space-y-5 p-5" aria-hidden="true">
     <div className="space-y-2">
@@ -207,15 +199,6 @@ const ProgressBar = ({ value, complete, label }) => (
       transition={{ duration: 0.25, ease: 'easeOut' }}
     />
   </div>
-);
-
-const Spinner = ({ className = 'h-4 w-4' }) => (
-  <motion.span
-    aria-hidden="true"
-    className={`inline-block rounded-full border-2 border-white/40 border-t-white ${className}`}
-    animate={{ rotate: 360 }}
-    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-  />
 );
 
 const FormError = ({ children }) => (
@@ -774,7 +757,8 @@ export default function NotifyDrawer({ isOpen, onClose }) {
                       disabled={isSending}
                       className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold text-white ${GRADIENT}`}
                     >
-                      {isSending ? (<><Spinner /> Sending…</>) : 'Send Broadcast Notification'}
+                      {isSending && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+                      Send Broadcast Notification
                     </MotionButton>
                   </motion.div>
                 </motion.div>

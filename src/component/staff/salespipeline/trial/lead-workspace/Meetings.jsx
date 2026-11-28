@@ -25,7 +25,6 @@ import {
   ListOrdered,
   Home,
   AlertTriangle,
-  Loader2,
   Activity,
   Video,
   Clock,
@@ -33,10 +32,12 @@ import {
   Italic,
   Underline,
   Plus,
+  LoaderCircle,
 } from "lucide-react";
 
 // ---- project dependencies ----
 import NepaliDateInput from "../../../../nepalidate/testDate";
+import { Skeleton } from "../../../../skeleton";
 import {
   formatNepaliDate,
   getNepaliDateTimestamp,
@@ -421,11 +422,12 @@ function SubmitBar({
         type="button"
         onClick={onSubmit}
         disabled={isSubmitting}
+        aria-label={label}
         style={fontBold}
         className={`flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-2 rounded-md px-5 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-70 sm:ml-auto sm:flex-none ${BRAND} ${FOCUS}`}
       >
-        {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-        {isSubmitting ? busyLabel : label}
+        {isSubmitting && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+        {label}
       </button>
     </>
   );
@@ -653,15 +655,15 @@ function TimelineSkeleton() {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="ml-1 animate-pulse border-l-2 border-gray-200 pl-5"
+          className="ml-1 border-l-2 border-gray-200 pl-5"
         >
           <div className="rounded-lg border border-slate-200 p-3">
             <div className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-md bg-slate-200" />
-              <div className="h-3 w-40 rounded bg-slate-200" />
+              <Skeleton className="h-9 w-9 rounded-md" />
+              <Skeleton className="h-3 w-40 rounded-full" />
             </div>
-            <div className="mt-3 h-3 w-full rounded bg-slate-100" />
-            <div className="mt-2 h-3 w-2/3 rounded bg-slate-100" />
+            <Skeleton className="mt-3 h-3 w-full rounded-full" />
+            <Skeleton className="mt-2 h-3 w-2/3 rounded-full" />
           </div>
         </div>
       ))}
@@ -2560,7 +2562,7 @@ function ActivityCard({ data, onUpdate, onDelete }) {
               style={fontBold}
               className={`flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md bg-red-600 px-3 text-xs text-white hover:bg-red-700 disabled:cursor-not-allowed sm:flex-none ${FOCUS}`}
             >
-              {isDeleting && <Loader2 size={12} className="animate-spin" />}{" "}
+              {isDeleting && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
               Delete
             </button>
           </div>
@@ -2808,8 +2810,8 @@ function ActivityCard({ data, onUpdate, onDelete }) {
                 style={fontBold}
                 className={`flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-md bg-blue-600 px-4 text-xs text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70 ${FOCUS}`}
               >
-                {isUpdating && <Loader2 size={12} className="animate-spin" />}
-                {isUpdating ? "Saving..." : "Save changes"}
+                {isUpdating && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+                Save changes
               </button>
             </div>
           </div>
@@ -3035,10 +3037,8 @@ function ActivityCard({ data, onUpdate, onDelete }) {
                           style={fontBold}
                           className={`flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md bg-purple-600 px-3 text-xs text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS}`}
                         >
-                          {isSubmittingFeedback && (
-                            <Loader2 size={12} className="animate-spin" />
-                          )}
-                          {isSubmittingFeedback ? "Submitting..." : "Submit"}
+                          {isSubmittingFeedback && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+                          Submit
                         </button>
                       </div>
                     </div>

@@ -13,6 +13,7 @@ import {
   X,
   Zap,
   CalendarDays,
+  LoaderCircle,
 } from "lucide-react";
 
 /* -------------------- FORM FIELDS CONFIG -------------------- */
@@ -513,12 +514,10 @@ const Attend_Mgt_Client_form = ({onClose}) => {
               disabled={isSubmitting}
               className="flex items-center bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-600 text-white px-6 py-3 rounded-xl"
             >
-              {isSubmitting ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-              ) : (
-                <ClipboardList size={20} className="mr-2" />
-              )}
-              {isSubmitting ? 'Processing...' : 'Submit Attendance Log'}
+              {isSubmitting
+                ? <LoaderCircle className="mr-2 h-3 w-3 animate-spin text-white" strokeWidth={2.5} />
+                : <ClipboardList size={20} className="mr-2" />}
+              Submit Attendance Log
             </button>
           </div>
         </form>

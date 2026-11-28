@@ -1,7 +1,7 @@
 import React from "react";
 import { Schedule } from "../../../schedule/schedule";
 import { useEffect, useState } from "react";
-import { MainLoader } from "../../../loader";
+import { ScheduleSkeleton } from "../../../skeleton";
 import { useGet } from "../../../hooks/useGet";
 import { useSessionAuth } from "../../../utils";
 
@@ -34,11 +34,7 @@ export const TaskSchedule = () => {
 
     // console.log("jobRole", jobRole);
     if (isAuthLoading || isLoading || getEachRecruitmentDetails_.isLoading) {
-        return (
-            <div className="flex min-h-screen items-center justify-center" aria-busy="true" aria-label="Loading schedule">
-                <MainLoader />
-            </div>
-        );
+        return <ScheduleSkeleton />;
     }
 
     if (getEachRecruitmentDetails_.isError) {

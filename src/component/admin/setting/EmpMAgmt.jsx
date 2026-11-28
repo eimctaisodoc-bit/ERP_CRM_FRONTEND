@@ -7,6 +7,8 @@ import { UseDelete } from "../../hooks/useDelete";
 import { useEdit } from "../../hooks/useEdit";
 import { SuccessNotify, waitingNotify, ErrorNotify } from "../../hotToaster";
 import { RegisterModal_Staff } from "./Registermodal";
+import { Skeleton } from "../../skeleton";
+import { useAuth } from "../../hooks/useAuth";
 
 
 const FONT = { fontFamily: "'Roboto Slab', serif" };
@@ -121,36 +123,34 @@ const buildPageWindow = (current, total, size = 5) => {
 /* ============================================================
    SKELETONS
    ============================================================ */
-const Bone = ({ className = "" }) => <div className={`animate-pulse bg-[#E2E8F0] rounded-md ${className}`} />;
-
 const StatCardSkeleton = () => (
     <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 flex items-center gap-4">
-        <Bone className="w-11 h-11 rounded-xl" />
+        <Skeleton className="w-11 h-11 rounded-xl" />
         <div className="flex-1 space-y-2">
-            <Bone className="h-3 w-20" />
-            <Bone className="h-6 w-12" />
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-6 w-12" />
         </div>
     </div>
 );
 
 const TableRowSkeleton = () => (
     <tr>
-        <td className="px-5 py-3"><Bone className="w-4 h-4 sm:w-5 sm:h-5 rounded" /></td>
+        <td className="px-5 py-3"><Skeleton className="w-4 h-4 sm:w-5 sm:h-5 rounded" /></td>
         <td className="px-5 py-3">
             <div className="flex items-center gap-3">
-                <Bone className="w-8 h-8 sm:w-10 sm:h-10 rounded-full shrink-0" />
+                <Skeleton className="w-8 h-8 sm:w-10 sm:h-10 rounded-full shrink-0" />
                 <div className="space-y-2">
-                    <Bone className="h-3.5 w-28" />
-                    <Bone className="h-2.5 w-36" />
+                    <Skeleton className="h-3.5 w-28" />
+                    <Skeleton className="h-2.5 w-36" />
                 </div>
             </div>
         </td>
-        <td className="px-5 py-3"><div className="space-y-2"><Bone className="h-3 w-24" /><Bone className="h-2.5 w-20" /></div></td>
-        <td className="px-5 py-3"><div className="space-y-2"><Bone className="h-3 w-24" /><Bone className="h-2.5 w-16" /></div></td>
-        <td className="px-5 py-3"><Bone className="h-5 w-16 rounded-full" /></td>
+        <td className="px-5 py-3"><div className="space-y-2"><Skeleton className="h-3 w-24" /><Skeleton className="h-2.5 w-20" /></div></td>
+        <td className="px-5 py-3"><div className="space-y-2"><Skeleton className="h-3 w-24" /><Skeleton className="h-2.5 w-16" /></div></td>
+        <td className="px-5 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
         <td className="px-5 py-3">
             <div className="flex gap-2">
-                {[0, 1, 2, 3].map((i) => <Bone key={i} className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg" />)}
+                {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg" />)}
             </div>
         </td>
     </tr>
@@ -159,9 +159,24 @@ const TableRowSkeleton = () => (
 /* ============================================================
    SMALL COMPONENTS
    ============================================================ */
-const Avatar = ({ name, large }) => (
-    <div className={`flex items-center justify-center rounded-full font-semibold shrink-0 ${large ? "w-16 h-16" : "w-8 h-8 sm:w-10 sm:h-10"} ${AVATAR_COLORS[getColorIndex(name)]}`}>
-        <span className={large ? "text-xl" : "text-xs sm:text-sm"}>{getInitials(name)}</span>
+const Avatar = ({ name, large, online = false }) => (
+    <div
+        className="relative shrink-0"
+        title={online ? "Online" : "Offline"}
+        aria-label={`${name || "User"} is ${online ? "online" : "offline"}`}
+    >
+        <div className={`flex items-center justify-center rounded-full font-semibold ring-2 ring-white ${large ? "w-16 h-16" : "w-8 h-8 sm:w-10 sm:h-10"} ${AVATAR_COLORS[getColorIndex(name)]}`}>
+            <span className={large ? "text-xl" : "text-xs sm:text-sm"}>{getInitials(name)}</span>
+        </div>
+        <span
+            className={`absolute bottom-0 right-0 block rounded-full border-2 border-white ${large ? "w-4 h-4" : "w-3 h-3"} ${online
+                ? "bg-[#16A34A]"
+                : "bg-[#94A3B8]"
+                }`}
+            aria-hidden="true"
+        >
+            {online && <span className="absolute inset-0 rounded-full bg-[#16A34A] animate-ping opacity-40" />}
+        </span>
     </div>
 );
 
@@ -185,7 +200,7 @@ const CustomCheckbox = ({ checked, indeterminate, onChange, label }) => (
             checked={checked}
             onChange={onChange}
             ref={(el) => el && (el.indeterminate = !!indeterminate)}
-            className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+            className="absolute w-full h-full  cursor-pointer z-10"
         />
         <div
             className={`absolute inset-0 border-2 rounded transition-all ${checked || indeterminate ? "border-[#E87A24] bg-[#E87A24]" : "border-[#E2E8F0] hover:border-[#F59E0B]"
@@ -226,7 +241,7 @@ const ActionButtons = ({ row, onDelete, onToggleStatus, onEdit, onResetPassword,
             disabled={isStatusLoading}
             onClick={(e) => onToggleStatus(e, row)}
         >
-            {isStatusLoading ? <Icons.Loader2 className="w-4 h-4 animate-spin" /> : <Icons.Power className="w-4 h-4" />}
+            {isStatusLoading ? <Icons.LoaderCircle className="h-4 w-4 animate-spin text-slate-600" strokeWidth={2.5} /> : <Icons.Power className="w-4 h-4" />}
         </IconButton>
         <IconButton title={`Edit ${row.username}`} tone="blue" onClick={(e) => { e.stopPropagation(); onEdit(row); }}>
             <Icons.Pencil className="w-4 h-4" />
@@ -237,7 +252,7 @@ const ActionButtons = ({ row, onDelete, onToggleStatus, onEdit, onResetPassword,
             disabled={isPasswordResetLoading}
             onClick={(e) => { e.stopPropagation(); onResetPassword(row); }}
         >
-            {isPasswordResetLoading ? <Icons.Loader2 className="w-4 h-4 animate-spin" /> : <Icons.KeyRound className="w-4 h-4" />}
+            {isPasswordResetLoading ? <Icons.LoaderCircle className="h-4 w-4 animate-spin text-blue-600" strokeWidth={2.5} /> : <Icons.KeyRound className="w-4 h-4" />}
         </IconButton>
         <IconButton title="Delete" tone="red" onClick={(e) => { e.stopPropagation(); onDelete([row._id]); }}>
             <Icons.Trash2 className="w-4 h-4" />
@@ -374,7 +389,7 @@ const DetailDrawer = ({ row, config, onClose, onEdit, onResetPassword, onToggleS
                         transition={{ delay: 0.1 }}
                         className="flex items-center gap-4"
                     >
-                        <Avatar name={row.username} large />
+                        <Avatar name={row.username} large online={!!row.isActive} />
                         <div className="min-w-0">
                             <h3 className="text-lg text-[#422026] truncate" style={FONT_BOLD}>{row.username}</h3>
                             <p className="text-xs text-[#64748B] truncate mb-2" style={FONT_LIGHT}>{row.officeEmail || "No email"}</p>
@@ -450,7 +465,7 @@ const DetailDrawer = ({ row, config, onClose, onEdit, onResetPassword, onToggleS
                         className="cursor-pointer flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm border border-[#E2E8F0] text-[#422026] hover:bg-[#F8FAFC] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                         style={FONT_BOLD}
                     >
-                        {isStatusLoading ? <Icons.Loader2 className="w-4 h-4 animate-spin" /> : <Icons.Power className="w-4 h-4" />}
+                        {isStatusLoading ? <Icons.LoaderCircle className="h-4 w-4 animate-spin text-slate-600" strokeWidth={2.5} /> : <Icons.Power className="w-4 h-4" />}
                         {row.isActive ? "Mark inactive" : "Mark active"}
                     </button>
                     <button
@@ -459,7 +474,7 @@ const DetailDrawer = ({ row, config, onClose, onEdit, onResetPassword, onToggleS
                         className="cursor-pointer flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm border border-[#4A76C0]/30 text-[#4A76C0] bg-[#4A76C0]/5 hover:bg-[#4A76C0]/15 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                         style={FONT_BOLD}
                     >
-                        {isPasswordResetLoading ? <Icons.Loader2 className="w-4 h-4 animate-spin" /> : <Icons.KeyRound className="w-4 h-4" />}
+                        {isPasswordResetLoading ? <Icons.LoaderCircle className="h-4 w-4 animate-spin text-blue-600" strokeWidth={2.5} /> : <Icons.KeyRound className="w-4 h-4" />}
                         Reset password
                     </button>
                     <button
@@ -482,41 +497,47 @@ export const Control_Management = () => <EmpMAgmt />; // kept so existing route/
 
 const EmpMAgmt = () => {
     // --- API hooks ---
-    const { getStaffCredit_ } = useGet();
+    const { useMe } = useAuth();
+    const { role, id } = useMe?.data?.user?.decoded || {};
+    // console.log("Current user role:", role, "ID:", id);
+    const { getStaffCredit_, GetMeDetails_Admin_ } = useGet();
+    const {
+        data: Staffs,
+        isPending: sraffLoading,
+        error: staffError,
+    } = getStaffCredit_;
+    console.log("Staffs data:", Staffs);
     const { DeleteStaff_ } = UseDelete();
     const { EditStatus_admin_, SendStaffPasswordReset_ } = useEdit();
-
+// console.log("Staffs data:", Staffs, "Loading:", sraffLoading, "Error:", staffError);
     // --- Data: one fetch, split into two separate collections ---
     const [collections, setCollections] = useState({ staff: [], client: [] });
     const [isLoading, setIsLoading] = useState(true);
     const inFlight = useRef(false);
+    const locationDetailsRef = useRef(null);
+    const recordsLoading = isLoading || sraffLoading;
 
-    const loadRecords = useCallback(() => {
-        if (inFlight.current) return; // prevents duplicate requests
+    const loadRecords = useCallback(async () => {
+        const location = locationDetailsRef.current;
+        console.log("Loading records for location:", location);
+        if (!location || inFlight.current) return;
+
         inFlight.current = true;
         setIsLoading(true);
-        getStaffCredit_.mutate(null, {
-            onSuccess: (response) => {
-                const fetched = response?.data?.data || response?.data || response || [];
-                const list = Array.isArray(fetched) ? fetched : [];
-                const byRole = (role) => list.filter((u) => (u.role || "").toLowerCase() === role);
-                setCollections({ staff: byRole("staff"), client: byRole("client") });
-                setIsLoading(false);
-                inFlight.current = false;
-            },
-            onError: (error) => {
-                console.error("Fetch Error:", error);
-                ErrorNotify(error?.response?.data?.message || "Failed to load records.");
-                setIsLoading(false);
-                inFlight.current = false;
-            },
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    useEffect(() => {
-        loadRecords();
-    }, [loadRecords]);
+        try {
+            await getStaffCredit_.mutateAsync(location);
+        } catch (error) {
+            console.error("Fetch Error:", error);
+            ErrorNotify(
+                error?.response?.data?.message ||
+                    staffError?.response?.data?.message ||
+                    "Failed to load records.",
+            );
+        } finally {
+            setIsLoading(false);
+            inFlight.current = false;
+        }
+    }, [getStaffCredit_.mutateAsync, staffError]);
 
     // --- UI state ---
     const [activeTab, setActiveTab] = useState("staff");
@@ -533,6 +554,97 @@ const EmpMAgmt = () => {
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, ids: [] });
     const [deleteInput, setDeleteInput] = useState("");
     const [deleteError, setDeleteError] = useState("");
+    const [statusModal, setStatusModal] = useState(null);
+    const [locationDetails, setLocationDetails] = useState({
+        province: "",
+        provinceName: "",
+        districtName: "",
+        localLevel: "",
+    });
+
+    const [locationDetailsError, setLocationDetailsError] = useState(null);
+
+    useEffect(() => {
+        if (!Staffs) return;
+
+        const fetched = Staffs?.data?.data || Staffs?.data || Staffs || [];
+        const list = Array.isArray(fetched) ? fetched : [];
+        const byRole = (role) =>
+            list.filter((user) => (user.role || "").toLowerCase() === role);
+        setCollections({ staff: byRole("staff"), client: byRole("client") });
+    }, [Staffs]);
+
+    useEffect(() => {
+        if (!id) {
+            setIsLoading(false);
+            return;
+        }
+
+        let active = true;
+        setIsLoading(true);
+
+        const fetchAdminAndStaff = async () => {
+            setLocationDetailsError(null);
+
+            try {
+                const { data } = await GetMeDetails_Admin_.mutateAsync({
+                    params: { id },
+                });
+
+                console.log('GetMeDetails_Admin_',data);
+                if (!active) return;
+
+                const location = {
+                    province: Number(data?.province) || "",
+                    provinceName: data?.provinceName || "",
+                    districtName: data?.district || "",
+                    localLevel: data?.localLevelName || "",
+                };
+                locationDetailsRef.current = location;
+                setLocationDetails(location);
+
+                inFlight.current = true;
+                try {
+                    await getStaffCredit_.mutateAsync(location);
+                } catch (staffCreditFetchError) {
+                    if (active) {
+                        console.error(
+                            "Failed to fetch staff credit data:",
+                            staffCreditFetchError,
+                        );
+                        ErrorNotify(
+                            staffCreditFetchError?.response?.data?.message ||
+                                "Failed to load records.",
+                        );
+                    }
+                } finally {
+                    inFlight.current = false;
+                    if (active) setIsLoading(false);
+                }
+            } catch (locationFetchError) {
+                if (active) {
+                    setLocationDetailsError(locationFetchError);
+                    setIsLoading(false);
+                    console.error(
+                        "Failed to fetch user location details:",
+                        locationFetchError,
+                    );
+                }
+            }
+        };
+
+        fetchAdminAndStaff();
+
+        return () => {
+            active = false;
+            getStaffCredit_.reset();
+        };
+    }, [
+        id,
+        getStaffCredit_.mutateAsync,
+        getStaffCredit_.reset,
+        GetMeDetails_Admin_.mutateAsync,
+    ]);
 
     // Detail drawer: store only the id so the drawer always shows fresh data after a refetch
     const [drawerId, setDrawerId] = useState(null);
@@ -540,10 +652,12 @@ const EmpMAgmt = () => {
     const config = COLLECTIONS[activeTab];
     const records = collections[activeTab];
 
+
     const drawerRow = useMemo(
         () => (drawerId ? records.find((r) => r._id === drawerId) || null : null),
         [drawerId, records]
     );
+
 
     // Prevent background scrolling while modals / drawer are open
     useEffect(() => {
@@ -609,6 +723,12 @@ const EmpMAgmt = () => {
     const handleToggleStatus = (e, row) => {
         e?.stopPropagation?.();
         if (EditStatus_admin_.isPending) return;
+        setStatusModal(row);
+    };
+
+    const executeStatusChange = () => {
+        if (!statusModal || EditStatus_admin_.isPending) return;
+        const row = statusModal;
         waitingNotify("Updating user status...");
         EditStatus_admin_.mutate(
             { params: { id: row._id }, payload: { isActive: !row.isActive, role: row.role } },
@@ -616,6 +736,7 @@ const EmpMAgmt = () => {
                 onSuccess: (res) => {
                     SuccessNotify(res?.message || res?.msg || "User status updated successfully.");
                     loadRecords();
+                    setStatusModal(null);
                 },
                 onError: (err) => {
                     console.error(err);
@@ -694,7 +815,6 @@ const EmpMAgmt = () => {
                 onError: (error) => {
                     console.error("Delete Error:", error);
                     ErrorNotify(error?.response?.data?.message || "Failed to delete.");
-                    closeDeleteModal();
                 },
             }
         );
@@ -714,6 +834,7 @@ const EmpMAgmt = () => {
                     <div>
                         <h2 className="text-xl sm:text-2xl text-[#422026]" style={FONT_BOLD}>
                             Employee <span className="text-[#E87A24]">Management</span>
+                            {/* {id && <span className="text-[#64748B]"> - {id}-{role}</span>} */}
                         </h2>
                         <p className="text-xs text-[#64748B] mt-0.5" style={FONT_LIGHT}>
                             Manage access, status and credentials for registered staff and clients.
@@ -731,7 +852,7 @@ const EmpMAgmt = () => {
 
             {/* Statistics */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-                {isLoading ? (
+                {recordsLoading ? (
                     [0, 1, 2, 3].map((i) => <StatCardSkeleton key={i} />)
                 ) : (
                     <React.Fragment key={activeTab}>
@@ -765,7 +886,7 @@ const EmpMAgmt = () => {
                             <TabIcon className="w-4 h-4" />
                             {c.label}
                             <span className={`text-[11px] px-2 py-0.5 rounded-full ${isActive ? "bg-[#E87A24]/15 text-[#E87A24]" : "bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0]"}`}>
-                                {isLoading ? "–" : collections[key].length}
+                                {recordsLoading ? <Skeleton className="h-3 w-5 rounded-full" /> : collections[key].length}
                             </span>
                         </button>
                     );
@@ -824,7 +945,7 @@ const EmpMAgmt = () => {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-[#E2E8F0]">
-                        {isLoading ? (
+                        {recordsLoading ? (
                             Array.from({ length: SKELETON_ROWS }, (_, i) => <TableRowSkeleton key={i} />)
                         ) : paginatedData.length > 0 ? (
                             paginatedData.map((r, i) => {
@@ -844,7 +965,7 @@ const EmpMAgmt = () => {
                                         </td>
                                         <td className="px-5 py-3 whitespace-nowrap">
                                             <div className="flex items-center gap-3">
-                                                <Avatar name={r.username} />
+                                                <Avatar name={r.username} online={!!r.isActive} />
                                                 <div className="flex flex-col min-w-0 items-start">
                                                     <button
                                                         type="button"
@@ -897,7 +1018,7 @@ const EmpMAgmt = () => {
                         )}
                     </tbody>
                 </table>
-                {!isLoading && filtered.length > ROWS_PER_PAGE && (
+                {!recordsLoading && filtered.length > ROWS_PER_PAGE && (
                     <Pagination rowCount={filtered.length} currentPage={currentPage} onChangePage={setCurrentPage} />
                 )}
             </div>
@@ -950,11 +1071,65 @@ const EmpMAgmt = () => {
                 )}
             </AnimatePresence>
 
+            {/* Status confirmation modal */}
+            <AnimatePresence>
+                {statusModal && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60" style={{ backdropFilter: "blur(10px)" }}>
+                        <motion.div
+                            role="alertdialog"
+                            aria-modal="true"
+                            aria-labelledby="status-confirm-title"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 20 }}
+                            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+                        >
+                            <div className="flex items-start gap-3">
+                                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-600">
+                                    <Icons.AlertCircle className="h-5 w-5" />
+                                </span>
+                                <div>
+                                    <h2 id="status-confirm-title" className="text-sm font-bold text-slate-900 sm:text-base">
+                                        {statusModal.isActive ? "Deactivate" : "Activate"} {statusModal.username}?
+                                    </h2>
+                                    <p className="mt-1 text-xs font-medium text-slate-500">
+                                        {statusModal.isActive
+                                            ? "This account will be deactivated. Existing records will be preserved."
+                                            : "This account will be activated and allowed to access the system again."}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                                <button
+                                    type="button"
+                                    className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed"
+                                    onClick={() => setStatusModal(null)}
+                                    disabled={EditStatus_admin_.isPending}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="cursor-pointer inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                    onClick={executeStatusChange}
+                                    disabled={EditStatus_admin_.isPending}
+                                >
+                                    {EditStatus_admin_.isPending
+                                        ? <Icons.LoaderCircle className="h-3 w-3 animate-spin" />
+                                        : <Icons.Check className="h-4 w-4" />}
+                                    {statusModal.isActive ? "Deactivate" : "Activate"}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
             {/* Delete confirmation modal */}
             <AnimatePresence>
                 {deleteModal.isOpen && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60" style={{ backdropFilter: "blur(10px)" }}>
+                        {/* <div className="absolute inset-0  backdrop-blur-md" /> */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -998,13 +1173,10 @@ const EmpMAgmt = () => {
                                     disabled={DeleteStaff_.isPending}
                                     className="cursor-pointer flex-1 px-4 py-4 text-sm font-bold text-[#DC2626] hover:bg-[#DC2626]/5 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                    {DeleteStaff_.isPending ? (
-                                        <span className="inline-flex items-center gap-2">
-                                            <Icons.Loader2 className="w-4 h-4 animate-spin" /> Deleting...
-                                        </span>
-                                    ) : (
-                                        "Delete"
+                                    {DeleteStaff_.isPending && (
+                                        <Icons.LoaderCircle className="mr-2 inline h-3 w-3 animate-spin text-[#DC2626]" strokeWidth={2.5} />
                                     )}
+                                    Delete
                                 </button>
                             </div>
                         </motion.div>

@@ -105,7 +105,7 @@ const HeroOverlay = () => {
                       style={{
                         width: '100%',
                         backgroundSize: '200% 100%',
-                        animation: 'shimmer 3s infinite linear',
+                        animation: 'overlayShimmer 3s infinite linear',
                       }}
                     />
                     
@@ -276,7 +276,7 @@ const HeroOverlay = () => {
           50% { opacity: 0.4; }
         }
 
-        @keyframes shimmer {
+        @keyframes overlayShimmer {
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
         }

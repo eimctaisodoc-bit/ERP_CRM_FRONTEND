@@ -3,8 +3,9 @@ import {
     FileText, Folder, Search, Download, HardDrive, FileVideo, Music, Table,
     Presentation, FileBox, Trash2Icon, Check, ChevronDown, FolderPlus,
     UploadCloud, ArrowLeft, ChevronRight, MessageSquare, X, FolderOpen,
-    Loader2, RefreshCw, Share2, MoveRight
+    RefreshCw, Share2, MoveRight, LoaderCircle
 } from "lucide-react";
+import { Skeleton } from "../../skeleton";
 
 // Professional Typography Theme
 const fontLight = { fontFamily: "'Roboto Slab', serif", fontWeight: 300 };
@@ -712,7 +713,7 @@ const FileAccordionRow = ({ item, isSelected, canEdit, onSelect, onOpenFolder, o
                         <div className="flex items-center gap-2">
                             {isSavingTitle ? (
                                 <span className="flex items-center gap-1.5 text-xs text-neutral-400" style={fontLight}>
-                                    <Loader2 size={12} className="animate-spin text-blue-500" /> Updating...
+                                    <Skeleton className="h-3 w-3 rounded-full" /> <Skeleton className="h-3 w-14 rounded-full" />
                                 </span>
                             ) : isEditingTitle ? (
                                 <input
@@ -879,9 +880,8 @@ const FileAccordionRow = ({ item, isSelected, canEdit, onSelect, onOpenFolder, o
                                     className="bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:bg-neutral-200 disabled:text-neutral-400 disabled:border-transparent px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2 cursor-pointer"
                                     style={fontBold}
                                 >
-                                    {isSubmittingFeedback ? (
-                                        <><Loader2 size={16} className="animate-spin" /> Saving...</>
-                                    ) : "Save Note"}
+                                    {isSubmittingFeedback && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+                                    Save Note
                                 </button>
                             </div>
                         </div>

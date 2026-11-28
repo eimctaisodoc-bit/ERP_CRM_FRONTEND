@@ -1,8 +1,19 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { createPortal } from "react-dom";
 import Select from "react-select";
-import { Pencil, Eye, FileText, KeyRound, Trash2, Mail } from "lucide-react";
-import NepaliDate from "nepali-date-converter";
+import {
+  Pencil,
+  Eye,
+  KeyRound,
+  Trash2,
+  Mail,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  MoreVertical,
+} from "lucide-react";
+import { Skeleton } from "../../../skeleton";
 
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40";
@@ -35,108 +46,73 @@ const STATUS_OPTIONS = Object.entries(STATUS_STYLES).map(([value, option]) => ({
   dot: option.dot,
 }));
 
-const parseLeadPickTimestamp = (dateValue, timeValue) => {
-  const dateText = String(dateValue || "")
-    .trim()
-    .replace(/[०-९]/g, (digit) => "०१२३४५६७८९".indexOf(digit));
-  const timeText = String(timeValue || "").trim();
-  if (!dateText) return null;
+const formatRelativeTime = (takenAt, now = Date.now()) => {
+  if (!Number.isFinite(takenAt)) return "-";
 
-  const datePart = dateText.split(/[T ]/)[0];
-  const dateMatch = datePart.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-  let pickedAt;
-
-  if (!dateMatch) {
-    if (timeText) return null;
-    const parsedDate = new Date(dateText);
-    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.getTime();
+  const takenDate = new Date(takenAt);
+  const nowDate = new Date(now);
+  if (
+    Number.isNaN(takenDate.getTime()) ||
+    Number.isNaN(nowDate.getTime())
+  ) {
+    return "-";
   }
 
-  const [, yearText, monthText, dayText] = dateMatch;
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
+  const startOfTaken = new Date(
+    takenDate.getFullYear(),
+    takenDate.getMonth(),
+    takenDate.getDate(),
+  ).getTime();
 
-  if (year >= 1900 && year < 2040) {
-    pickedAt = new Date(year, month - 1, day);
-    if (
-      pickedAt.getFullYear() !== year ||
-      pickedAt.getMonth() !== month - 1 ||
-      pickedAt.getDate() !== day
-    ) {
-      return null;
-    }
-  } else {
-    try {
-      const nepaliDate = new NepaliDate(year, month - 1, day);
-      if (
-        nepaliDate.getYear() !== year ||
-        nepaliDate.getMonth() !== month - 1 ||
-        nepaliDate.getDate() !== day
-      ) {
-        return null;
-      }
-      pickedAt = nepaliDate.toJsDate();
-    } catch {
-      return null;
-    }
-  }
+  const startOfNow = new Date(
+    nowDate.getFullYear(),
+    nowDate.getMonth(),
+    nowDate.getDate(),
+  ).getTime();
 
-  if (!timeText) return null;
-  const timeMatch = timeText.match(
-    /^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?\s*(AM|PM)?$/i,
+  const diffDays = Math.round(
+    (startOfNow - startOfTaken) / (24 * 60 * 60 * 1000),
   );
-  if (!timeMatch) return null;
 
-  let hours = Number(timeMatch[1]);
-  const minutes = Number(timeMatch[2]);
-  const seconds = Number(timeMatch[3] || 0);
-  const meridiem = timeMatch[4]?.toUpperCase();
-  if (meridiem) {
-    if (hours < 1 || hours > 12) return null;
-    if (hours === 12) hours = 0;
-    if (meridiem === "PM") hours += 12;
-  } else if (hours > 23) {
-    return null;
+  if (diffDays < 0) return "Just now";
+
+  if (diffDays >= 30) {
+    const months = Math.floor(diffDays / 30);
+    return `${months} ${months === 1 ? "month" : "months"} ago`;
   }
 
-  pickedAt.setHours(hours, minutes, seconds, 0);
-  return Number.isNaN(pickedAt.getTime()) ? null : pickedAt.getTime();
+  if (diffDays >= 1) {
+    return `${diffDays} ${diffDays === 1 ? "day" : "days"} ago`;
+  }
+
+  const elapsedMs = Math.max(0, now - takenAt);
+
+  if (elapsedMs < 60_000) return "Just now";
+
+  const elapsedMinutes = Math.floor(elapsedMs / 60_000);
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  const remainingMinutes = elapsedMinutes % 60;
+
+  if (elapsedHours === 0) {
+    return `${elapsedMinutes} ${
+      elapsedMinutes === 1 ? "minute" : "minutes"
+    } ago`;
+  }
+
+  if (remainingMinutes === 0) {
+    return `${elapsedHours} ${
+      elapsedHours === 1 ? "hour" : "hours"
+    } ago`;
+  }
+
+  return `${elapsedHours} hr ${remainingMinutes} min ago`;
 };
 
-const formatLeadTakenDuration = (pickedAt, now) => {
-  const elapsedSeconds = Math.max(0, Math.floor((now - pickedAt) / 1000));
-  const secondsPerDay = 24 * 60 * 60;
-  if (elapsedSeconds >= secondsPerDay) {
-    const days = Math.floor(elapsedSeconds / secondsPerDay);
-    return days === 1 ? "1 day" : `${days} days`;
-  }
-
-  const hours = String(Math.floor(elapsedSeconds / 3600)).padStart(2, "0");
-  const minutes = String(Math.floor((elapsedSeconds % 3600) / 60)).padStart(
-    2,
-    "0",
-  );
-  const seconds = String(elapsedSeconds % 60).padStart(2, "0");
-  return `${hours}:${minutes}:${seconds}`;
-};
-
-function LeadTakenValue({ dateValue, timeValue, muted = false }) {
-  const pickedAt = parseLeadPickTimestamp(dateValue, timeValue);
-  const [now, setNow] = useState(Date.now);
-
-  useEffect(() => {
-    if (pickedAt === null) return undefined;
-    setNow(Date.now());
-    const intervalId = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(intervalId);
-  }, [pickedAt]);
-
-  const value =
-    pickedAt === null ? "—" : formatLeadTakenDuration(pickedAt, now);
+function LeadTakenValue({ takenAt, muted = false }) {
+  const value = formatRelativeTime(takenAt);
   return (
     <span
-      className={`whitespace-nowrap font-semibold ${
+      className={`whitespace-nowrap font-medium ${
         muted ? "text-slate-400" : "text-slate-600"
       }`}
       title={value}
@@ -206,16 +182,59 @@ const statusSelectStyles = {
 };
 
 export const CONTRACT_COLUMNS = [
-  { key: "leadId", label: "Lead ID", nowrap: true },
-  { key: "organizationName", label: "Organization Name" },
-  { key: "service", label: "Service" },
-  { key: "leadTaken", label: "LeadTaken", nowrap: true },
-  { key: "status", label: "Status", nowrap: true },
+  { key: "leadId", label: "Lead ID", sortKey: "leadId", nowrap: true },
+  {
+    key: "organizationName",
+    label: "Organization Name",
+    sortKey: "organizationName",
+  },
+  { key: "service", label: "Service", sortKey: "service" },
+  { key: "leadTaken", label: "LeadTaken", sortKey: "leadTaken", nowrap: true },
+  { key: "status", label: "Status", sortKey: "status", nowrap: true },
 ];
+
+function SortHeader({ label, sortKey, sort, onSort }) {
+  const active = sort?.key === sortKey;
+  const Icon = !active
+    ? ArrowUpDown
+    : sort.dir === "asc"
+      ? ArrowUp
+      : ArrowDown;
+
+  return (
+    <th
+      scope="col"
+      aria-sort={
+        active
+          ? sort.dir === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+      className="whitespace-nowrap border-b border-slate-200 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide"
+    >
+      <button
+        type="button"
+        onClick={() => onSort?.(sortKey)}
+        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md font-bold transition hover:text-slate-800 ${FOCUS}`}
+      >
+        {label}
+        <Icon
+          size={13}
+          className={active ? "text-amber-600" : "text-slate-400"}
+          aria-hidden="true"
+        />
+      </button>
+    </th>
+  );
+}
 
 export default function ContractsTable({
   columns = CONTRACT_COLUMNS,
   rows = [],
+  startIndex = 0,
+  sort,
+  onSort,
   loading = false,
   skeletonRows = 10,
   groupKey = "",
@@ -242,13 +261,16 @@ export default function ContractsTable({
 
   return (
     <>
-      <div className="hidden w-full overflow-x-auto md:block">
+      <div className="w-full max-w-full overflow-x-auto overscroll-x-contain">
         <table
           className="w-full min-w-[980px] text-left text-xs"
           aria-busy={loading}
         >
           <thead className="bg-slate-50 text-slate-500">
             <tr>
+              <th className="w-12 border-b border-slate-200 px-4 py-3 text-[11px] font-bold uppercase tracking-wide">
+                #
+              </th>
               <th className="w-12 border-b border-slate-200 px-4 py-3">
                 <AnimatedCheckbox
                   checked={allSelected}
@@ -258,17 +280,27 @@ export default function ContractsTable({
                 />
               </th>
               {columns.map((column) => (
-                <th
-                  key={column.key}
-                  scope="col"
-                  className="whitespace-nowrap  border-b border-slate-200  px-4 py-3 text-[11px] font-bold uppercase tracking-wide"
-                >
-                  {column.label}
-                </th>
+                column.sortKey ? (
+                  <SortHeader
+                    key={column.key}
+                    label={column.label}
+                    sortKey={column.sortKey}
+                    sort={sort}
+                    onSort={onSort}
+                  />
+                ) : (
+                  <th
+                    key={column.key}
+                    scope="col"
+                    className="whitespace-nowrap border-b border-slate-200 px-4 py-3 text-[11px] font-bold uppercase tracking-wide"
+                  >
+                    {column.label}
+                  </th>
+                )
               ))}
               <th
                 scope="col"
-                className="sticky right-0 z-10 whitespace-nowrap border-b border-l border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide"
+                className="sticky right-0 z-10 whitespace-nowrap border-b border-l border-slate-200 bg-slate-50  text-center text-[11px] font-bold uppercase tracking-wide"
               >
                 Actions
               </th>
@@ -293,6 +325,9 @@ export default function ContractsTable({
                           : "bg-white hover:bg-slate-50"
                     }`}
                   >
+                    <td className="px-4 py-3 text-xs font-medium tabular-nums text-slate-500">
+                      {startIndex + index + 1}
+                    </td>
                     <td className="px-4 py-3">
                       <AnimatedCheckbox
                         checked={isSelected}
@@ -304,7 +339,13 @@ export default function ContractsTable({
                     {columns.map((column) => (
                       <td
                         key={column.key}
-                        className={`px-4 font-light py-3 ${column.nowrap ? "whitespace-nowrap" : "max-w-[240px]"}`}
+                        className={`px-4 py-3 font-medium  capitalize${
+                          column.nowrap ||
+                          column.key === "organizationName" ||
+                          column.key === "service"
+                            ? "whitespace-nowrap max-w-[220px] truncate "
+                            : "max-w-[240px] truncate"
+                        }`}
                       >
                         <Cell
                           column={column}
@@ -315,7 +356,7 @@ export default function ContractsTable({
                         />
                       </td>
                     ))}
-                    <td className="sticky right-0 border-l font-light border-slate-200 bg-inherit px-3 py-3">
+                    <td className="sticky right-0 border-l font-medium border-slate-200 bg-inherit py-3">
                       <RowActions
                         row={row}
                         onView={() => onView?.(row)}
@@ -333,7 +374,7 @@ export default function ContractsTable({
             ) : (
               <tr>
                 <td
-                  colSpan={columns.length + 2}
+                  colSpan={columns.length + 3}
                   className="px-4 py-16 text-center"
                 >
                   <EmptyState
@@ -346,100 +387,6 @@ export default function ContractsTable({
           </tbody>
         </table>
       </div>
-
-      <div className="md:hidden">
-        {loading ? (
-          <ul className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2">
-            {Array.from({ length: 4 }, (_, index) => (
-              <ContractCardSkeleton key={index} />
-            ))}
-          </ul>
-        ) : rows.length ? (
-          <>
-            <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2.5">
-              <AnimatedCheckbox
-                checked={allSelected}
-                onChange={onToggleAll}
-                label="Select all contracts on this page"
-              />
-              <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                Select all on this page
-              </span>
-            </div>
-            <ul className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2">
-              {rows.map((row, index) => {
-                const isSelected = selected.includes(row.id);
-                return (
-                  <motion.li
-                    key={`${groupKey}-${row.id}`}
-                    {...rowMotion(index)}
-                    className={`rounded-xl border p-3 transition-colors ${
-                      isSelected
-                        ? "border-amber-300 bg-amber-50"
-                        : "border-slate-200 bg-white"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <AnimatedCheckbox
-                        checked={isSelected}
-                        onChange={() => onToggleOne?.(row.id)}
-                        label={`Select ${row.leadId}`}
-                      />
-                      <dl className="min-w-0 flex-1 space-y-2 text-[11px]">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <dt className="text-[10px] text-slate-400">
-                              Lead ID
-                            </dt>
-                            <dd>
-                              <LeadIdButton row={row} onView={onView} />
-                            </dd>
-                          </div>
-                          <ContractStatusSelect
-                            status={row.status}
-                            disabled={statusBusyId === row.id}
-                            loading={statusBusyId === row.id}
-                            onChange={(status) => onStatusChange?.(row, status)}
-                          />
-                        </div>
-                        <CardField
-                          label="Organization Name"
-                          value={row.organizationName}
-                        />
-                        <CardField label="Service" value={row.service} />
-                        <CardField
-                          label="LeadTaken"
-                          value={
-                            <LeadTakenValue
-                              dateValue={row.leadPickDate}
-                              timeValue={row.leadPickTime}
-                            />
-                          }
-                        />
-                      </dl>
-                    </div>
-                    <div className="mt-3 border-t border-slate-100 pt-2">
-                      <RowActions
-                        row={row}
-                        onView={() => onView?.(row)}
-                        onEdit={() => onEdit?.(row)}
-                        onViewContract={() => onViewContract?.(row)}
-                        onSendContract={() => onSendContract?.(row)}
-                        onClientCredential={() => onClientCredential?.(row)}
-                        onDelete={() => onDelete?.(row)}
-                      />
-                    </div>
-                  </motion.li>
-                );
-              })}
-            </ul>
-          </>
-        ) : (
-          <div className="px-4 py-12 text-center">
-            <EmptyState hasFilters={hasFilters} onClear={onClearFilters} />
-          </div>
-        )}
-      </div>
     </>
   );
 }
@@ -450,8 +397,7 @@ function Cell({ column, row, onView, onStatusChange, statusBusy }) {
   if (column.key === "leadTaken") {
     return (
       <LeadTakenValue
-        dateValue={row.leadPickDate}
-        timeValue={row.leadPickTime}
+        takenAt={row.leadTakenAt}
         muted={row.isTerminated === true}
       />
     );
@@ -470,7 +416,7 @@ function Cell({ column, row, onView, onStatusChange, statusBusy }) {
   const text =
     value === null || value === undefined || value === "" ? "-" : String(value);
   return (
-    <span className="line-clamp-2 font-semibold break-words" title={text}>
+    <span className="" title={text}>
       {text}
     </span>
   );
@@ -484,19 +430,10 @@ function LeadIdButton({ row, onView, disabled = false }) {
       disabled={disabled}
       title="View contract details"
       aria-label={`View details for lead ${row.leadId}`}
-      className={`rounded font-bold cursor-pointer text-amber-700 hover:underline disabled:cursor-not-allowed disabled:text-slate-400 ${FOCUS}`}
+      className={`rounded font-medium cursor-pointer text-amber-700 hover:underline disabled:cursor-not-allowed disabled:text-slate-400 ${FOCUS}`}
     >
       {row.leadId}
     </button>
-  );
-}
-
-function CardField({ label, value }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-[10px] text-slate-400">{label}</dt>
-      <dd className="truncate font-semibold">{value || "-"}</dd>
-    </div>
   );
 }
 
@@ -589,50 +526,150 @@ function RowActions({
   onDelete,
   disabled = false,
 }) {
+  const menuItems = [
+    { icon: Pencil, label: "Edit contract", onClick: onEdit, tone: "text-slate-700", disabled },
+    { icon: Eye, label: "View details", onClick: onView, tone: "text-blue-600", disabled },
+    { icon: Mail, label: "Send contract", onClick: onSendContract, tone: "text-orange-600", disabled },
+    ...(row.status === "converted"
+      ? [{ icon: KeyRound, label: "Client credentials", onClick: onClientCredential, tone: "text-emerald-600", disabled }]
+      : []),
+    { icon: Trash2, label: "Delete contract", onClick: onDelete, tone: "text-red-500", divider: true },
+  ];
+
   return (
-    <div className="flex items-center gap-0.5">
-      <IconAction
-        icon={Pencil}
-        label="Edit contract"
-        onClick={onEdit}
-        tone="text-slate-600  hover:bg-slate-100"
-        disabled={disabled}
-      />
-      <IconAction
-        icon={Eye}
-        label="View details"
-        onClick={onView}
-        tone="text-blue-600 hover:bg-blue-50"
-        disabled={disabled}
-      />
-      {/* <IconAction icon={FileText} label="View contract" onClick={onViewContract} tone="text-amber-600 hover:bg-amber-50" /> */}
-      <IconAction
-        icon={Mail}
-        label="Send contract"
-        onClick={onSendContract}
-        tone="text-orange-600 hover:bg-orange-50"
-        disabled={disabled}
-      />
-      {row.status === "converted" ? (
-        <IconAction
-          icon={KeyRound}
-          label="Client credentials"
-          onClick={onClientCredential}
-          tone="text-emerald-600 hover:bg-emerald-50"
-          disabled={disabled}
-        />
-      ) : (
-        <span aria-hidden="true" className="h-9 w-9 shrink-0" />
-      )}
-      <span aria-hidden="true" className="mx-1 h-5 w-px bg-slate-200" />
-      <IconAction
-        icon={Trash2}
-        label="Delete contract"
-        onClick={onDelete}
-        tone="text-red-500 hover:bg-red-50"
-        // disabled={disabled}
-      />
-    </div>
+    <>
+      {/* Mobile + tablet: 3-dots dropdown */}
+      <div className="lg:hidden">
+        <ActionsMenu items={menuItems} />
+      </div>
+
+      {/* Desktop: inline icons */}
+      <div className="hidden items-center gap-0.5 lg:flex">
+        <IconAction icon={Pencil} label="Edit contract" onClick={onEdit}
+          tone="text-slate-600 hover:bg-slate-100" disabled={disabled} />
+        <IconAction icon={Eye} label="View details" onClick={onView}
+          tone="text-blue-600 hover:bg-blue-50" disabled={disabled} />
+        <IconAction icon={Mail} label="Send contract" onClick={onSendContract}
+          tone="text-orange-600 hover:bg-orange-50" disabled={disabled} />
+        {row.status === "converted" ? (
+          <IconAction icon={KeyRound} label="Client credentials" onClick={onClientCredential}
+            tone="text-emerald-600 hover:bg-emerald-50" disabled={disabled} />
+        ) : (<></>
+          // <span aria-hidden="true" className="h-9 w-9 shrink-0" />
+        )}
+        <span aria-hidden="true" className="mx-1 h-5 w-px bg-slate-200" />
+        <IconAction icon={Trash2} label="Delete contract" onClick={onDelete}
+          tone="text-red-500 hover:bg-red-50" />
+      </div>
+    </>
+  );
+}
+
+function ActionsMenu({ items }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
+  const MENU_WIDTH = 192;
+
+  const place = useCallback(() => {
+    const button = buttonRef.current;
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const menuHeight = menuRef.current?.offsetHeight ?? items.length * 40 + 8;
+    const openUp =
+      rect.bottom + menuHeight + 8 > window.innerHeight &&
+      rect.top > menuHeight + 8;
+    setPos({
+      top: openUp ? rect.top - menuHeight - 4 : rect.bottom + 4,
+      left: Math.max(
+        8,
+        Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8),
+      ),
+    });
+  }, [items.length]);
+
+  useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = () => setOpen(false);
+    const onPointerDown = (event) => {
+      if (
+        menuRef.current?.contains(event.target) ||
+        buttonRef.current?.contains(event.target)
+      )
+        return;
+      close();
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        close();
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        title="Actions"
+        aria-label="Row actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 ${FOCUS}`}
+      >
+        <MoreVertical size={18} />
+      </button>
+
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ position: "fixed", top: pos.top, left: pos.left, width: MENU_WIDTH, zIndex: 300 }}
+            className="overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-xs shadow-lg"
+          >
+            {items.map(({ icon: Icon, label, onClick, tone, disabled, divider }) => (
+              <React.Fragment key={label}>
+                {divider && <div className="my-1 h-px bg-slate-200" />}
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={disabled}
+                  onClick={() => {
+                    setOpen(false);
+                    onClick?.();
+                  }}
+                  className={`flex w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left font-semibold transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 ${tone} ${FOCUS}`}
+                >
+                  <Icon size={15} aria-hidden="true" />
+                  {label}
+                </button>
+              </React.Fragment>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
@@ -644,7 +681,8 @@ function IconAction({ icon: Icon, label, onClick, tone, disabled = false }) {
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={`flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS} ${tone}`}
+      className={`flex h-9 w-9 shrink-0 cursor-pointer items-center
+         justify-center rounded-lg transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS} ${tone}`}
     >
       <Icon size={16} />
     </button>
@@ -699,6 +737,9 @@ function TableSkeleton({ rows, cols }) {
   return Array.from({ length: rows }, (_, row) => (
     <tr key={row}>
       <td className="px-4 py-3">
+        <Skeleton className="h-4 w-6" />
+      </td>
+      <td className="px-4 py-3">
         <div className="flex h-9 items-center">
           <Skeleton className="h-[18px] w-[18px] rounded-[5px]" />
         </div>
@@ -723,32 +764,4 @@ function TableSkeleton({ rows, cols }) {
   ));
 }
 
-function ContractCardSkeleton() {
-  return (
-    <li className="rounded-xl border border-slate-200 bg-white p-3">
-      <div className="flex items-start gap-3">
-        <Skeleton className="mt-0.5 h-[18px] w-[18px] rounded-[5px]" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-5 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-        </div>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        {Array.from({ length: 4 }, (_, index) => (
-          <Skeleton key={index} className="h-8 w-full" />
-        ))}
-      </div>
-      <Skeleton className="mt-3 h-9 w-full" />
-    </li>
-  );
-}
 
-function Skeleton({ className = "" }) {
-  return (
-    <div
-      aria-hidden="true"
-      className={`animate-pulse rounded bg-slate-200/80 ${className}`}
-    />
-  );
-}

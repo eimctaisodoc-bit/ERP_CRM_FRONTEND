@@ -18,7 +18,7 @@ import {
     Eye,
     GitBranch,
     Hash,
-    Loader2,
+    LoaderCircle,
     Mail,
     MapPin,
     MapPinned,
@@ -42,11 +42,18 @@ import {
 import { AnimatePresence, animate, motion, MotionConfig, useReducedMotion } from "framer-motion";
 import Select from "react-select";
 
-import { getAllBranch, getUserCredit } from "../../api/role.api";
+
+import { useGet } from "../hooks/useGet";
 import { UseDelete } from "../hooks/useDelete";
 import { useEdit } from "../hooks/useEdit";
+// import { UseAdd } from "../hooks/useAdd";
+
 import { waitingNotify, ErrorNotify, SuccessNotify } from "../hotToaster";
 import { RegisterModal_Admin } from "./setting/Registermodal_admin";
+import { Skeleton } from "../skeleton";
+import { ClientCreateCredential } from "../staff/salespipeline/ContractPage/clientLoginFroms";
+import { UseAdd } from "../hooks/useadd";
+
 
 /* -------------------------------------------------------------------------- */
 /* Constants & shared styles (theme: slate neutrals + amber -> orange accent) */
@@ -71,7 +78,10 @@ const btnGhost = `${btnBase} text-amber-600 hover:bg-amber-50 disabled:text-slat
 const btnDanger = `${btnBase} bg-red-600 text-white hover:bg-red-700 disabled:opacity-70`;
 const btnDangerOutline = `${btnBase} border border-red-200 bg-white text-red-600 hover:bg-red-50`;
 const btnOutlineSm = `inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`;
-const iconBtn = `inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-amber-50 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`;
+const iconBtn = `inline-flex h-9 w-9 sm:h-8 sm:w-8 cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-amber-50 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`;
+
+// One look for every clickable name in every table / card (branch, staff, client).
+const linkBtn = `block max-w-full cursor-pointer truncate rounded text-left text-xs font-bold text-slate-900 underline-offset-4 transition-colors hover:text-amber-600 hover:underline ${FOCUS}`;
 
 const STATUS_OPTIONS = [
     { value: "all", label: "All statuses" },
@@ -219,6 +229,39 @@ const downloadCsv = (filename, rows) => {
     URL.revokeObjectURL(url);
 };
 
+const nextSort = (current, key) => (
+    current.key === key ? { key, dir: current.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }
+);
+
+const sortRows = (rows, sort, valueOf) => {
+    const direction = sort.dir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+        const x = valueOf(a, sort.key);
+        const y = valueOf(b, sort.key);
+        const result = typeof x === "number" ? x - y : String(x ?? "").localeCompare(String(y ?? ""), undefined, { numeric: true });
+        return result * direction;
+    });
+};
+
+const staffSortValue = (user, key) => {
+    switch (key) {
+        case "location": return `${user.location.district} ${user.location.localLevel}`;
+        case "position": return user.jobRole || "";
+        case "status": return user.isActive ? 1 : 0;
+        default: return user.fullName || user.username || "";
+    }
+};
+
+const clientSortValue = (client, key) => {
+    switch (key) {
+        case "username": return client.username || "";
+        case "handledBy": return client.handledBy || "";
+
+        case "status": return client.isActive ? 1 : 0;
+        default: return client.organizationName || "";
+    }
+};
+
 const getRoleBadge = (role) => {
     const r = normalize(role);
     if (r === "admin") return "border-violet-200 bg-violet-50 text-violet-700";
@@ -251,6 +294,12 @@ const Avatar = ({ name, large }) => (
     </div>
 );
 
+const IconAvatar = ({ icon: Icon, large }) => (
+    <div className={`flex shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600 ${large ? "h-12 w-12" : "h-8 w-8 sm:h-9 sm:w-9"}`}>
+        <Icon size={large ? 22 : 16} aria-hidden="true" />
+    </div>
+);
+
 const StatusBadge = ({ active }) => (
     <span
         className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${active
@@ -262,8 +311,6 @@ const StatusBadge = ({ active }) => (
         {active ? "Active" : "Inactive"}
     </span>
 );
-
-const Bone = ({ className = "", style }) => <div className={`animate-pulse rounded bg-slate-200/80 ${className}`} style={style} />;
 
 const CountUp = ({ value }) => {
     const reduce = useReducedMotion();
@@ -293,11 +340,11 @@ const StatCard = ({ icon: Icon, label, value, total, hint, loading, tone = "ambe
         return (
             <div className={`${CARD} p-3.5 sm:p-4`}>
                 <div className="flex items-start justify-between gap-3">
-                    <Bone className="h-3 w-20" />
-                    <Bone className="h-9 w-9 rounded-lg sm:h-10 sm:w-10" />
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-9 w-9 rounded-lg sm:h-10 sm:w-10" />
                 </div>
-                <Bone className="mt-1.5 h-5 w-12" />
-                <Bone className="mt-3 h-1.5 w-full rounded-full" />
+                <Skeleton className="mt-1.5 h-5 w-12" />
+                <Skeleton className="mt-3 h-1.5 w-full rounded-full" />
             </div>
         );
     }
@@ -378,7 +425,7 @@ const SkeletonRows = ({ columns, rows = 10 }) =>
         <tr key={row} className="border-b border-slate-100">
             {Array.from({ length: columns }).map((__, col) => (
                 <td key={col} className="px-4 py-3">
-                    <Bone className="h-4" style={{ width: `${55 + ((row + col) % 4) * 12}%` }} />
+                    <Skeleton className="h-4" style={{ width: `${55 + ((row + col) % 4) * 12}%` }} />
                 </td>
             ))}
         </tr>
@@ -391,7 +438,7 @@ const Pagination = ({ page, pageCount, total, noun, onChange }) => {
     return (
         <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 bg-white px-3 py-3 text-xs text-slate-500 sm:flex-row sm:px-4">
             <span>Showing {nf.format(start)} to {nf.format(end)} of {nf.format(total)} {noun}</span>
-            <nav className="flex items-center gap-2" aria-label="Pagination">
+            <nav className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start" aria-label="Pagination">
                 <button type="button" className={btnOutlineSm} disabled={page <= 1} onClick={() => onChange(page - 1)} aria-label="Previous page">
                     <ChevronLeft size={15} /> Previous
                 </button>
@@ -424,7 +471,11 @@ const RowMenu = ({ items, disabled, label }) => {
         event.stopPropagation();
         if (pos) return setPos(null);
         const rect = buttonRef.current.getBoundingClientRect();
-        return setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+        const menuHeight = items.length * 40 + 8;
+        const openUp = rect.bottom + menuHeight > window.innerHeight && rect.top > menuHeight;
+        return setPos(openUp
+            ? { bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right }
+            : { top: rect.bottom + 4, right: window.innerWidth - rect.right });
     };
 
     return (
@@ -450,7 +501,7 @@ const RowMenu = ({ items, disabled, label }) => {
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.15 }}
-                        style={{ top: pos.top, right: pos.right, ...FONT }}
+                        style={{ top: pos.top, bottom: pos.bottom, right: pos.right, ...FONT }}
                         className="fixed z-[90] w-52 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-xl"
                     >
                         {items.map(({ icon: Icon, label: itemLabel, onSelect, danger }) => (
@@ -499,7 +550,7 @@ const ConfirmDialog = ({ config, busy, onConfirm, onCancel }) => {
 
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6" style={FONT}>
-            <Scrim onClick={onCancel} />
+            <Scrim onClick={busy ? undefined : onCancel} />
             <motion.div
                 role="alertdialog"
                 aria-modal="true"
@@ -516,7 +567,7 @@ const ConfirmDialog = ({ config, busy, onConfirm, onCancel }) => {
                     </span>
                     <div className="min-w-0 flex-1">
                         <h2 id="confirm-title" className="text-sm font-bold text-slate-900 sm:text-base">{title}</h2>
-                        <p className="mt-1 text-xs text-slate-500">{body}</p>
+                        <p className="mt-1 text-xs text-slate-500 font-medium">{body}</p>
                         {requireText && (
                             <div className="mt-4">
                                 <label className="mb-1.5 block text-xs font-bold text-slate-900" htmlFor="confirm-input">
@@ -538,7 +589,9 @@ const ConfirmDialog = ({ config, busy, onConfirm, onCancel }) => {
                 <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                     <button type="button" autoFocus={!requireText} className={`${btnSecondary} px-4`} onClick={onCancel} disabled={busy}>{cancelLabel}</button>
                     <button type="button" className={`${danger ? btnDanger : btnPrimary} px-4`} onClick={submit} disabled={busy}>
-                        {busy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                        {busy ?  <LoaderCircle className="h-3 w-3 animate-spin text-white"
+      strokeWidth={2.5}
+    />: <Check size={14} />}
                         {confirmLabel}
                     </button>
                 </div>
@@ -657,9 +710,7 @@ const drawerBody = "flex-1 space-y-4 overflow-y-auto bg-slate-50 p-3 sm:p-5";
 const BranchDrawer = ({ branch, busyKey, onClose, onEdit, onToggleStatus, onSendCredentials, onDelete, onOpenEmployee }) => (
     <DrawerShell labelId="branch-drawer-title" onClose={onClose}>
         <DrawerHeader onClose={onClose} closeLabel="Close branch details">
-            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white shadow-sm sm:h-11 sm:w-11 ${BRAND}`}>
-                <Building2 size={20} aria-hidden="true" />
-            </span>
+            <IconAvatar icon={Building2} large />
             <DrawerTitle
                 eyebrow="Branch"
                 id="branch-drawer-title"
@@ -766,12 +817,12 @@ const BranchDrawer = ({ branch, busyKey, onClose, onEdit, onToggleStatus, onSend
                 <Pencil size={15} /> Edit
             </PrimaryButton>
             <button type="button" className={btnSecondary} disabled={busyKey !== null} onClick={() => onToggleStatus(branch)}>
-                {busyKey === `status-${branch._id}` ? <Loader2 size={15} className="animate-spin" /> : <Power size={15} />}
+                {busyKey === `status-${branch._id}` ? <LoaderCircle className="h-3 w-3 animate-spin text-slate-600" strokeWidth={2.5} /> : <Power size={15} />}
                 {branch.isActive ? "Deactivate" : "Activate"}
             </button>
             <button type="button" className={btnSecondary} disabled={busyKey !== null} onClick={() => onSendCredentials(branch)}>
-                {busyKey === `credit-${branch._id}` ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                Send credentials
+                {busyKey === `credit-${branch._id}` ? <LoaderCircle className="h-3 w-3 animate-spin text-slate-600" strokeWidth={2.5} /> : <Send size={15} />}
+                Send Reset Link
             </button>
             <button type="button" className={btnDangerOutline} disabled={busyKey !== null} onClick={() => onDelete(branch)}>
                 <Trash2 size={15} /> Delete
@@ -861,14 +912,239 @@ const UserDrawer = ({ user, branch, busyKey, onClose, onEdit, onToggleStatus, on
                     <Pencil size={15} /> Edit
                 </PrimaryButton>
                 <button type="button" className={btnSecondary} disabled={busyKey !== null} onClick={() => onToggleStatus(user)}>
-                    {busyKey === `status-${user._id}` ? <Loader2 size={15} className="animate-spin" /> : <Power size={15} />}
+                    {busyKey === `status-${user._id}` ? <LoaderCircle className="h-3 w-3 animate-spin text-slate-600" strokeWidth={2.5} /> : <Power size={15} />}
                     {user.isActive ? "Deactivate" : "Activate"}
                 </button>
                 <button type="button" className={btnSecondary} disabled={busyKey !== null} onClick={() => onSendCredentials(user)}>
-                    {busyKey === `credit-${user._id}` ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                    Send credentials
+                    {busyKey === `credit-${user._id}` ? <LoaderCircle className="h-3 w-3 animate-spin text-slate-600" strokeWidth={2.5} /> : <Send size={15} />}
+                    Send Reset Link
                 </button>
                 <button type="button" className={btnDangerOutline} disabled={busyKey !== null} onClick={() => onDelete(user)}>
+                    <Trash2 size={15} /> Delete
+                </button>
+            </DrawerFooter>
+        </DrawerShell>
+    );
+};
+
+/* -------------------------------------------------------------------------- */
+/* Shared directory (table on desktop, cards on mobile) + client drawer       */
+/* -------------------------------------------------------------------------- */
+
+const SearchBox = ({ value, onChange, placeholder, label }) => (
+    <label className="relative min-w-0 sm:col-span-2 lg:col-span-1">
+        <span className="sr-only">{label}</span>
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+        <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className={`${INPUT} pl-9`} />
+    </label>
+);
+
+const RowActions = ({ name, onView, onEdit, menu, disabled }) => (
+    <div className="flex items-center justify-end gap-1">
+        <button type="button" className={iconBtn} onClick={onView} aria-label={`View ${name}`} title="View details">
+            <Eye size={16} />
+        </button>
+        <button type="button" className={iconBtn} onClick={onEdit} aria-label={`Edit ${name}`} title="Edit">
+            <Pencil size={16} />
+        </button>
+        <RowMenu items={menu} disabled={disabled} label={`More actions for ${name}`} />
+    </div>
+);
+
+const MobileCard = ({ card, index, actions }) => (
+    <motion.li
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: Math.min(index, 8) * 0.03, duration: 0.25 }}
+        className="p-3.5"
+    >
+        <div className="flex items-start gap-3">
+            {card.lead}
+            <div className="min-w-0 flex-1">
+                <button type="button" onClick={card.onOpen} className={linkBtn}>{card.title}</button>
+                {card.subtitle && <p className="truncate text-[11px] font-medium text-slate-400">{card.subtitle}</p>}
+            </div>
+            <StatusBadge active={card.active} />
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
+            {card.fields.map((field) => (
+                <div key={field.label} className={field.wide ? "col-span-2" : ""}>
+                    <Field label={field.label}>{dash(field.value)}</Field>
+                </div>
+            ))}
+        </dl>
+        <div className="mt-3 border-t border-slate-100 pt-2">{actions}</div>
+    </motion.li>
+);
+
+// One layout for branches, staff and clients: toolbar, table (lg and up), cards (below lg), footer.
+const DirectoryTable = ({
+    titleId, title, subtitle, actions, filters, filtersGrid,
+    columns, rows, loading, rowKey, startIndex = 0,
+    sort, onSort, rowActions, mobileCard, empty, footer
+}) => {
+    const columnCount = columns.length + 2;
+
+    return (
+        <section className={`${CARD} overflow-hidden`} aria-labelledby={titleId}>
+            <div className="space-y-3 border-b border-slate-200 p-3 sm:p-4">
+                <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+                    <div className="min-w-0">
+                        <h2 id={titleId} className="text-sm font-extrabold text-slate-900 sm:text-base">{title}</h2>
+                        {subtitle && <p className="mt-0.5 text-xs font-medium text-slate-400">{subtitle}</p>}
+                    </div>
+                    {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+                </div>
+                <div className={`grid gap-2 ${filtersGrid}`}>{filters}</div>
+            </div>
+
+            {/* Desktop / large tablet: table */}
+            <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[900px] text-xs">
+                    <thead className="border-b border-slate-200 bg-slate-50">
+                        <tr>
+                            <Th>S.N.</Th>
+                            {columns.map((column) => (
+                                column.sortKey && sort
+                                    ? <SortHeader key={column.key} label={column.label} sortKey={column.sortKey} sort={sort} onSort={onSort} />
+                                    : <Th key={column.key}>{column.label}</Th>
+                            ))}
+                            <Th right>Actions</Th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading ? (
+                            <SkeletonRows columns={columnCount} />
+                        ) : rows.map((row, index) => (
+                            <motion.tr
+                                key={rowKey(row)}
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: Math.min(index, 10) * 0.03, duration: 0.25 }}
+                                className="border-b border-slate-100 bg-white transition-colors hover:bg-amber-50/40"
+                            >
+                                <td className="px-4 py-3 font-medium tabular-nums text-slate-400">{startIndex + index + 1}</td>
+                                {columns.map((column) => (
+                                    <td key={column.key} className={`px-4 py-3 font-medium text-slate-800 ${column.className || ""}`}>{column.render(row)}</td>
+                                ))}
+                                <td className="px-4 py-3">{rowActions(row)}</td>
+                            </motion.tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Mobile / small tablet: cards */}
+            {loading ? (
+                <ul className="hidden divide-y divide-slate-100">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <li key={i} className="space-y-3 p-3.5">
+                            <div className="flex items-center gap-3">
+                                <Skeleton className="h-9 w-9 rounded-full" />
+                                <div className="flex-1 space-y-1.5"><Skeleton className="h-3.5 w-2/3" /><Skeleton className="h-3 w-1/3" /></div>
+                            </div>
+                            <Skeleton className="h-12 w-full" />
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <ul className="hidden divide-y divide-slate-100">
+                    {rows.map((row, index) => (
+                        <MobileCard
+                            key={rowKey(row)}
+                            index={index}
+                            card={mobileCard(row)}
+                            actions={rowActions(row)}
+                        />
+                    ))}
+                </ul>
+            )}
+
+            {!loading && empty}
+            {footer}
+        </section>
+    );
+};
+
+const ClientDrawer = ({ client, busyKey, onClose, onEdit, onSendReset, onDisable, onDelete }) => {
+    const org = client.organization || {};
+    const email = client.officeEmail || org.orgEmail || org.officeEmail;
+    const phone = client.officaPhone || client.officePhone || org.orgTelephone || org.officePhone;
+    const recordFields = [
+        { icon: Hash, label: "ID", value: client._id, mono: true },
+        { icon: CalendarPlus, label: "Created", value: formatDate(client.createdAt) },
+        { icon: CalendarClock, label: "Last updated", value: formatDate(client.updatedAt) }
+    ].filter((f) => f.value);
+
+    return (
+        <DrawerShell labelId="client-drawer-title" onClose={onClose}>
+            <DrawerHeader onClose={onClose} closeLabel="Close client details">
+                <IconAvatar icon={Building2} large />
+                <DrawerTitle eyebrow="Client" id="client-drawer-title" title={client.organizationName} chip={email || "No email"}>
+                    <StatusBadge active={client.isActive} />
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${getRoleBadge("client")}`}>
+                        <Building2 size={12} aria-hidden="true" /> Client
+                    </span>
+                </DrawerTitle>
+            </DrawerHeader>
+
+            <div className={drawerBody}>
+                <DrawerSection title="Account" icon={User} order={0} fields={[
+                    { icon: User, label: "Username", value: client.username },
+                    { icon: Mail, label: "Email", value: email },
+                    { icon: Phone, label: "Phone", value: phone },
+                    { icon: UserRoundCog, label: "Handled by", value: client.handledBy === "N/A" ? "" : client.handledBy }
+                ]} />
+
+                <DrawerSection title="Organization" icon={Building2} order={1} fields={[
+                    { icon: Building2, label: "Organization", value: client.organizationName === "N/A" ? "" : client.organizationName },
+                    { icon: BadgeCheck, label: "ISO standard code", value: org.isoStandardCode || client.isoStandardCode },
+                    { icon: MapPin, label: "Province", value: client.province || org.province },
+                    { icon: MapPinned, label: "District", value: client.district || org.district }
+                ]} />
+
+                <DrawerSection title="Leads" icon={Briefcase} count={client.leads.length} order={2} flush={client.leads.length > 0}>
+                    {client.leads.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500">
+                            No lead records are linked to this client.
+                        </div>
+                    ) : (
+                        <ul className="divide-y divide-slate-100">
+                            {client.leads.map((lead, i) => (
+                                <li key={lead._id || lead.leadID || i} className="flex items-center gap-3 px-4 py-2.5">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                                        <Hash size={16} aria-hidden="true" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="truncate text-xs font-bold text-slate-900">{lead.leadID || `Lead ${i + 1}`}</p>
+                                        <p className="truncate text-[11px] font-medium text-slate-400">
+                                            {[lead.leadType, lead.leadSource, lead.assignedSalesRep].filter(Boolean).join(" · ") || "No details"}
+                                        </p>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </DrawerSection>
+
+                {recordFields.length > 0 && <DrawerSection title="Record" icon={Hash} order={3} fields={recordFields} />}
+            </div>
+
+            <DrawerFooter>
+                <PrimaryButton onClick={() => onEdit(client)}>
+                    <Pencil size={15} /> Edit
+                </PrimaryButton>
+                <button type="button" className={btnSecondary} disabled={busyKey !== null} onClick={() => onSendReset(client)}>
+                    {busyKey === `client-reset-${client._id}` ? <LoaderCircle className="h-3 w-3 animate-spin text-slate-600" strokeWidth={2.5} /> : <Send size={15} />}
+                    Send Reset Link
+                </button>
+                {client.isActive && (
+                    <button type="button" className={btnSecondary} disabled={busyKey !== null} onClick={() => onDisable(client)}>
+                        {busyKey === `client-status-${client._id}` ? <LoaderCircle className="h-3 w-3 animate-spin text-slate-600" strokeWidth={2.5} /> : <Power size={15} />}
+                        {client.isActive ? "Deactivate" : "Activate"}
+                    </button>
+                )}
+                <button type="button" className={`${btnDangerOutline} ${client.isActive ? "" : "col-span-2"}`} disabled={busyKey !== null} onClick={() => onDelete(client)}>
                     <Trash2 size={15} /> Delete
                 </button>
             </DrawerFooter>
@@ -950,7 +1226,7 @@ const BranchManagement = () => {
 
     // UI state
     const [tab, setTab] = useState("branches");
-    const [overviewOpen, setOverviewOpen] = useState(true);
+    const [overviewOpen, setOverviewOpen] = useState(false);
     const [search, setSearch] = useState("");
     const [provinceFilter, setProvinceFilter] = useState("");
     const [districtFilter, setDistrictFilter] = useState("");
@@ -962,10 +1238,25 @@ const BranchManagement = () => {
     const [userSearch, setUserSearch] = useState("");
     const [userStatus, setUserStatus] = useState("all");
     const [userPage, setUserPage] = useState(1);
+    const [clients, setClients] = useState([]);
+    const [clientSearch, setClientSearch] = useState("");
+    const [clientStatus, setClientStatus] = useState("all");
+    const [clientPage, setClientPage] = useState(1);
+    const [expandedClientIds, setExpandedClientIds] = useState([]);
+    const [clientEdit, setClientEdit] = useState(null);
+    const [userSort, setUserSort] = useState({ key: "name", dir: "asc" });
+    const [clientSort, setClientSort] = useState({ key: "name", dir: "asc" });
+    const pendingReload = useRef(false);
 
     // Mutations
-    const { Deleteadmin_, DeleteBranch_ } = UseDelete();
-    const { EditStatus_, SendCredit_, EditBranchStatus_, SendBranchCredit_ } = useEdit();
+    const { Deleteadmin_, DeleteBranch_, deleteClients_ } = UseDelete();
+    const { getAllBranch_, getUserCredit_, getAllClients_ } = useGet();
+
+    const { resetclientPassword_ } = UseAdd();
+    const { mutateAsync: loadBranches } = getAllBranch_;
+    const { mutateAsync: loadUsers } = getUserCredit_;
+    const { mutateAsync: loadClients } = getAllClients_;
+    const { EditStatus_, SendCredit_, EditBranchStatus_, SendBranchCredit_, disabledClients_ } = useEdit();
     const [actionLoading, setActionLoading] = useState(null);
     const [confirm, setConfirm] = useState(null); // { kind: "status" | "delete", row }
     const [registerState, setRegisterState] = useState(null); // null | { data: record | null }
@@ -975,14 +1266,12 @@ const BranchManagement = () => {
 
     /* ----------------------------- data loading ----------------------------- */
 
-    const loadData = useCallback(async () => {
-        if (inFlight.current) return; // never fire a second identical request
-        inFlight.current = true;
+    const fetchAll = useCallback(async () => {
         if (hasLoaded.current) setRefreshing(true);
         else setLoading(true);
         setLoadError("");
         try {
-            const [branchResponse, userResponse] = await Promise.all([getAllBranch(), getUserCredit()]);
+            const [branchResponse, userResponse] = await Promise.all([loadBranches(), loadUsers()]);
             const branchRecords = responseRecords(branchResponse);
             const userRecords = responseRecords(userResponse);
             if (!branchRecords || !userRecords) {
@@ -990,16 +1279,42 @@ const BranchManagement = () => {
             }
             setBranches(branchRecords);
             setUsers(userRecords.filter((user) => normalize(user.role) !== "super_admin"));
+            try {
+                const clientResponse = await loadClients();
+                const clientRecords = responseRecords(clientResponse);
+                if (!clientRecords) throw new Error("The client API returned an invalid response.");
+                setClients(clientRecords.filter((client) => normalize(client.role) === "client"));
+            } catch (clientError) {
+                console.error("Client management data fetch failed:", clientError);
+                setClients([]);
+                setLoadError(clientError?.response?.data?.message || clientError.message || "Unable to load clients.");
+            }
             hasLoaded.current = true;
         } catch (error) {
             console.error("Branch management data fetch failed:", error);
             setLoadError(error?.response?.data?.message || error.message || "Unable to load branches and employees.");
+        }
+    }, [loadBranches, loadUsers, loadClients]);
+
+    // Used on first load, by "Refresh", and after EVERY successful API action (refresh page data).
+    // If a request is already running, one more refresh is queued instead of being dropped.
+    const loadData = useCallback(async () => {
+        if (inFlight.current) {
+            pendingReload.current = true;
+            return;
+        }
+        inFlight.current = true;
+        try {
+            do {
+                pendingReload.current = false;
+                await fetchAll();
+            } while (pendingReload.current);
         } finally {
             inFlight.current = false;
             setLoading(false);
             setRefreshing(false);
         }
-    }, []);
+    }, [fetchAll]);
 
     useEffect(() => {
         loadData();
@@ -1143,17 +1458,80 @@ const BranchManagement = () => {
 
     const filteredUsers = useMemo(() => {
         const query = normalize(userSearch);
-        return tabUsers.filter((user) => {
+        const matched = tabUsers.filter((user) => {
             if (userStatus !== "all" && (userStatus === "active") !== user.isActive) return false;
             if (!query) return true;
             return [user.fullName, user.username, user.officeEmail, user.jobRole, user.designation, user.location.district, user.location.localLevel]
                 .some((value) => normalize(value).includes(query));
         });
-    }, [tabUsers, userSearch, userStatus]);
+        return sortRows(matched, userSort, staffSortValue);
+    }, [tabUsers, userSearch, userStatus, userSort]);
 
     const userPageCount = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
     const safeUserPage = Math.min(userPage, userPageCount);
     const pagedUsers = filteredUsers.slice((safeUserPage - 1) * PAGE_SIZE, safeUserPage * PAGE_SIZE);
+
+    // Clients use the ClientsCredit collection only. They are kept separate from
+    // staff/admin records and can contain an array of nested lead records.
+    const clientRows = useMemo(() => clients
+        .filter((client) => normalize(client.role) === "client")
+        .map((client) => {
+            const organization = client.organizationID && typeof client.organizationID === "object"
+                ? client.organizationID
+                : null;
+            const leads = Array.isArray(organization?.leadDetails) ? organization.leadDetails : [];
+            const organizationDetails = Array.isArray(organization?.organizationDetails)
+                ? organization.organizationDetails
+                : [];
+            return {
+                ...client,
+                organization,
+                leads,
+                organizationName: organizationDetails[0]?.organizationName
+                    || organization?.organizationName
+                    || organization?.name
+                    || "N/A",
+                handledBy: leads.map((lead) =>
+                    lead.assignedSalesRep || lead.salesManager || "").find(Boolean) || "N/A",
+                isActive: client.isActive !== false
+            };
+        }), [clients]);
+
+    const filteredClients = useMemo(() => {
+        const query = normalize(clientSearch);
+        const matched = clientRows.filter((client) => {
+            if (clientStatus !== "all" && (clientStatus === "active") !== client.isActive) return false;
+            if (!query) return true;
+            const values = [
+                client.organizationName,
+                client.username,
+                client.organization?.isoStandardCode,
+                client.isoStandardCode,
+                client.officeEmail,
+                client.officaPhone,
+                client.province,
+                client.district,
+                ...client.leads.flatMap((lead) => [
+                    lead.leadID,
+                    lead.leadType,
+                    lead.leadSource,
+                    lead.assignedSalesRep,
+                    lead.district,
+                    lead.province
+                ])
+            ];
+            return values.some((value) => normalize(value).includes(query));
+        });
+        return sortRows(matched, clientSort, clientSortValue);
+    }, [clientRows, clientSearch, clientStatus, clientSort]);
+
+    const clientPageCount = Math.max(1, Math.ceil(filteredClients.length / PAGE_SIZE));
+    const safeClientPage = Math.min(clientPage, clientPageCount);
+    const pagedClients = filteredClients.slice((safeClientPage - 1) * PAGE_SIZE, safeClientPage * PAGE_SIZE);
+    const clientFiltersActive = Boolean(clientSearch || clientStatus !== "all");
+    const clientActiveCount = clientRows.filter((client) => client.isActive).length;
+
+    useEffect(() => { setClientPage(1); }, [clientSearch, clientStatus, tab]);
 
     /* ------------------------- URL-backed detail views ----------------------- */
 
@@ -1171,6 +1549,8 @@ const BranchManagement = () => {
     const branchId = searchParams.get("branch");
     const employeeId = searchParams.get("employee");
     const userId = searchParams.get("user");
+    const clientId = searchParams.get("client");
+    const selectedClient = clientRows.find((client) => String(client._id) === clientId) || null;
     const selectedBranch = branchRows.find((branch) => String(branch._id) === branchId) || null;
     const selectedUser = userRows.find((user) => String(user._id) === userId) || null;
     const selectedUserBranch = selectedUser && normalize(selectedUser.role) === "staff"
@@ -1188,12 +1568,13 @@ const BranchManagement = () => {
             if (event.key !== "Escape") return;
             if (confirm) setConfirm(null);
             else if (employeeId) setParam("employee", null);
+            else if (clientId) setParam("client", null);
             else if (userId) setParam("user", null);
             else if (branchId) setParam("branch", null);
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [branchId, confirm, employeeId, userId, setParam]);
+    }, [branchId, clientId, confirm, employeeId, userId, setParam]);
 
     /* -------------------------------- actions ------------------------------- */
 
@@ -1205,7 +1586,8 @@ const BranchManagement = () => {
         setUserSearch("");
         setUserStatus("all");
         setUserPage(1);
-        if (userId) setParam("user", null);
+        setExpandedClientIds([]);
+        if (userId || clientId) setParams({ user: null, client: null });
     };
 
     const toggleSort = (key) => setSort((current) => (
@@ -1225,41 +1607,115 @@ const BranchManagement = () => {
         setUserStatus("all");
     };
 
+    const clearClientFilters = () => {
+        setClientSearch("");
+        setClientStatus("all");
+    };
+
+    const toggleExpandedClient = (id) => {
+        setExpandedClientIds((current) => current.includes(id)
+            ? current.filter((expandedId) => expandedId !== id)
+            : [...current, id]);
+    };
+
     const selectProvince = (name) => {
         setProvinceFilter((current) => (current === name ? "" : name));
         setDistrictFilter("");
     };
 
-    const exportReport = () => {
-        if (filteredBranches.length === 0) {
-            ErrorNotify("There are no branches to export for the current filters.");
-            return;
-        }
-        const header = ["Branch", "Province", "District", "Local level", "Ward", "Branch manager", "Branch email", "Branch phone", "Team size", "Status"];
-        const body = filteredBranches.map((branch) => [
-            branch.name, branch.location.province, branch.location.district, branch.location.localLevel,
-            branch.wardNo, branch.managerName, branch.officeEmail, branch.officeMobile,
-            branch.team.length, branch.isActive ? "Active" : "Inactive"
-        ]);
-        downloadCsv(`eimcta-branches-${new Date().toISOString().slice(0, 10)}.csv`, [header, ...body]);
-        SuccessNotify(`Exported ${filteredBranches.length} branch${filteredBranches.length === 1 ? "" : "es"}.`);
-    };
+    // const exportReport = () => {
+    //     if (filteredBranches.length === 0) {
+    //         ErrorNotify("There are no branches to export for the current filters.");
+    //         return;
+    //     }
+    //     const header = ["Branch", "Province", "District", "Local level", "Ward", "Branch manager", "Branch email", "Branch phone", "Team size", "Status"];
+    //     const body = filteredBranches.map((branch) => [
+    //         branch.name, branch.location.province, branch.location.district, branch.location.localLevel,
+    //         branch.wardNo, branch.managerName, branch.officeEmail, branch.officeMobile,
+    //         branch.team.length, branch.isActive ? "Active" : "Inactive"
+    //     ]);
+    //     downloadCsv(`eimcta-branches-${new Date().toISOString().slice(0, 10)}.csv`, [header, ...body]);
+    //     SuccessNotify(`Exported ${filteredBranches.length} branch${filteredBranches.length === 1 ? "" : "es"}.`);
+    // };
 
     const sendCredentials = (row) => {
         if (actionLoading) return;
-        waitingNotify(`Sending credentials to ${row.username || "this account"}...`);
+        waitingNotify(`Sending reset link to ${row.username || "this account"}...`);
         const mutation = row.isBranch ? SendBranchCredit_ : SendCredit_;
         setActionLoading(`credit-${row._id}`);
         mutation.mutate({ params: { id: row._id }, role: row.role }, {
-            onSuccess: (res) => SuccessNotify(res?.data?.message || `Credentials sent to ${row.officeEmail}`),
-            onError: (err) => ErrorNotify(err?.response?.data?.message || "Failed to send credentials."),
+            onSuccess: (res) => {
+                SuccessNotify(res?.data?.message || `Reset link sent to ${row.officeEmail}`);
+                loadData();
+            },
+            onError: (err) => ErrorNotify(err?.response?.data?.message || "Failed to send reset link."),
+            onSettled: () => setActionLoading(null)
+        });
+    };
+
+    const sendClientResetLink = (client) => {
+        if (actionLoading) return;
+        waitingNotify(`Sending reset link to ${client.username || "this client"}...`);
+        setActionLoading(`client-reset-${client._id}`);
+        resetclientPassword_.mutate({ params: { id: client._id } }, {
+            onSuccess: (res) => {
+                SuccessNotify(res?.data?.message || res?.message || "Password reset link sent.");
+                loadData();
+            },
+            onError: (err) => ErrorNotify(err?.response?.data?.message || "Failed to send reset link."),
             onSettled: () => setActionLoading(null)
         });
     };
 
     const runConfirmed = () => {
+        console.log("runConfirmed", confirm);
         if (!confirm || actionLoading) return;
         const { kind, row } = confirm;
+
+        if (kind === "client-status") {
+            const nextIsActive = !row.isActive;
+            setActionLoading(`client-status-${row._id}`);
+            disabledClients_.mutate(
+                {
+                    params: { id: row._id },
+                    payload: { isActive: nextIsActive },
+                    role: row.role
+                },
+                {
+                    onSuccess: (res) => {
+                        SuccessNotify(
+                            res?.data?.message ||
+                            res?.message ||
+                            (nextIsActive ? "Client account activated." : "Client account deactivated.")
+                        );
+                        setConfirm(null);
+                        loadData();
+                    },
+                    onError: (err) => ErrorNotify(err?.response?.data?.message || "Failed to update client status."),
+                    onSettled: () => setActionLoading(null)
+                }
+            );
+            return;
+        }
+
+        if (kind === "client-delete") {
+            const ids = [row._id];
+            setActionLoading(`client-delete-${row._id}`);
+            deleteClients_.mutate({ ids }, {
+                onSuccess: (res) => {
+                    const deletedCount = typeof res?.deletedCount === "number"
+                        ? res.deletedCount
+                        : ids.length;
+                    SuccessNotify(res?.data?.message || res?.message || `Deleted ${deletedCount} client${deletedCount === 1 ? "" : "s"}.`);
+                    setConfirm(null);
+                    if (ids.some((id) => String(id) === clientId)) setParam("client", null);
+                    loadData();
+                },
+                onError: (err) => ErrorNotify(err?.response?.data?.message || "Failed to delete client account."),
+                onSettled: () => setActionLoading(null)
+            });
+            return;
+        }
 
         if (kind === "status") {
             const mutation = row.isBranch ? EditBranchStatus_ : EditStatus_;
@@ -1298,6 +1754,35 @@ const BranchManagement = () => {
     const confirmConfig = useMemo(() => {
         if (!confirm) return null;
         const { kind, row } = confirm;
+        if (kind === "client-status") {
+            const label = row.organizationName || row.username || "this client";
+            const willActivate = !row.isActive;
+            return willActivate
+                ? {
+                    title: `Activate ${label}?`,
+                    body: "The client account will be marked active again.",
+                    confirmLabel: "Activate Account",
+                    cancelLabel: "Keep inactive",
+                    danger: false
+                }
+                : {
+                    title: `Deactivate ${label}?`,
+                    body: "The client account will be deactivated. This does not delete the organization or lead records.",
+                    confirmLabel: "Deactivate Account",
+                    cancelLabel: "Keep active",
+                    danger: true
+                };
+        }
+        if (kind === "client-delete") {
+            const label = row.organizationName || row.username || "this client";
+            return {
+                title: `Delete ${label} account?`,
+                body: "This permanently removes the client account and cannot be undone.",
+                confirmLabel: "Delete Account",
+                cancelLabel: "Keep account",
+                danger: true
+            };
+        }
         const label = row.isBranch ? row.name : (row.fullName || row.username || "this account");
         if (kind === "status") {
             return row.isActive
@@ -1322,39 +1807,189 @@ const BranchManagement = () => {
                 : "This permanently removes the account and cannot be undone.",
             confirmLabel: "Delete",
             cancelLabel: row.isBranch ? "Keep branch" : "Keep account",
-            danger: true,
-            requireText: "delete"
+            danger: true
         };
     }, [confirm]);
 
-    const openRegister = (data = null) => setRegisterState({ data });
+    const openRegister = (data = null, defaultRole = null) => setRegisterState({ data, defaultRole });
     const requestStatus = (row) => setConfirm({ kind: "status", row });
     const requestDelete = (row) => setConfirm({ kind: "delete", row });
 
+    const requestClientStatus = (row) => {
+        // if (row.isActive !== true) return;
+
+        setConfirm({ kind: "client-status", row });
+    };
+
+    const requestClientDelete = (row) => setConfirm({ kind: "client-delete", row });
+
     const branchMenu = (branch) => [
         { icon: Power, label: branch.isActive ? "Deactivate branch" : "Activate branch", onSelect: () => requestStatus(branch) },
-        { icon: Send, label: "Send credentials", onSelect: () => sendCredentials(branch) },
+        { icon: Send, label: "Send Reset Link", onSelect: () => sendCredentials(branch) },
         { icon: Trash2, label: "Delete branch", onSelect: () => requestDelete(branch), danger: true }
     ];
 
     const userMenu = (user) => [
         { icon: Power, label: user.isActive ? "Deactivate account" : "Activate account", onSelect: () => requestStatus(user) },
-        { icon: Send, label: "Send credentials", onSelect: () => sendCredentials(user) },
+        { icon: Send, label: "Send Reset Link", onSelect: () => sendCredentials(user) },
         { icon: Trash2, label: "Delete account", onSelect: () => requestDelete(user), danger: true }
     ];
 
     /* --------------------------------- render ------------------------------- */
 
-    const branchColumns = 9;
     const tabsMeta = {
         branches: { label: "Branches", icon: GitBranch, count: branchRows.length },
         // admin: { label: ACCOUNT_TABS.admin.label, icon: ACCOUNT_TABS.admin.icon, count: roleCounts.admin },
         staff: { label: ACCOUNT_TABS.staff.label, icon: ACCOUNT_TABS.staff.icon, count: roleCounts.staff },
-        client: { label: ACCOUNT_TABS.client.label, icon: ACCOUNT_TABS.client.icon, count: roleCounts.client }
+        client: { label: ACCOUNT_TABS.client.label, icon: ACCOUNT_TABS.client.icon, count: clientRows.length }
     };
     const overviewCount = isAccountTab
         ? `${nf.format(accountStats.total)} ${accountMeta.singular.toLowerCase()} account${accountStats.total === 1 ? "" : "s"}`
         : `${nf.format(stats.total)} branch${stats.total === 1 ? "" : "es"} in network`;
+
+    const clientMenu = (client) => [
+        {
+            icon: Power,
+            label: client.isActive ? "Deactivate Account" : "Activate Account",
+            onSelect: () => requestClientStatus(client)
+        },
+        { icon: Send, label: "Send Reset Link", onSelect: () => sendClientResetLink(client) },
+        { icon: Trash2, label: "Delete Account", onSelect: () => requestClientDelete(client), danger: true }
+    ];
+    const addAction = tab === "branches"
+        ? { label: "Add new branch", onClick: () => openRegister(null) }
+        : tab === "staff"
+            ? { label: "Add staff", onClick: () => openRegister(null, "staff") }
+            : null; // clients are created from the sales pipeline, never from here
+
+    /* Branch table + card */
+    const branchCols = [
+        {
+            key: "name", label: "Branch name", sortKey: "name", render: (b) => (
+                <div className="flex min-w-0 items-center gap-3">
+                    <IconAvatar icon={Building2} />
+                    <div className="min-w-0">
+                        <button type="button" onClick={() => setParam("branch", b._id)} className={linkBtn}>{b.name}</button>
+                        {b.wardNo ? <div className="text-[11px] font-medium text-slate-400">Ward {b.wardNo}</div> : null}
+                    </div>
+                </div>
+            )
+        },
+        { key: "province", label: "Province", sortKey: "province", className: "whitespace-nowrap", render: (b) => dash(b.location.province) },
+        { key: "district", label: "District", sortKey: "district", className: "whitespace-nowrap", render: (b) => dash(b.location.district) },
+        { key: "localLevel", label: "Local level", sortKey: "localLevel", className: "whitespace-nowrap", render: (b) => dash(b.location.localLevel) },
+        {
+            key: "manager", label: "Branch manager", sortKey: "manager", className: "whitespace-nowrap", render: (b) => (
+                b.managerName || <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">No manager</span>
+            )
+        },
+        { key: "team", label: "Team size", sortKey: "team", className: "tabular-nums", render: (b) => b.team.length },
+        { key: "status", label: "Status", sortKey: "status", render: (b) => <StatusBadge active={b.isActive} /> }
+    ];
+    const branchCard = (b) => ({
+        lead: <IconAvatar icon={Building2} />,
+        title: b.name,
+        subtitle: b.wardNo ? `Ward ${b.wardNo}` : null,
+        active: b.isActive,
+        onOpen: () => setParam("branch", b._id),
+        fields: [
+            { label: "Province", value: b.location.province },
+            { label: "District", value: b.location.district },
+            { label: "Local level", value: b.location.localLevel },
+            { label: "Team size", value: b.team.length },
+            { label: "Branch manager", value: b.managerName || "No manager", wide: true }
+        ]
+    });
+    const branchActions = (b) => (
+        <RowActions name={b.name} onView={() => setParam("branch", b._id)} onEdit={() => openRegister(b)} menu={branchMenu(b)} disabled={actionLoading !== null} />
+    );
+
+    /* Staff table + card */
+    const staffName = (u) => u.fullName || u.username || "Unnamed";
+    const staffCols = [
+        {
+            key: "name", label: "Staff", sortKey: "name", render: (u) => (
+                <div className="flex min-w-0 items-center gap-3">
+                    <Avatar name={staffName(u)} />
+                    <div className="min-w-0">
+                        <button type="button" onClick={() => setParam("user", u._id)} className={linkBtn}>{staffName(u)}</button>
+                        <div className="truncate text-[11px] font-medium text-slate-400">{dash(u.username)}</div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            key: "location", label: "Location", sortKey: "location", className: "whitespace-nowrap", render: (u) => (
+                <><div>{dash(u.location.district)}</div><div className="text-[11px] text-slate-400">{dash(u.location.localLevel)}</div></>
+            )
+        },
+        {
+            key: "position", label: "Position", sortKey: "position", className: "whitespace-nowrap", render: (u) => (
+                <><div>{dash(u.jobRole)}</div><div className="text-[11px] text-slate-400">{dash(u.designation)}</div></>
+            )
+        },
+        {
+            key: "contact", label: "Contact", className: "text-[11px] text-slate-500", render: (u) => (
+                <>
+                    <div className="flex items-center gap-1.5"><Mail size={12} className="text-slate-400" aria-hidden="true" />{dash(u.officeEmail)}</div>
+                    <div className="mt-0.5 flex items-center gap-1.5"><Phone size={12} className="text-slate-400" aria-hidden="true" />{dash(u.officeMobile)}</div>
+                </>
+            )
+        },
+        { key: "status", label: "Status", sortKey: "status", render: (u) => <StatusBadge active={u.isActive} /> }
+    ];
+    const staffCard = (u) => ({
+        lead: <Avatar name={staffName(u)} />,
+        title: staffName(u),
+        subtitle: u.username,
+        active: u.isActive,
+        onOpen: () => setParam("user", u._id),
+        fields: [
+            { label: "Job role", value: u.jobRole },
+            { label: "Department", value: u.designation },
+            { label: "District", value: u.location.district },
+            { label: "Local level", value: u.location.localLevel },
+            { label: "Email", value: u.officeEmail, wide: true },
+            { label: "Phone", value: u.officeMobile, wide: true }
+        ]
+    });
+    const staffActions = (u) => (
+        <RowActions name={staffName(u)} onView={() => setParam("user", u._id)} onEdit={() => openRegister(u)} menu={userMenu(u)} disabled={actionLoading !== null} />
+    );
+
+    /* Client table + card (same format as staff / branch) */
+    const clientCols = [
+        {
+            key: "name", label: "Organization", sortKey: "name", render: (c) => (
+                <div className="flex min-w-0 items-center gap-3">
+                    <IconAvatar icon={Building2} />
+                    <div className="min-w-0">
+                        <button type="button" title={c.organizationName} onClick={() => setParam("client", c._id)} className={linkBtn}>{c.organizationName}</button>
+                        <div className="truncate text-[11px] font-medium text-slate-400">{dash(c.officeEmail)}</div>
+                    </div>
+                </div>
+            )
+        },
+        { key: "username", label: "Username", sortKey: "username", className: "whitespace-nowrap", render: (c) => dash(c.username) },
+        { key: "handledBy", label: "Handled by", sortKey: "handledBy", className: "whitespace-nowrap", render: (c) => dash("no") },
+        { key: "cro", label: "CRO", className: "text-slate-400", render: () => "N/A" /* TODO: dynamic CRO data */ },
+        { key: "status", label: "Status", sortKey: "status", render: (c) => <StatusBadge active={c.isActive} /> }
+    ];
+    const clientCard = (c) => ({
+        lead: <IconAvatar icon={Building2} />,
+        title: c.organizationName,
+        subtitle: c.username,
+        active: c.isActive,
+        onOpen: () => setParam("client", c._id),
+        fields: [
+            { label: "Handled by", value: c.handledBy },
+            { label: "CRO", value: "N/A" },
+            { label: "Email", value: c.officeEmail, wide: true }
+        ]
+    });
+    const clientActions = (c) => (
+        <RowActions name={c.organizationName} onView={() => setParam("client", c._id)} onEdit={() => setClientEdit({ id: c._id, client: c })} menu={clientMenu(c)} disabled={actionLoading !== null} />
+    );
 
     return (
         <MotionConfig reducedMotion="user">
@@ -1363,10 +1998,10 @@ const BranchManagement = () => {
                 <header className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
                     <div className="flex min-w-0 items-center gap-3">
                         <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white shadow-sm sm:h-11 sm:w-11 ${BRAND}`}>
-                            <GitBranch size={20} aria-hidden="true" />
+                            {React.createElement(tabsMeta[tab].icon, { size: 20, "aria-hidden": true })}
                         </span>
                         <div className="min-w-0">
-                            <h1 className="truncate text-lg font-extrabold text-slate-900 sm:text-xl">Branches</h1>
+                            <h1 className="truncate text-lg font-extrabold text-slate-900 sm:text-xl">{tabsMeta[tab].label}</h1>
                             <nav aria-label="Breadcrumb" className="mt-0.5 flex items-center gap-1 text-[11px]">
                                 <span className="font-medium text-slate-800">EIMCTA</span>
                                 <ChevronRight size={12} className="text-slate-400" aria-hidden="true" />
@@ -1374,24 +2009,19 @@ const BranchManagement = () => {
                             </nav>
                         </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <button type="button" className={btnSecondary} onClick={loadData} disabled={loading || refreshing}>
-                            <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} /> Refresh data
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+                        <button type="button" className={`${btnSecondary} ${addAction ? "" : "col-span-2 sm:col-auto"}`} onClick={loadData} disabled={loading || refreshing}>
+                            {refreshing ? <LoaderCircle className="h-3 w-3 animate-spin text-slate-600" strokeWidth={2.5} /> : <RefreshCw size={15} />} Refresh
                         </button>
-                        {!isAccountTab && (
-                            <>
-                                <button type="button" className={btnSecondary} onClick={exportReport} disabled={loading || Boolean(loadError)}>
-                                    <Download size={15} /> Export branch report
-                                </button>
-                                <PrimaryButton onClick={() => openRegister(null)}>
-                                    <Plus size={15} /> Add new branch
-                                </PrimaryButton>
-                            </>
+                        {addAction && (
+                            <PrimaryButton onClick={addAction.onClick}>
+                                <Plus size={15} /> {addAction.label}
+                            </PrimaryButton>
                         )}
                     </div>
                 </header>
 
-                {/* Tabs */}
+                {/* Tabs (same three on every screen size) */}
                 <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Branch management sections">
                     {TAB_ORDER.map((key) => {
                         const { label, icon: Icon, count } = tabsMeta[key];
@@ -1403,14 +2033,14 @@ const BranchManagement = () => {
                                 role="tab"
                                 aria-selected={isActive}
                                 onClick={() => switchTab(key)}
-                                className={`inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors ${FOCUS} ${isActive
+                                className={`inline-flex min-h-10 flex-1 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors sm:min-h-9 sm:flex-none ${FOCUS} ${isActive
                                     ? `${BRAND} border-transparent text-white shadow-sm`
                                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                                     }`}
                             >
                                 <Icon size={15} aria-hidden="true" /> {label}
                                 <span className={`rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums ${isActive ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"}`}>
-                                    {loading ? "–" : nf.format(count)}
+                                    {loading ? <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} /> : nf.format(count)}
                                 </span>
                             </button>
                         );
@@ -1423,7 +2053,8 @@ const BranchManagement = () => {
                             <p className="font-bold">Branch data could not be loaded</p>
                             <p className="mt-0.5">{loadError}</p>
                         </div>
-                        <button type="button" className={`cursor-pointer self-start rounded font-semibold underline sm:self-auto ${FOCUS}`} onClick={loadData} disabled={refreshing || loading}>
+                        <button type="button" className={`inline-flex cursor-pointer items-center gap-1.5 self-start rounded font-semibold underline sm:self-auto ${FOCUS}`} onClick={loadData} disabled={refreshing || loading}>
+                            {(refreshing || loading) && <LoaderCircle className="h-3 w-3 animate-spin text-red-600" strokeWidth={2.5} />}
                             Retry
                         </button>
                     </div>
@@ -1433,7 +2064,7 @@ const BranchManagement = () => {
                 <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 flex-col sm:flex-row sm:items-baseline">
                         <h2 className="text-sm font-extrabold text-slate-900 sm:text-base">Overview</h2>
-                        <p className="truncate text-xs font-medium text-slate-400 sm:ml-2">{loading ? "Loading…" : overviewCount}</p>
+                        <div className="truncate text-xs font-medium text-slate-400 sm:ml-2">{loading ? <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} /> : overviewCount}</div>
                     </div>
                     <button
                         type="button"
@@ -1471,7 +2102,7 @@ const BranchManagement = () => {
 
                                     {loading ? (
                                         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                            {Array.from({ length: 4 }).map((_, i) => <Bone key={i} className="h-16 rounded-lg" />)}
+                                            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
                                         </div>
                                     ) : provinceSummary.length === 0 ? (
                                         <p className="mt-4 rounded-lg border border-dashed border-slate-200 p-4 text-xs text-slate-500">
@@ -1549,112 +2180,89 @@ const BranchManagement = () => {
                         )}
 
                         {/* Branch directory */}
-                        <section className={`${CARD} overflow-hidden`} aria-labelledby="directory-title">
-                            <div className="space-y-3 border-b border-slate-200 p-3 sm:p-4">
-                                <h2 id="directory-title" className="text-sm font-extrabold text-slate-900 sm:text-base">Branch directory</h2>
-                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_200px_200px_180px_auto]">
-                                    <label className="relative min-w-0 sm:col-span-2 lg:col-span-1">
-                                        <span className="sr-only">Search branches</span>
-                                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-                                        <input
-                                            value={search}
-                                            onChange={(event) => setSearch(event.target.value)}
-                                            placeholder="Search by branch, district, province, local level, or manager"
-                                            className={`${INPUT} pl-9`}
-                                        />
-                                    </label>
+                        <DirectoryTable
+                            titleId="directory-title"
+                            title="Branch directory"
+                            subtitle="Select a branch name to see its manager, team and clients."
+                            filtersGrid="sm:grid-cols-2 lg:grid-cols-[1fr_200px_200px_180px_auto]"
+                            filters={(
+                                <>
+                                    <SearchBox label="Search branches" value={search} onChange={setSearch} placeholder="Search by branch, district, province, local level, or manager" />
                                     <SelectField label="Filter by province" searchable options={provinceSelectOptions} value={provinceFilter}
                                         onChange={(next) => { setProvinceFilter(next); setDistrictFilter(""); }} />
                                     <SelectField label="Filter by district" searchable options={districtSelectOptions} value={districtFilter}
                                         onChange={setDistrictFilter} disabled={districtOptions.length === 0} />
                                     <SelectField label="Filter by status" options={STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} />
-                                    <button type="button" className={btnGhost} onClick={clearFilters} disabled={!filtersActive}>
-                                        Clear filters
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="overflow-x-auto">
-                                <table className="w-full min-w-[960px] text-xs">
-                                    <thead className="border-b border-slate-200 bg-slate-50">
-                                        <tr>
-                                            <Th>S.N.</Th>
-                                            <SortHeader label="Branch name" sortKey="name" sort={sort} onSort={toggleSort} />
-                                            <SortHeader label="Province" sortKey="province" sort={sort} onSort={toggleSort} />
-                                            <SortHeader label="District" sortKey="district" sort={sort} onSort={toggleSort} />
-                                            <SortHeader label="Local level" sortKey="localLevel" sort={sort} onSort={toggleSort} />
-                                            <SortHeader label="Branch manager" sortKey="manager" sort={sort} onSort={toggleSort} />
-                                            <SortHeader label="Team size" sortKey="team" sort={sort} onSort={toggleSort} />
-                                            <SortHeader label="Status" sortKey="status" sort={sort} onSort={toggleSort} />
-                                            <Th right>Actions</Th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {loading ? (
-                                            <SkeletonRows columns={branchColumns} />
-                                        ) : pagedBranches.map((branch, index) => (
-                                            <motion.tr
-                                                key={branch._id}
-                                                initial={{ opacity: 0, y: 8 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{ delay: Math.min(index, 10) * 0.03, duration: 0.25 }}
-                                                className="border-b border-slate-100 bg-white transition-colors hover:bg-amber-50/40"
-                                            >
-                                                <td className="px-4 py-3 font-medium tabular-nums text-slate-400">{(safePage - 1) * PAGE_SIZE + index + 1}</td>
-                                                <td className="px-4 py-3">
-                                                    <button type="button" onClick={() => setParam("branch", branch._id)}
-                                                        className={`cursor-pointer rounded text-left text-xs font-bold text-slate-900 underline-offset-4 transition-colors hover:text-amber-600 hover:underline ${FOCUS}`}>
-                                                        {branch.name}
-                                                    </button>
-                                                    {branch.wardNo ? <div className="text-[11px] font-medium text-slate-400">Ward {branch.wardNo}</div> : null}
-                                                </td>
-                                                <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-800">{dash(branch.location.province)}</td>
-                                                <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-800">{dash(branch.location.district)}</td>
-                                                <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-800">{dash(branch.location.localLevel)}</td>
-                                                <td className="whitespace-nowrap px-4 py-3">
-                                                    {branch.managerName
-                                                        ? <span className="font-medium text-slate-800">{branch.managerName}</span>
-                                                        : <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">No manager</span>}
-                                                </td>
-                                                <td className="px-4 py-3 font-medium tabular-nums text-slate-800">{branch.team.length}</td>
-                                                <td className="px-4 py-3"><StatusBadge active={branch.isActive} /></td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <button type="button" className={iconBtn} onClick={() => setParam("branch", branch._id)} aria-label={`View ${branch.name}`} title="View details">
-                                                            <Eye size={16} />
-                                                        </button>
-                                                        <button type="button" className={iconBtn} onClick={() => openRegister(branch)} aria-label={`Edit ${branch.name}`} title="Edit branch">
-                                                            <Pencil size={16} />
-                                                        </button>
-                                                        <RowMenu items={branchMenu(branch)} disabled={actionLoading !== null} label={`More actions for ${branch.name}`} />
-                                                    </div>
-                                                </td>
-                                            </motion.tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-
-                                {!loading && !loadError && filteredBranches.length === 0 && (
-                                    filtersActive ? (
-                                        <EmptyState icon={Search} title="No matching branches"
-                                            text="No branch matches the current search and filters."
-                                            action={<button type="button" className={btnGhost} onClick={clearFilters}>Clear filters</button>} />
-                                    ) : (
-                                        <EmptyState icon={Building2} title="No branches yet"
-                                            text="Add the first EIMCTA branch to start building the network."
-                                            action={<PrimaryButton onClick={() => openRegister(null)}><Plus size={15} /> Add new branch</PrimaryButton>} />
-                                    )
-                                )}
-                                {!loading && loadError && filteredBranches.length === 0 && (
+                                    <button type="button" className={btnGhost} onClick={clearFilters} disabled={!filtersActive}>Clear filters</button>
+                                </>
+                            )}
+                            columns={branchCols}
+                            rows={pagedBranches}
+                            loading={loading}
+                            rowKey={(b) => b._id}
+                            startIndex={(safePage - 1) * PAGE_SIZE}
+                            sort={sort}
+                            onSort={toggleSort}
+                            rowActions={branchActions}
+                            mobileCard={branchCard}
+                            empty={filteredBranches.length === 0 ? (
+                                loadError ? (
                                     <EmptyState icon={AlertCircle} title="Branches unavailable" text="Fix the error above, then try again." />
-                                )}
+                                ) : filtersActive ? (
+                                    <EmptyState icon={Search} title="No matching branches" text="No branch matches the current search and filters."
+                                        action={<button type="button" className={btnGhost} onClick={clearFilters}>Clear filters</button>} />
+                                ) : (
+                                    <EmptyState icon={Building2} title="No branches yet" text="Add the first EIMCTA branch to start building the network."
+                                        action={<PrimaryButton onClick={() => openRegister(null)}><Plus size={15} /> Add new branch</PrimaryButton>} />
+                                )
+                            ) : null}
+                            footer={!loading && <Pagination page={safePage} pageCount={pageCount} total={filteredBranches.length} noun={filteredBranches.length === 1 ? "branch" : "branches"} onChange={setPage} />}
+                        />
+                    </>
+                ) : tab === "client" ? (
+                    <>
+                        {overviewOpen && (
+                            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                                <StatCard index={0} loading={loading} icon={Building2} tone="orange" label="Total clients" value={clientRows.length} total={clientRows.length} />
+                                <StatCard index={1} loading={loading} icon={UserCheck} tone="green" label="Active" value={clientActiveCount} total={clientRows.length} />
+                                <StatCard index={2} loading={loading} icon={UserX} tone="slate" label="Inactive" value={clientRows.length - clientActiveCount} total={clientRows.length} />
+                                {/* <StatCard index={3} loading={loading} icon={MapPinned} tone="amber" label="Lead records" value={clientRows.reduce((sum, client) => sum + client.leads.length, 0)} hint="Populated organization leads" /> */}
                             </div>
+                        )}
 
-                            {!loading && <Pagination page={safePage} pageCount={pageCount} total={filteredBranches.length} noun={filteredBranches.length === 1 ? "branch" : "branches"} onChange={setPage} />}
-                        </section>
+                        <DirectoryTable
+                            titleId="client-directory-title"
+                            title="Client accounts"
+                            subtitle="Organization and lead information from registered client accounts."
+                            filtersGrid="sm:grid-cols-2 lg:grid-cols-[1fr_220px_auto]"
+                            filters={(
+                                <>
+                                    <SearchBox label="Search clients" value={clientSearch} onChange={setClientSearch} placeholder="Search organization, username, lead ID, source, district, or sales rep" />
+                                    <SelectField label="Filter by status" options={STATUS_OPTIONS} value={clientStatus} onChange={setClientStatus} />
+                                    <button type="button" className={btnGhost} onClick={clearClientFilters} disabled={!clientFiltersActive}>Clear filters</button>
+                                </>
+                            )}
+                            columns={clientCols}
+                            rows={pagedClients}
+                            loading={loading}
+                            rowKey={(c) => c._id}
+                            startIndex={(safeClientPage - 1) * PAGE_SIZE}
+                            sort={clientSort}
+                            onSort={(key) => setClientSort((current) => nextSort(current, key))}
+                            rowActions={clientActions}
+                            mobileCard={clientCard}
+                            empty={filteredClients.length === 0 ? (
+                                <EmptyState icon={Building2}
+                                    title={clientFiltersActive ? "No matching clients" : "No clients yet"}
+                                    text={clientFiltersActive ? "No client matches the current search and status filter." : "No client accounts have been registered yet."}
+                                    action={clientFiltersActive ? <button type="button" className={btnGhost} onClick={clearClientFilters}>Clear filters</button> : null} />
+                            ) : null}
+                            footer={!loading && <Pagination page={safeClientPage} pageCount={clientPageCount} total={filteredClients.length}
+                                noun={filteredClients.length === 1 ? "client" : "clients"} onChange={setClientPage} />}
+                        />
                     </>
                 ) : (
-                    /* Admin / Staff / Client accounts */
+                    /* Staff accounts */
                     <>
                         {overviewOpen && (
                             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -1665,99 +2273,38 @@ const BranchManagement = () => {
                             </div>
                         )}
 
-                        <section className={`${CARD} overflow-hidden`} aria-labelledby="accounts-title">
-                            <div className="space-y-3 border-b border-slate-200 p-3 sm:p-4">
-                                <div>
-                                    <h2 id="accounts-title" className="text-sm font-extrabold text-slate-900 sm:text-base">{accountMeta.label} accounts</h2>
-                                    <p className="mt-0.5 text-xs font-medium text-slate-400">
-                                        {tab === "staff"
-                                            ? "Staff are linked to branches by recruitment record or location. Select a name to see details."
-                                            : "Select a name to see the full record."}
-                                    </p>
-                                </div>
-                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_220px_auto]">
-                                    <label className="relative min-w-0 sm:col-span-2 lg:col-span-1">
-                                        <span className="sr-only">Search {accountMeta.label.toLowerCase()}</span>
-                                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-                                        <input value={userSearch} onChange={(event) => setUserSearch(event.target.value)}
-                                            placeholder={accountMeta.hint} className={`${INPUT} pl-9`} />
-                                    </label>
+                        <DirectoryTable
+                            titleId="accounts-title"
+                            title={`${accountMeta.label} accounts`}
+                            subtitle="Staff are linked to branches by recruitment record or location. Select a name to see details."
+                            filtersGrid="sm:grid-cols-2 lg:grid-cols-[1fr_220px_auto]"
+                            filters={(
+                                <>
+                                    <SearchBox label={`Search ${accountMeta.label.toLowerCase()}`} value={userSearch} onChange={setUserSearch} placeholder={accountMeta.hint} />
                                     <SelectField label="Filter by status" options={STATUS_OPTIONS} value={userStatus} onChange={setUserStatus} />
-                                    <button type="button" className={btnGhost} onClick={clearUserFilters} disabled={!userFiltersActive}>
-                                        Clear filters
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="overflow-x-auto">
-                                <table className="w-full min-w-[960px] text-xs">
-                                    <thead className="border-b border-slate-200 bg-slate-50">
-                                        <tr>
-                                            <Th>{accountMeta.singular}</Th><Th>Role</Th><Th>Location</Th><Th>Position</Th><Th>Contact</Th><Th>Status</Th><Th right>Actions</Th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {loading ? <SkeletonRows columns={7} /> : pagedUsers.map((user, index) => (
-                                            <motion.tr
-                                                key={`${tab}-${user._id}`}
-                                                initial={{ opacity: 0, y: 8 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{ delay: Math.min(index, 10) * 0.03, duration: 0.25 }}
-                                                className="border-b border-slate-100 bg-white transition-colors hover:bg-amber-50/40"
-                                            >
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <Avatar name={user.fullName || user.username} />
-                                                        <div className="min-w-0">
-                                                            <button type="button" onClick={() => setParam("user", user._id)} title={`View ${user.fullName || user.username}`}
-                                                                className={`block max-w-full cursor-pointer truncate rounded text-left text-xs font-bold text-slate-900 underline-offset-4 transition-colors hover:text-amber-600 hover:underline ${FOCUS}`}>
-                                                                {user.fullName || user.username || "Unnamed"}
-                                                            </button>
-                                                            <div className="truncate text-[11px] font-medium text-slate-400">{dash(user.username)}</div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold capitalize ${getRoleBadge(user.role)}`}>{user.role || "n/a"}</span>
-                                                </td>
-                                                <td className="whitespace-nowrap px-4 py-3">
-                                                    <div className="font-medium text-slate-800">{dash(user.location.district)}</div>
-                                                    <div className="text-[11px] font-medium text-slate-400">{dash(user.location.localLevel)}</div>
-                                                </td>
-                                                <td className="whitespace-nowrap px-4 py-3">
-                                                    <div className="font-medium text-slate-800">{dash(user.jobRole)}</div>
-                                                    <div className="text-[11px] font-medium text-slate-400">{dash(user.designation)}</div>
-                                                </td>
-                                                <td className="px-4 py-3 text-[11px] font-medium text-slate-500">
-                                                    <div className="flex items-center gap-1.5"><Mail size={12} className="text-slate-400" aria-hidden="true" />{dash(user.officeEmail)}</div>
-                                                    <div className="mt-0.5 flex items-center gap-1.5"><Phone size={12} className="text-slate-400" aria-hidden="true" />{dash(user.officeMobile)}</div>
-                                                </td>
-                                                <td className="px-4 py-3"><StatusBadge active={user.isActive} /></td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <button type="button" className={iconBtn} onClick={() => setParam("user", user._id)} aria-label={`View ${user.fullName || user.username}`} title="View details">
-                                                            <Eye size={16} />
-                                                        </button>
-                                                        <button type="button" className={iconBtn} onClick={() => openRegister(user)} aria-label={`Edit ${user.fullName || user.username}`} title="Edit account">
-                                                            <Pencil size={16} />
-                                                        </button>
-                                                        <RowMenu items={userMenu(user)} disabled={actionLoading !== null} label={`More actions for ${user.fullName || user.username}`} />
-                                                    </div>
-                                                </td>
-                                            </motion.tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                                {!loading && filteredUsers.length === 0 && (
-                                    <EmptyState icon={accountMeta.icon} title={`No ${accountMeta.label.toLowerCase()} found`}
-                                        text={userFiltersActive
-                                            ? `No ${accountMeta.singular.toLowerCase()} matches the current search and status filter.`
-                                            : `No ${accountMeta.label.toLowerCase()} have been registered yet.`}
-                                        action={userFiltersActive ? <button type="button" className={btnGhost} onClick={clearUserFilters}>Clear filters</button> : null} />
-                                )}
-                            </div>
-                            {!loading && <Pagination page={safeUserPage} pageCount={userPageCount} total={filteredUsers.length} noun={accountMeta.label.toLowerCase()} onChange={setUserPage} />}
-                        </section>
+                                    <button type="button" className={btnGhost} onClick={clearUserFilters} disabled={!userFiltersActive}>Clear filters</button>
+                                </>
+                            )}
+                            columns={staffCols}
+                            rows={pagedUsers}
+                            loading={loading}
+                            rowKey={(u) => u._id}
+                            startIndex={(safeUserPage - 1) * PAGE_SIZE}
+                            sort={userSort}
+                            onSort={(key) => setUserSort((current) => nextSort(current, key))}
+                            rowActions={staffActions}
+                            mobileCard={staffCard}
+                            empty={filteredUsers.length === 0 ? (
+                                <EmptyState icon={accountMeta.icon} title={`No ${accountMeta.label.toLowerCase()} found`}
+                                    text={userFiltersActive
+                                        ? `No ${accountMeta.singular.toLowerCase()} matches the current search and status filter.`
+                                        : `No ${accountMeta.label.toLowerCase()} have been registered yet.`}
+                                    action={userFiltersActive
+                                        ? <button type="button" className={btnGhost} onClick={clearUserFilters}>Clear filters</button>
+                                        : <PrimaryButton onClick={() => openRegister(null, "staff")}><Plus size={15} /> Add staff</PrimaryButton>} />
+                            ) : null}
+                            footer={!loading && <Pagination page={safeUserPage} pageCount={userPageCount} total={filteredUsers.length} noun={accountMeta.label.toLowerCase()} onChange={setUserPage} />}
+                        />
                     </>
                 )}
 
@@ -1796,6 +2343,21 @@ const BranchManagement = () => {
                 </AnimatePresence>
 
                 <AnimatePresence>
+                    {selectedClient && (
+                        <ClientDrawer
+                            key="client-drawer"
+                            client={selectedClient}
+                            busyKey={busyKey}
+                            onClose={() => setParam("client", null)}
+                            onEdit={(client) => setClientEdit({ id: client._id, client })}
+                            onSendReset={sendClientResetLink}
+                            onDisable={requestClientStatus}
+                            onDelete={requestClientDelete}
+                        />
+                    )}
+                </AnimatePresence>
+
+                <AnimatePresence>
                     {selectedEmployee && (
                         <EmployeeModal
                             key="employee-modal"
@@ -1813,7 +2375,7 @@ const BranchManagement = () => {
                 <AnimatePresence>
                     {confirm && confirmConfig && (
                         <ConfirmDialog
-                            key={`${confirm.kind}-${confirm.row._id}`}
+                            key={`${confirm.kind}-${confirm.row?._id || "bulk"}`}
                             config={confirmConfig}
                             busy={actionLoading !== null}
                             onConfirm={runConfirmed}
@@ -1822,17 +2384,46 @@ const BranchManagement = () => {
                     )}
                 </AnimatePresence>
 
-                {registerState && (
-                    <RegisterModal_Admin
-                        key={registerState.data?._id || "new-record"}
-                        onClose={() => setRegisterState(null)}
-                        onSuccess={() => {
-                            setRegisterState(null);
-                            loadData();
+                {clientEdit && (
+                    <ClientCreateCredential
+                        id={clientEdit.id}
+                        isedit={true}
+                        organizations={clientEdit.client.organization ? [clientEdit.client.organization] : []}
+                        emailAddress={clientEdit.client.officeEmail || ""}
+                        organizationName={clientEdit.client.organizationName || "N/A"}
+                        organizationEmail={clientEdit.client.organization?.orgEmail
+                            || clientEdit.client.organization?.officeEmail
+                            || clientEdit.client.officeEmail
+                            || ""}
+                        organizationTelephone={clientEdit.client.organization?.orgTelephone
+                            || clientEdit.client.organization?.officePhone
+                            || clientEdit.client.officaPhone
+                            || ""}
+                        username={clientEdit.client.username || ""}
+                        onClose={() => setClientEdit(null)}
+                        onSuccess={async () => {
+                            setClientEdit(null);
+                            await loadData();
                         }}
-                        initialData={registerState.data}
-                        editData={Boolean(registerState.data)}
                     />
+                )}
+
+                {registerState && (
+                    <div className="fixed inset-0 z-[999] flex items-start justify-center overflow-y-auto bg-black/60 p-2 sm:items-center sm:p-4"
+                        style={{ backdropFilter: "blur(10px)" }}>
+
+                        <RegisterModal_Admin
+                            key={registerState.data?._id || registerState.defaultRole || "new-record"}
+                            defaultRole={registerState.defaultRole || undefined}
+                            onClose={() => setRegisterState(null)}
+                            onSuccess={() => {
+                                setRegisterState(null);
+                                loadData();
+                            }}
+                            initialData={registerState.data}
+                            editData={Boolean(registerState.data)}
+                        />
+                    </div>
                 )}
             </section>
         </MotionConfig>

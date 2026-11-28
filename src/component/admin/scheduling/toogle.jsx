@@ -18,8 +18,12 @@ export const SmallAmberToggle = ({ checked = false, onChange, ariaLabel = "Toggl
                 className={`
           pointer-events-none block h-5 w-5 rounded-full bg-white shadow-sm
           transform transition-transform duration-200 ease-in-out
-          ${checked ? 'translate-x-5' : 'translate-x-0'}
+          
         `}
+                style={{
+                    transform: checked ? "translateX(20px)" : "translateX(0)",
+
+                }}
             />
         </button>
     );

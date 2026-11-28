@@ -13,7 +13,6 @@ import {
     BookOpen,
     Layers,
     SlidersHorizontal,
-    RefreshCw,
     GraduationCap,
     Upload,
     Calendar,
@@ -24,6 +23,7 @@ import {
     Building2,
     UploadCloud,
 } from "lucide-react";
+import { Skeleton } from "../../../../skeleton";
 
 // Assuming these utilities exist in your project
 import { getBsDisplayData, getMonthDays } from "../../calendar";
@@ -429,12 +429,15 @@ export const Schedule = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {isLoadingFollowUps ? (
-                                        <tr>
-                                            <td colSpan="4" className="text-center py-10">
-                                                <RefreshCw className="w-6 h-6 text-blue-500 animate-spin mx-auto mb-2" />
-                                                <span className="text-slate-500 text-sm">Syncing ledger...</span>
-                                            </td>
-                                        </tr>
+                                        Array.from({ length: 4 }, (_, index) => (
+                                            <tr key={index}>
+                                                {[0, 1, 2, 3].map((column) => (
+                                                    <td key={column} className="px-4 py-4">
+                                                        <Skeleton className={`h-4 rounded-full ${column === 0 ? "w-32" : column === 1 ? "w-40" : "w-24"}`} />
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))
                                     ) : (
                                         followUps.map(f => (
                                             <tr key={f.id} className="hover:bg-slate-50 transition-colors">

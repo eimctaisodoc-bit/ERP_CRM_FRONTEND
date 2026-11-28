@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, UserPlus, Briefcase, Building2, Info, ChevronDown, ChevronUp, Trash2, Plus, MapPin, ArrowRight } from "lucide-react";
+import { X, UserPlus, Briefcase, Building2, Info, ChevronDown, ChevronUp, Trash2, Plus, MapPin, ArrowRight, LoaderCircle } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Select from "react-select";
 import { getInputClass, ValidateStyle } from "../../../data/data";
@@ -1313,12 +1313,15 @@ const LeadForm = ({ onClose }) => {
                                     <button
                                         type="submit"
                                         disabled={isSubmitting}
+                                        aria-busy={isSubmitting}
+                                        aria-label={isSubmitting ? "Saving lead data" : undefined}
                                         className={`w-full sm:w-auto px-8 py-2.5 sm:py-3 text-sm font-bold rounded-lg transition-all transform cursor-pointer ${isSubmitting
                                             ? "bg-gradient-to-r from-amber-300 to-orange-300 text-white/70 cursor-not-allowed shadow-none opacity-70"
                                             : "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-amber-500/30 active:scale-[0.98]"
                                             }`}
                                     >
-                                        {isSubmitting ? "Saving Lead Data..." : "Save Lead & Organization"}
+                                        {isSubmitting && <LoaderCircle className="mr-2 h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+                                        Save Lead &amp; Organization
                                     </button>
                                 </div>
                             </form>

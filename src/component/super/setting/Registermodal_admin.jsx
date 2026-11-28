@@ -6,8 +6,8 @@ import {
     Eye,
     EyeOff,
     KeyRound,
-    Loader2,
     Lock,
+    LoaderCircle,
     Mail,
     Map as MapIcon,
     MapPin,
@@ -23,10 +23,12 @@ import { motion } from "framer-motion";
 import Select from "react-select";
 import { waitingNotify, ErrorNotify, SuccessNotify } from "../../hotToaster";
 import { useGet } from "../../hooks/useGet";
+import { Skeleton } from "../../skeleton";
 import { UseAdd } from "../../hooks/useadd";
 import { useEdit } from "../../hooks/useEdit";
 import { getAdminUserById } from "../../../api/role.api";
 import { getDistrictNames, getLocalLevelNames, provinceDistricts } from "../../province";
+import { useAuth } from "../../hooks/useAuth";
 
 /* -------------------------------------------------------------------------- */
 /* Theme                                                                      */
@@ -38,6 +40,7 @@ import { getDistrictNames, getLocalLevelNames, provinceDistricts } from "../../p
 
 const fontLight = { fontFamily: "'Roboto Slab', serif", fontWeight: 300 };
 const fontBold = { fontFamily: "'Roboto Slab', serif", fontWeight: 700 };
+const fontInput = { fontFamily: "'Roboto Slab', serif" };
 
 const FORM_ID = "register-admin-form";
 const MIN_PASSWORD_LENGTH = 8;
@@ -46,13 +49,13 @@ const focusRing =
     "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4A76C0]";
 
 const inputBase =
-    "w-full rounded-xl border py-2.5 pl-11 pr-4 text-sm text-[#422026] outline-none transition placeholder:text-[#64748B]/70";
+    "w-full rounded-xl font-medium border py-2.5 pl-11 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-[#64748B]/70";
 const inputOk =
     "border-[#E2E8F0] bg-white hover:border-[#E87A24] focus:border-[#E87A24] focus:ring-2 focus:ring-[#E87A24]/20";
 const inputErr =
     "border-[#DC2626] bg-white focus:border-[#DC2626] focus:ring-2 focus:ring-[#DC2626]/20";
 const inputLocked =
-    "border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B] cursor-not-allowed";
+    "border-[#E2E8F0] bg-[#F8FAFC] cursor-not-allowed";
 
 const btnBase = `inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`;
 const btnPrimary = `${btnBase} bg-[#E87A24] text-white hover:bg-[#D06A1B]`;
@@ -117,6 +120,36 @@ const getLocalLevelOption = (localLevel, provinceOption, districtOption) => {
     const match = getLocalLevelNames(provinceOption?.value, districtOption?.value)
         .find((option) => option.toLowerCase() === wanted.toLowerCase());
     return { value: match || wanted, label: match || wanted };
+};
+
+const getEmployeeArray = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+};
+
+const getEmployeeFullName = (employee) =>
+    [
+        employee?.personal?.firstName,
+        employee?.personal?.middleName,
+        employee?.personal?.lastName
+    ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+const normalizeEmployeeSearch = (value) =>
+    String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+const filterEmployeeOption = (candidate, input) => {
+    const name = normalizeEmployeeSearch(candidate?.label);
+    const query = normalizeEmployeeSearch(input);
+    if (!query) return true;
+
+    const nameParts = name.split(" ");
+    return name.includes(query) || query.split(" ").every((term) =>
+        nameParts.some((part) => part.includes(term))
+    );
 };
 
 const toCoordinate = (coordinate) => {
@@ -237,43 +270,79 @@ const MISSING_IN_RECORD = "Missing in the selected recruitment record. Update th
 /* react-select theme                                                         */
 /* -------------------------------------------------------------------------- */
 
-const buildSelectStyles = (hasError) => ({
-    control: (base, state) => ({
-        ...base,
-        minHeight: 46,
-        padding: "0 4px",
-        borderRadius: 12,
-        fontSize: 13,
-        backgroundColor: state.isDisabled ? "#F8FAFC" : "#FFFFFF",
-        borderColor: hasError ? "#DC2626" : state.isFocused ? "#E87A24" : "#E2E8F0",
-        boxShadow: state.isFocused ? `0 0 0 2px ${hasError ? "rgba(220,38,38,0.2)" : "rgba(232,122,36,0.2)"}` : "none",
-        cursor: state.isDisabled ? "not-allowed" : "pointer",
-        "&:hover": { borderColor: state.isDisabled ? "#E2E8F0" : hasError ? "#DC2626" : "#E87A24" }
-    }),
-    singleValue: (base, state) => ({ ...base, color: state.isDisabled ? "#64748B" : "#422026" }),
-    placeholder: (base) => ({ ...base, color: "#64748B", opacity: 0.8 }),
-    input: (base) => ({ ...base, color: "#422026" }),
-    indicatorSeparator: () => ({ display: "none" }),
-    dropdownIndicator: (base, state) => ({ ...base, color: state.isFocused ? "#E87A24" : "#64748B" }),
-    clearIndicator: (base) => ({ ...base, color: "#64748B", "&:hover": { color: "#DC2626" } }),
-    menu: (base) => ({ ...base, borderRadius: 12, border: "1px solid #E2E8F0", overflow: "hidden", boxShadow: "0 10px 15px -3px rgba(66,32,38,0.12)" }),
-    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-    option: (base, state) => ({
-        ...base,
-        fontSize: 13,
-        cursor: "pointer",
-        backgroundColor: state.isSelected ? "#E87A24" : state.isFocused ? "#FEF3C7" : "#FFFFFF",
-        color: state.isSelected ? "#FFFFFF" : "#422026",
-        "&:active": { backgroundColor: "#F59E0B" }
-    })
+
+
+export const buildSelectStyles = (hasError) => ({
+  control: (base, state) => ({
+    ...base,
+    minHeight: 42,
+    border: `1px solid ${hasError ? "#EF4444" : state.isFocused ? "#E87A24" : "#E2E8F0"}`,
+    borderRadius: "9px",
+    backgroundColor: state.isDisabled ? "#F8FAFC" : "#ffffff",
+    cursor: state.isDisabled ? "not-allowed" : "pointer",
+    boxShadow: hasError
+      ? "0 0 0 3px rgba(239,68,68,0.15)"
+      : state.isFocused
+        ? "0 0 0 3px rgba(232,122,36,0.10)"
+        : "none",
+    "&:hover": { borderColor: hasError ? "#EF4444" : "#E87A24" },
+    transition: "all 0.2s ease",
+  }),
+  valueContainer: (base) => ({ ...base, minWidth: 0, padding: "0 8px" }),
+  input: (base) => ({ ...base, color: "#422026", fontSize: 13, fontWeight: 500 }),
+  singleValue: (base) => ({ ...base, color: "#422026", fontSize: 13, fontWeight: 500 }),
+  placeholder: (base) => ({ ...base, color: "#94A3B8", fontSize: 13, fontWeight: 500 }),
+  indicatorSeparator: () => ({ display: "none" }),
+  menu: (base) => ({
+    ...base,
+    borderRadius: "9px",
+    overflow: "hidden",
+    boxShadow: "0 12px 24px rgba(15,23,42,0.12)",
+    marginTop: "6px",
+    zIndex: 100,
+    border: "1px solid #E2E8F0",
+  }),
+  menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+  menuList: (base) => ({
+    ...base,
+    padding: "4px",
+    maxHeight: 240,
+    scrollbarWidth: "thin",
+    scrollbarColor: "#CBD5E1 transparent",
+    "&::-webkit-scrollbar": { width: 6 },
+    "&::-webkit-scrollbar-thumb": { background: "#CBD5E1", borderRadius: 9999 },
+  }),
+  option: (base, state) => ({
+    ...base,
+    backgroundColor: state.isSelected ? state.data.color || "#E87A24" : state.isFocused ? "#FFF1E6" : "#ffffff",
+    color: state.isSelected ? "#ffffff" : "#422026",
+    borderRadius: "6px",
+    cursor: state.isDisabled ? "not-allowed" : "pointer",
+    padding: "9px 10px",
+    fontSize: "13px",
+    fontWeight: 500,
+    "&:active": { backgroundColor: state.data.color || "#D96C19" },
+  }),
+  multiValue: (base) => ({ ...base, backgroundColor: "#FFF1E6", borderRadius: "6px" }),
+  multiValueLabel: (base) => ({ ...base, color: "#A64D0B", fontWeight: 600, fontSize: "12px" }),
+  multiValueRemove: (base) => ({
+    ...base,
+    color: "#A64D0B",
+    ":hover": { backgroundColor: "#E87A24", color: "white" },
+  }),
 });
 
-const ModalSelect = ({ id, error, ...props }) => (
+const ModalSelect = ({ id, error, components, ...props }) => (
     <Select
         inputId={id}
         aria-invalid={Boolean(error)}
         styles={buildSelectStyles(Boolean(error))}
         menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+        loadingMessage={() => <Skeleton className="h-3 w-24 rounded-full" />}
+        components={{
+            LoadingIndicator: () => <Skeleton className="h-3 w-3 rounded-full" />,
+            ...components,
+        }}
         {...props}
     />
 );
@@ -284,7 +353,7 @@ const ModalSelect = ({ id, error, ...props }) => (
 
 const FormField = ({ id, label, required, error, hint, className = "", children }) => (
     <div className={`space-y-1.5 ${className}`}>
-        <label htmlFor={id} className="block text-xs text-[#64748B]" style={fontBold}>
+        <label htmlFor={id} className="block text-xs text-slate-900" style={fontBold}>
             {label}
             {required && <span className="text-[#DC2626]"> *</span>}
         </label>
@@ -294,7 +363,7 @@ const FormField = ({ id, label, required, error, hint, className = "", children 
                 <AlertCircle size={12} className="mt-0.5 shrink-0" aria-hidden="true" /> {error}
             </p>
         ) : hint ? (
-            <p className="text-xs text-[#64748B]">{hint}</p>
+            <p className="text-xs text-slate-700">{hint}</p>
         ) : null}
     </div>
 );
@@ -303,7 +372,7 @@ const stateClass = (disabled, error) => (disabled ? inputLocked : error ? inputE
 
 const IconInput = ({ id, icon: Icon, chip, error, disabled, ...props }) => (
     <div className="relative">
-        <span className={`absolute left-3 top-1/2 -translate-y-1/2 rounded-md p-1 ${chip}`}>
+        <span className={`absolute left-3 top-1/2 -mt-2 rounded-md p-1 ${chip}`}>
             <Icon size={14} aria-hidden="true" />
         </span>
         <input
@@ -312,7 +381,7 @@ const IconInput = ({ id, icon: Icon, chip, error, disabled, ...props }) => (
             aria-invalid={Boolean(error)}
             aria-describedby={error ? `${id}-error` : undefined}
             className={`${inputBase} ${stateClass(disabled, error)}`}
-            style={fontLight}
+            style={fontInput}
             {...props}
         />
     </div>
@@ -322,7 +391,7 @@ const PasswordInput = ({ id, error, disabled, defaultVisible = false, ...props }
     const [visible, setVisible] = useState(defaultVisible);
     return (
         <div className="relative">
-            <span className={`absolute left-3 top-1/2 -translate-y-1/2 rounded-md p-1 ${tone.orange}`}>
+            <span className={`absolute left-3 top-1/2 -mt-2 rounded-md p-1 ${tone.orange}`}>
                 <Lock size={14} aria-hidden="true" />
             </span>
             <input
@@ -333,7 +402,7 @@ const PasswordInput = ({ id, error, disabled, defaultVisible = false, ...props }
                 aria-invalid={Boolean(error)}
                 aria-describedby={error ? `${id}-error` : undefined}
                 className={`${inputBase} pr-11 ${stateClass(disabled, error)}`}
-                style={fontLight}
+                style={fontInput}
                 {...props}
             />
             <button
@@ -341,7 +410,7 @@ const PasswordInput = ({ id, error, disabled, defaultVisible = false, ...props }
                 onClick={() => setVisible((current) => !current)}
                 disabled={disabled}
                 aria-label={visible ? "Hide password" : "Show password"}
-                className={`absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer rounded-md p-1 text-[#64748B] transition hover:text-[#422026] disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
+                className={`absolute right-3 top-1/2 -mt-3 cursor-pointer rounded-md p-1 text-[#64748B] transition hover:text-[#422026] disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
             >
                 {visible ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
@@ -357,7 +426,7 @@ const Section = ({ icon: Icon, chip, title, note, action, className = "", childr
                     <span className={`rounded p-1 ${chip}`}><Icon size={14} aria-hidden="true" /></span>
                     {title}
                 </h3>
-                {note && <p className="mt-0.5 pl-8 text-xs text-[#64748B]" style={fontLight}>{note}</p>}
+                {note && <p className="mt-0.5 pl-8 text-xs font-medium text-slate-800" style={fontLight}>{note}</p>}
             </div>
             {action}
         </div>
@@ -375,12 +444,23 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
     // console.log("isEditMode:", isEditMode);
     const isBranchRecord = Boolean(initialData?.isBranch);
     const locationUnavailable = typeof navigator === "undefined" || !navigator.geolocation;
-
+    const { useMe } = useAuth();
+    const { role, id } = useMe?.data?.user?.decoded || {};
     const [formData, setFormData] = useState(() => (isEditMode ? createEmptyFormData() : createNewAccountFormData()));
     const [errors, setErrors] = useState({});
     const { Createadmin_ } = UseAdd();
     const { EditBranch_, EditAdmin_ } = useEdit();
-    const { getAllRecruitment_ } = useGet();
+    const { S_GetAllEmployees_ } = useGet({
+        currentUser: { role, id },
+        isAuthLoading: useMe.isLoading,
+
+    });
+    const {
+        data: employeeResponse,
+        isLoading: employeeLoading,
+        isError: employeeIsError,
+        error: employeeError
+    } = S_GetAllEmployees_ || {};
 
     const [staffOptions, setStaffOptions] = useState([]);
     const [staffLoading, setStaffLoading] = useState(false);
@@ -432,66 +512,87 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
 
     /* ----------------------- recruitment list (create) ------------------ */
 
-    const getAllRecruitmentData = () => {
-        setStaffLoading(true);
-        getAllRecruitment_.mutate(null, {
-            onSuccess: (response) => {
-                const fetchedData = Array.isArray(response)
-                    ? response
-                    : Array.isArray(response?.data)
-                        ? response.data
-                        : Array.isArray(response?.data?.data)
-                            ? response.data.data
-                            : null;
 
-                if (!fetchedData) {
-                    setStaffOptions([]);
-                    ErrorNotify("The recruitment API returned an invalid response.");
-                    return;
-                }
-
-                setStaffOptions(fetchedData
-                    .filter((recruitment) =>
-                        recruitment?.isActive === false &&
-                        typeof recruitment?.employment?.jobPosition === "string" &&
-                        /^CRO$/i.test(recruitment.employment.jobPosition))
-                    .map((recruitment) => {
-                        const personal = recruitment.personal || {};
-                        const contact = recruitment.contact || {};
-                        const employment = recruitment.employment || {};
-                        const fullName = [personal.firstName, personal.middleName, personal.lastName].filter(Boolean).join(" ");
-                        const provinceName = getProvinceOption(employment.province);
-
-                        return {
-                            value: recruitment._id,
-                            label: fullName,
-                            personal,
-                            details: {
-                                designation: employment.department || "",
-                                jobRole: employment.jobPosition || "",
-                                personalEmail: contact.personalEmail || "",
-                                officeEmail: contact.officeEmail || "",
-                                personalMobile: contact.personalMobile || "",
-                                officeMobile: contact.officeMobile || "",
-                                provinceName,
-                                district: getDistrictOption(employment.district, provinceName),
-                                localLevelName: employment.localLevelName || employment.localLevel || ""
-                            }
-                        };
-                    }));
-            },
-            onError: (error) => {
-                console.error("Fetch Error:", error);
-                ErrorNotify(error?.response?.data?.message || "Failed to load recruitment data.");
-            },
-            onSettled: () => setStaffLoading(false)
-        });
-    };
 
     useEffect(() => {
-        if (!isEditMode) getAllRecruitmentData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isEditMode]);
+        if (isEditMode) return;
+
+        setStaffLoading(Boolean(employeeLoading));
+        if (employeeLoading) {
+            setStaffOptions([]);
+            return;
+        }
+
+        if (employeeIsError) {
+            setStaffOptions([]);
+            ErrorNotify(
+                employeeError?.response?.data?.message ||
+                employeeError?.message ||
+                "Failed to load recruitment data."
+            );
+            return;
+        }
+
+        const employees = getEmployeeArray(employeeResponse);
+        console.log("employees:", employees);
+        const staffData = employees
+            .filter((employee) =>
+                employee?.isActive === false &&
+                /^CRO$/i.test(employee?.employment?.jobPosition || "")
+            )
+            .map((employee) => {
+                const personal = employee?.personal || {};
+                const contact = employee?.contact || {};
+                const employment = employee?.employment || {};
+                const documents = employee?.documents || {};
+
+                const provinceName = employment?.province || "";
+                const provinceIndex = employment?.provinceIndex ?? null;
+                const district = employment?.district || "";
+                const localLevel = employment?.localLevel || "";
+                const provinceOption = getProvinceOption(provinceName)
+                    || getProvinceOption(provinceIndex);
+
+                return {
+                    value: employee?._id,
+                    label: getEmployeeFullName(employee),
+                    employee,
+                    personal,
+                    contact,
+                    employment,
+                    documents,
+                    details: {
+                        firstName: personal?.firstName || "",
+                        middleName: personal?.middleName || "",
+                        lastName: personal?.lastName || "",
+                        gender: personal?.gender || "",
+                        profilePhoto: personal?.profilePhoto || "",
+                        citizenshipId: personal?.citizenshipId || "",
+                        services: Array.isArray(personal?.services) ? personal.services : [],
+                        designation: employment?.department || "",
+                        jobRole: employment?.jobPosition || "",
+                        personalEmail: contact?.personalEmail || "",
+                        officeEmail: contact?.officeEmail || "",
+                        personalMobile: contact?.personalMobile || "",
+                        officeMobile: contact?.officeMobile || "",
+                        provinceName,
+                        provinceIndex,
+                        provinceOption,
+                        district,
+                        localLevelName: localLevel,
+                        experienceType: documents?.experienceType || "",
+                        totalExperience: documents?.totalExperience || "",
+                        previousExperience: Array.isArray(documents?.previousExperience)
+                            ? documents.previousExperience
+                            : [],
+                        qualification: documents?.qualification || "",
+                        training: documents?.training || ""
+                    }
+                };
+            });
+
+        setStaffOptions(staffData);
+    }, [isEditMode, employeeLoading, employeeIsError, employeeError, employeeResponse]);
 
     /* --------------------------- load record (edit) --------------------- */
 
@@ -664,8 +765,14 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
         }
 
         const details = selectedOption.details || {};
-        const provinceOption = details.provinceName || null;
+        const provinceOption = details.provinceOption
+            || getProvinceOption(details.provinceName)
+            || getProvinceOption(details.provinceIndex);
         const districtOption = getDistrictOption(details.district, provinceOption);
+        const localLevelOption = getLocalLevelOption(details.localLevelName, provinceOption, districtOption);
+        const provinceIndex = details.provinceIndex ?? (
+            provinceOption ? provinceNumbers[provinceOption.value] : null
+        );
 
         setFormData((prev) => ({
             ...prev,
@@ -677,9 +784,9 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
             officeEmail: details.officeEmail || "",
             officeMobile: details.officeMobile || "",
             provinceName: provinceOption,
-            provinceIndex: provinceOption ? provinceNumbers[provinceOption.value] : null,
+            provinceIndex,
             district: districtOption,
-            localLevelName: getLocalLevelOption(details.localLevelName, provinceOption, districtOption),
+            localLevelName: localLevelOption,
             username: generateUsername(selectedOption)
         }));
     };
@@ -872,7 +979,7 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
 
     const lockedPlaceholder = isEditMode ? "Not set" : "Select name first...";
     const isActive = formData.status === "active";
-
+console.log("isActive:", staffOptions);
     return (
         <div className="fixed inset-0 z-50 flex w-full items-center justify-center p-3"
         >
@@ -881,7 +988,7 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15 }}
-                className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            // className="absolute inset-0 bg-black/60 backdrop-blur-md"
             />
             <motion.div
                 ref={dialogRef}
@@ -929,9 +1036,10 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
                 {/* Form body */}
                 <form id={FORM_ID} onSubmit={handleSubmit} noValidate className="custom-scrollbar flex-1 space-y-8 overflow-y-auto p-6">
                     {editLoading && (
-                        <p role="status" className="flex items-center gap-2 rounded-lg border border-[#4A76C0]/20 bg-[#4A76C0]/10 px-4 py-3 text-sm text-[#422026]">
-                            <Loader2 size={16} className="animate-spin text-[#4A76C0]" aria-hidden="true" /> Loading the selected account...
-                        </p>
+                        <div role="status" aria-label="Loading selected account" className="flex items-center gap-3 rounded-lg border border-[#4A76C0]/20 bg-[#4A76C0]/10 px-4 py-3">
+                            <Skeleton className="h-4 w-4 rounded-full" />
+                            <Skeleton className="h-3 w-40 rounded-full" />
+                        </div>
                     )}
                     {editLoadError && (
                         <p role="alert" className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -957,10 +1065,13 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
                                         id="field-fullName"
                                         error={errors.fullName}
                                         options={staffOptions}
+                                        getOptionLabel={(option) => option.label || ""}
+                                        getOptionValue={(option) => option.value}
+                                        filterOption={filterEmployeeOption}
                                         value={formData.fullName}
                                         onChange={handleFullNameSelect}
-                                        placeholder={staffLoading ? "Loading available staff..." : "Search and select a person"}
-                                        noOptionsMessage={() => (staffLoading ? "Loading available staff..." : "No inactive CRO records found.")}
+                                        placeholder={staffLoading ? <Skeleton className="h-3 w-24 rounded-full" /> : "Search and select a person"}
+                                        noOptionsMessage={() => (staffLoading ? <Skeleton className="h-3 w-24 rounded-full" /> : "No inactive CRO records found.")}
                                         isLoading={staffLoading}
                                         isDisabled={staffLoading}
                                         isClearable
@@ -1035,7 +1146,7 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
                         chip={tone.blue}
                         title="Office contact"
                         className="rounded-xl border border-[#4A76C0]/30 bg-[#4A76C0]/5 p-5 shadow-xs"
-                        note="Editable. Used for login notices and sending credentials."
+                        note="Editable. Used for login notices and Send Reset Link."
                     >
                         <div className="grid grid-cols-1 gap-5 pt-1 md:grid-cols-2">
                             <FormField id="field-officeEmail" label="Office email" required error={errors.officeEmail}>
@@ -1083,8 +1194,8 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
                                 className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-[#E87A24]/30 bg-[#E87A24]/10 px-3 py-1.5 text-xs text-[#E87A24] transition hover:bg-[#E87A24]/20 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`}
                                 style={fontBold}
                             >
-                                {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-                                {isGenerating ? "Generating..." : isEditMode ? "Generate new" : "Auto Generate"}
+                                {isGenerating ? <LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#E87A24]" strokeWidth={2.5} /> : <Wand2 className="h-3.5 w-3.5" />}
+                                {isEditMode ? "Generate new" : "Auto Generate"}
                             </button>
                         )}>
                         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -1111,7 +1222,7 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
 
                     {/* System properties & geolocation */}
                     <Section icon={Shield} chip={tone.blue} title="Role, status and location">
-                        <div className={`grid grid-cols-1 gap-5 md:grid-cols-2 ${isEditMode ? "lg:grid-cols-2" : "lg:grid-cols-4"}`}>
+                        <div className={`grid grid-cols-2 gap-5 md:grid-cols-2 ${isEditMode ? "lg:grid-cols-2" : "lg:grid-cols-2"}`}>
                             <FormField id="field-role" label="Role" required error={errors.role}>
                                 <ModalSelect id="field-role" error={errors.role} options={roleSelectOptions}
                                     value={formData.role} onChange={(option) => handleSelectChange(option, "role")}
@@ -1120,15 +1231,15 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
 
                             <div className="space-y-1.5">
                                 <span className="block text-xs text-[#64748B]" style={fontBold}>Account status</span>
-                                <div className={`flex items-center justify-between gap-4 rounded-xl border px-4 py-3 transition-colors ${isActive ? "border-green-200 bg-green-50" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}>
-                                    <div className="flex items-center gap-3">
-                                        <span className={`h-2.5 w-2.5 rounded-full ${isActive ? "bg-[#16A34A]" : "bg-[#64748B]"}`} />
-                                        <div>
-                                            <p className={`text-sm font-bold ${isActive ? "text-[#16A34A]" : "text-[#422026]"}`} style={fontBold}>
+                                <div className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 transition-colors ${isActive ? "border-green-200 bg-green-50" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`h-2 w-2 rounded-full ${isActive ? "bg-[#16A34A]" : "bg-[#64748B]"}`} />
+                                        <div className="leading-tight">
+                                            <p className={`text-xs font-bold ${isActive ? "text-[#16A34A]" : "text-[#422026]"}`} style={fontBold}>
                                                 {isActive ? "Active" : "Inactive"}
                                             </p>
-                                            <p className="text-xs text-[#64748B]" style={fontLight}>
-                                                {isEditMode ? "Can sign in" : "New accounts start active"}
+                                            <p className="text-[11px] text-[#64748B]" style={fontLight}>
+
                                             </p>
                                         </div>
                                     </div>
@@ -1137,11 +1248,18 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
                                         role="switch"
                                         aria-label="Account status"
                                         aria-checked={isActive}
-                                        disabled={!isEditMode || loading || formBlocked}
-                                        onClick={() => setFormData((prev) => ({ ...prev, status: prev.status === "active" ? "inactive" : "active" }))}
-                                        className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${focusRing} ${isActive ? "bg-[#16A34A]" : "bg-[#64748B]"}`}
+                                        disabled={loading || formBlocked}
+                                        onClick={() =>
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                status: prev.status === "active" ? "inactive" : "active",
+                                            }))
+                                        }
+                                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${focusRing} ${isActive ? "bg-[#16A34A]" : "bg-[#64748B]"}`}
                                     >
-                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isActive ? "translate-x-6" : "translate-x-1"}`} />
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform `}
+                                            style={{ transform: isActive ? "translateX(18px)" : "translateX(2px)" }}
+                                        />
                                     </button>
                                 </div>
                             </div>
@@ -1175,8 +1293,8 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
                                     className={`inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#4A76C0] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#3F65A6] disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
                                     style={fontBold}
                                 >
-                                    {locationLoading ? <Loader2 size={16} className="animate-spin" /> : <Navigation size={16} />}
-                                    {locationLoading ? "Getting location..." : "Use current location"}
+                                    {locationLoading ? <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} /> : <Navigation size={16} />}
+                                    Use current location
                                 </button>
                                 {locationUnavailable && (
                                     <p className="text-xs text-[#92400E]" role="status">Location access is unavailable in this browser.</p>
@@ -1199,17 +1317,9 @@ export const RegisterModal_Admin = ({ onClose, onSuccess, initialData = null, ed
                         className={`${btnPrimary} sm:min-w-48`}
                         style={fontBold}
                     >
-                        {loading ? (
-                            <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                {isEditMode ? "Saving changes..." : "Creating account..."}
-                            </>
-                        ) : (
-                            <>
-                                {isEditMode ? "Save changes" : "Create account"}
-                                <ChevronRight className="h-4 w-4" />
-                            </>
-                        )}
+                        {loading && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+                        {isEditMode ? "Save changes" : "Create account"}
+                        <ChevronRight className="h-4 w-4" />
                     </button>
                 </div>
             </motion.div>

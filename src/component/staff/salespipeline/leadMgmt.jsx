@@ -5,8 +5,9 @@ import CreatableSelect from "react-select/creatable";
 
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import {
-    AlertCircle, AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, BellRing, Building2, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, Download, ExternalLink, Eye, Filter, Globe, Headset, History, Info, Link2, Loader2, Mail, MapPin, Pencil, Phone, Plus, Save, Search, SearchX, Sparkles, Target, Trash2, TrendingDown, TrendingUp, UserCheck, UserPlus, UserRound, Users, Video, X, XCircle,
+    AlertCircle, AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, BellRing, Building2, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, Check, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, Download, ExternalLink, Eye, Filter, Globe, Headset, History, Info, Link2, LoaderCircle, Mail, MapPin, Pencil, Phone, Plus, Save, Search, SearchX, Sparkles, Target, Trash2, TrendingDown, TrendingUp, UserCheck, UserPlus, UserRound, Users, Video, X, XCircle,
 } from "lucide-react";
+import { Skeleton } from "../../skeleton";
 
 
 
@@ -667,7 +668,7 @@ const buildSelectStyles = ({ invalid = false, compact = false } = {}) => ({
     singleValue: (b) => ({ ...b, color: "#422026" }),
 });
 
-const AppSelect = ({ creatable, invalid, compact, ...props }) => {
+const AppSelect = ({ creatable, invalid, compact, components, ...props }) => {
     const Comp = creatable ? CreatableSelect : Select;
     return (
         <Comp
@@ -677,6 +678,11 @@ const AppSelect = ({ creatable, invalid, compact, ...props }) => {
             classNamePrefix="lead-select"
             styles={buildSelectStyles({ invalid, compact })}
             noOptionsMessage={() => "No matches"}
+            loadingMessage={() => <Skeleton className="h-3 w-24 rounded-full" />}
+            components={{
+                LoadingIndicator: () => <Skeleton className="h-3 w-3 rounded-full" />,
+                ...components,
+            }}
             aria-invalid={invalid || undefined}
             {...props}
         />
@@ -759,9 +765,11 @@ const Button = ({ variant = "primary", loading, icon: Icon, children, className 
         type="button"
         {...props}
         disabled={disabled || loading}
+        aria-busy={Boolean(loading)}
         className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A76C0]/50 active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60 ${buttonVariants[variant]} ${className}`}
     >
-        {loading ? <Loader2 size={14} className="animate-spin" /> : Icon && <Icon size={14} />}
+        {loading && <LoaderCircle className="h-3 w-3 animate-spin text-current" strokeWidth={2.5} />}
+        {Icon && <Icon size={14} />}
         {children}
     </button>
 );
@@ -778,7 +786,7 @@ const IconButton = ({ icon: Icon, label, tone = "default", loading, className = 
             disabled={props.disabled || loading}
             className={`flex h-8 w-8 items-center justify-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A76C0]/50 disabled:cursor-not-allowed disabled:opacity-40 ${tones[tone]} ${className}`}
         >
-            {loading ? <Loader2 size={15} className="animate-spin" /> : <Icon size={15} />}
+            {loading ? <LoaderCircle className="h-4 w-4 animate-spin text-current" strokeWidth={2.5} /> : <Icon size={15} />}
         </button>
     );
 };
@@ -830,8 +838,6 @@ const ServiceChips = ({ values = [], max = Infinity, full = false }) => {
         </div>
     );
 };
-
-const Skeleton = ({ className = "" }) => <div className={`animate-pulse rounded-md bg-slate-200/70 ${className}`} />;
 
 // ---------------------------------------------------------------
 // Overlays (modal, drawer, confirm) – portal + Escape stack + scroll lock
@@ -1724,7 +1730,7 @@ function LeadTable({
             <div className="px-4 py-14 text-center">
                 <p className="text-sm font-bold text-[#DC2626]">Couldn't load leads</p>
                 <p className="mt-1 text-xs text-slate-500">{loadError}</p>
-                <Button className="mt-4" onClick={onRetry}>Try again</Button>
+                <Button className="mt-4" onClick={onRetry} loading={loading}>Try again</Button>
             </div>
         );
     } else if (loading) {

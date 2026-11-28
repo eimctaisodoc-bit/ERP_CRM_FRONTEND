@@ -3,7 +3,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../api/axios";
 import {
     // Delete_Stage1_ScheduleOnly,
-    Deleteadmin, DeleteBranch, DeleteMeetings_, deleteNote, deletecalls, deletmsg, DeleteStaff, Deleteproposal, DeleteSalesLead
+    Deleteadmin, DeleteBranch, DeleteMeetings_, deleteNote, deletecalls, deletmsg, DeleteStaff,
+    Deleteproposal, DeleteSalesLead
+    // clients
+    , deleteClients,
+    // note
+    S_DeleteNote,
+     A_DeleteNote,
+  C_DeleteNote,
+  ST_DeleteNote,
+    // recruitment
+    deleteRecruitmentForSuper
 } from "../../api/role.api";
 export const UseDelete = () => {
 
@@ -131,7 +141,16 @@ export const UseDelete = () => {
     });
 
     const DeleteSalesLead_ = useMutation({ mutationFn: DeleteSalesLead });
+    const deleteClients_ = useMutation({ mutationFn: deleteClients });
+    const S_DeleteNote_ = useMutation({ mutationFn: S_DeleteNote });
+    const deleteRecruitmentForSuper_ = useMutation({ mutationFn: deleteRecruitmentForSuper });
 
+    const A_DeleteNote_ = useMutation({ mutationFn: A_DeleteNote });
+
+
+    const C_DeleteNote_ = useMutation({ mutationFn: C_DeleteNote });
+
+    const ST_DeleteNote_ = useMutation({ mutationFn: ST_DeleteNote });
     return {
         // delete_stage1_scheduleOnly,
         deleteNote_,
@@ -142,6 +161,16 @@ export const UseDelete = () => {
         Deleteadmin_,
         DeleteBranch_,
         DeleteStaff_,
-        DeleteSalesLead_
+        DeleteSalesLead_,
+        // clients
+        deleteClients_,
+        // note
+        S_DeleteNote_,
+        A_DeleteNote_,
+        C_DeleteNote_,
+        ST_DeleteNote_,
+        // recruitment
+        deleteRecruitmentForSuper_,
+
     }
 }    

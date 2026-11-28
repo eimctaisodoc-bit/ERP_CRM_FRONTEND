@@ -1,4 +1,12 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import Select from "react-select";
 import makeAnimated from "react-select/animated";
 import {
@@ -25,7 +33,6 @@ import {
   Pencil,
   BadgeCheck,
   AlertTriangle,
-  Loader2,
   Building2,
   Tag,
   Factory,
@@ -35,22 +42,26 @@ import {
   Phone,
   Mail,
   MapPin,
-  Map,
   Users,
   UsersRound,
-  Briefcase,
-  Smartphone,
+  BriefcaseBusiness,
   Flame,
   Share2,
   MessageCircle,
+  Megaphone,
   UserCheck,
+  LoaderCircle,
   Package,
   StickyNote,
   Clock,
+  CalendarDays,
   CalendarClock,
-  Landmark,
   IdCard,
   Ban,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  MoreVertical,
 } from "lucide-react";
 
 import { useGet } from "../../../../hooks/useGet";
@@ -69,6 +80,7 @@ import {
   dismissWaitingNotify,
 } from "../../../../hotToaster";
 import NepaliDateInput from "../../../../nepalidate/testDate";
+import { Skeleton } from "../../../../skeleton";
 
 const animatedComponents = makeAnimated();
 
@@ -114,7 +126,7 @@ const leadStatusSelectStyles = {
     color: state.isDisabled
       ? "#94A3B8"
       : (LEAD_STATUS_COLORS[state.data.value] || LEAD_STATUS_COLORS.new)
-          .foreground,
+        .foreground,
     fontSize: 12,
     fontWeight: 600,
   }),
@@ -125,9 +137,9 @@ const leadStatusSelectStyles = {
     color: state.isDisabled
       ? "#94A3B8"
       : (
-          LEAD_STATUS_COLORS[state.getValue()[0]?.value] ||
-          LEAD_STATUS_COLORS.new
-        ).foreground,
+        LEAD_STATUS_COLORS[state.getValue()[0]?.value] ||
+        LEAD_STATUS_COLORS.new
+      ).foreground,
     "&:hover": { color: "#0F172A" },
   }),
   indicatorSeparator: () => ({ display: "none" }),
@@ -135,7 +147,6 @@ const leadStatusSelectStyles = {
   menu: (base) => ({ ...base, overflow: "hidden", borderRadius: 8 }),
   option: (base, state) => ({
     ...base,
-    fontWeight: 500,
     backgroundColor: state.isSelected
       ? "#F97316"
       : state.isFocused
@@ -163,7 +174,7 @@ const LEAD_TAKEN_OPTIONS = [
 ];
 const DRAWER_WIDTH = {
   md: "sm:max-w-md",
-  lg: "sm:max-w-xl",
+  lg: "sm:w-[45vw] sm:max-w-[45vw]",
   xl: "sm:max-w-2xl",
 };
 const HIDDEN_KEYS = ["_id", "__v"];
@@ -319,7 +330,7 @@ const asText = (v) => (Array.isArray(v) ? v.join(", ") : v);
 
 const PREVIEW_SECTIONS = [
   {
-    title: "Organization information",
+    title: "Organization Information",
     icon: Building2,
     fields: [
       [
@@ -340,40 +351,19 @@ const PREVIEW_SECTIONS = [
       [
         "Registration Number",
         Hash,
-        (p) => pick(p.organization, ["registrationNumber", "registrationNo"]),
+        (p) => pick(p.organization, ["registrationNumber"]),
       ],
-      [
-        "VAT / PAN",
-        Receipt,
-        (p) => pick(p.organization, ["vatPan", "VatPan", "vatPanNumber"]),
-      ],
-      [
-        "Standard",
-        ShieldCheck,
-        (p) => pick(p.organization, ["standard", "Standard"]),
-      ],
-      [
-        "Org Telephone",
-        Phone,
-        (p) =>
-          pick(p.organization, [
-            "organizationTelephone",
-            "orgTelephone",
-            "telephone",
-          ]),
-      ],
-      [
-        "Org Email",
-        Mail,
-        (p) => pick(p.organization, ["organizationEmail", "orgEmail", "email"]),
-      ],
+      ["VAT / PAN", Receipt, (p) => pick(p.organization, ["vatPan"])],
+      ["Standard", ShieldCheck, (p) => pick(p.organization, ["standard"])],
+      ["Org Telephone", Phone, (p) => pick(p.organization, ["orgTelephone"])],
+      ["Org Email", Mail, (p) => pick(p.organization, ["orgEmail"])],
       [
         "Province Number",
-        Landmark,
-        (p) => pick(p.organization, ["provinceNumber", "provinceNo"]),
+        MapPin,
+        (p) => pick(p.organization, ["provinceNumber"]),
       ],
-      ["Province", Map, (p) => pick(p.organization, ["province"])],
-      ["District", MapPin, (p) => pick(p.organization, ["district"])],
+      ["Province", MapPin, (p) => pick(p.organization, ["provinceName"])],
+      ["District", MapPin, (p) => pick(p.organization, ["districtName"])],
       ["Local Level", MapPin, (p) => pick(p.organization, ["localLevel"])],
       [
         "Total Employees / Learners",
@@ -383,22 +373,17 @@ const PREVIEW_SECTIONS = [
       [
         "Employee Range",
         UsersRound,
-        (p) => pick(p.organization, ["employeeRange", "empRange"]),
+        (p) => pick(p.organization, ["employeeRange"]),
       ],
       [
         "Contact Person Name",
         UserRound,
         (p) => pick(p.organization, ["contactPersonName"]),
       ],
-      [
-        "Role",
-        Briefcase,
-        (p) =>
-          pick(p.organization, ["contactPersonRole", "role", "designation"]),
-      ],
+      ["Role", BriefcaseBusiness, (p) => pick(p.organization, ["role"])],
       [
         "Contact Person Number",
-        Smartphone,
+        Phone,
         (p) => pick(p.organization, ["contactPersonNumber"]),
       ],
       [
@@ -406,38 +391,32 @@ const PREVIEW_SECTIONS = [
         Mail,
         (p) => pick(p.organization, ["contactPersonEmail"]),
       ],
-      ["Address", MapPin, (p) => p.address],
     ],
   },
   {
-    title: "Lead information",
+    title: "Lead Information",
     icon: IdCard,
     fields: [
-      ["Lead ID", IdCard, (p) => pick(p.lead, ["leadID", "leadId"])],
+      ["Lead ID", IdCard, (p) => pick(p.lead, ["leadID"])],
       ["Lead Type", Flame, (p) => pick(p.lead, ["leadType"])],
       ["Lead Source", Share2, (p) => pick(p.lead, ["leadSource"])],
       ["Lead Channel", MessageCircle, (p) => pick(p.lead, ["leadChannel"])],
+      ["Campaign Name", Megaphone, (p) => pick(p.lead, ["campaignName"])],
       [
-        "Assigned Sales Rep",
-        UserCheck,
-        (p) => pick(p.lead, ["assignedSalesRep"]),
-      ],
-      [
-        "Interested Products / Services",
+        "Interested Services",
         Package,
         (p) => asText(pick(p.lead, ["ProductInterested"])),
       ],
-      [
-        "Province Number",
-        Landmark,
-        (p) => pick(p.lead, ["provinceNumber", "provinceNo"]),
-      ],
-      ["Sales Manager", UserRound, (p) => pick(p.lead, ["salesManager"])],
-      ["Notes", StickyNote, (p) => pick(p.lead, ["notes", "note", "remarks"])],
+      ["Province Number", MapPin, (p) => pick(p.lead, ["provinceNumber"])],
+      ["Province Name", MapPin, (p) => pick(p.lead, ["provinceName"])],
+      ["District Name", MapPin, (p) => pick(p.lead, ["districtName"])],
+      ["Local Level Name", MapPin, (p) => pick(p.lead, ["localLevel"])],
+      ["Sales Manager", UserCheck, (p) => pick(p.lead, ["salesManager"])],
+      ["Notes", StickyNote, (p) => pick(p.lead, ["notes"])],
     ],
   },
   {
-    title: "Ownership information",
+    title: "Ownership Information",
     icon: UserCheck,
     fields: [
       [
@@ -445,33 +424,39 @@ const PREVIEW_SECTIONS = [
         UserCheck,
         (p) =>
           pick(p.ownership, ["assignedSalesRep"]) ??
-          pick(p.lead, ["assignedSalesRep"]),
+          pick(p.lead, ["assignedSalesRep"]) ??
+          pick(p.details, ["assignedSalesRep"]),
       ],
       [
         "Sales Manager",
-        UserRound,
+        UserCheck,
         (p) =>
-          pick(p.ownership, ["salesManager"]) ?? pick(p.lead, ["salesManager"]),
+          pick(p.ownership, ["salesManager"]) ??
+          pick(p.lead, ["salesManager"]) ??
+          pick(p.details, ["salesManager"]),
+      ],
+      [
+        "Lead Pick Date",
+        CalendarDays,
+        (p) =>
+          pick(p.ownership, ["LeadPickDate"]) ??
+          pick(p.lead, ["LeadPickDate"]) ??
+          pick(p.details, ["LeadPickDate"]),
       ],
       [
         "Lead Pick Time",
         Clock,
         (p) =>
           pick(p.ownership, ["LeadPickTime"]) ??
+          pick(p.lead, ["LeadPickTime"]) ??
           pick(p.details, ["LeadPickTime"]),
-      ],
-      [
-        "Lead Pick Date",
-        CalendarPlus,
-        (p) =>
-          pick(p.ownership, ["LeadPickDate"]) ??
-          pick(p.ownership, ["LeadPickDate"]),
       ],
       [
         "Next Follow-up Time",
         CalendarClock,
         (p) =>
           pick(p.ownership, ["NextFollowTime"]) ??
+          pick(p.lead, ["NextFollowTime"]) ??
           pick(p.details, ["NextFollowTime"]),
       ],
     ],
@@ -485,13 +470,13 @@ const tableValue = (v) => {
       .map((item) =>
         item && typeof item === "object"
           ? Object.entries(item)
-              .filter(
-                ([k, x]) =>
-                  !HIDDEN_KEYS.includes(k) &&
-                  (x === null || typeof x !== "object"),
-              )
-              .map(([k, x]) => `${humanizeKey(k)}: ${x}`)
-              .join(", ")
+            .filter(
+              ([k, x]) =>
+                !HIDDEN_KEYS.includes(k) &&
+                (x === null || typeof x !== "object"),
+            )
+            .map(([k, x]) => `${humanizeKey(k)}: ${x}`)
+            .join(", ")
           : String(item ?? ""),
       )
       .filter(Boolean);
@@ -501,7 +486,9 @@ const tableValue = (v) => {
 };
 
 const buildAddress = (lead) =>
-  [lead.localLevel, lead.district, lead.province].filter(Boolean).join(", ");
+  [lead.localLevel, lead.districtName, lead.provinceName]
+    .filter(Boolean)
+    .join(", ");
 
 const toRow = (item, lead = first(item.leadDetails), leadIndex = 0) => {
   const details = first(item.details);
@@ -937,6 +924,10 @@ function useEscape(onEscape, { enabled = true, ignoreFields = false } = {}) {
 /* ---------------------------------- Page --------------------------------- */
 
 export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
+  const [actionMenu, setActionMenu] = useState(null);
+  const actionMenuRef = useRef(null);
+  const actionBtnRef = useRef(null);
+
   const reduceMotion = useReducedMotion();
   const { useMe } = useAuth();
   const { role, id } = useMe?.data?.user?.decoded || {};
@@ -948,27 +939,79 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
       currentUser: { role, id },
       isAuthLoading: useMe.isLoading,
     });
-  const { data, isLoading, error } = GetAllOrganizationDetails_;
+  const { data, error } = GetAllOrganizationDetails_;
+  // console.log(data)
+  const [locationDetails, setLocationDetails] = useState({
+    province: "",
+    provinceName: "",
+    districtName: "",
+    localLevel: "",
+  });
+  const [locationDetailsError, setLocationDetailsError] = useState(null);
 
   useEffect(() => {
-    const fetchMeDetails = async () => {
+    if (!id) return;
+
+    let active = true;
+
+    const fetchData = async () => {
+      setLocationDetailsError(null);
+
       try {
-        const res = await GetMeDetails_.mutateAsync({
+        const { data } = await GetMeDetails_.mutateAsync({
           params: { id },
         });
+        if (!active) return;
 
-        console.log("meDetails:", res);
-      } catch (error) {
-        console.error("Failed to fetch meDetails:", error);
+        const location = {
+          province: Number(data?.province) || "",
+          provinceName: data?.provinceName || "",
+          districtName: data?.districtName || "",
+          localLevel: data?.localLevelName || "",
+        };
+        setLocationDetails(location);
+
+        try {
+          await GetAllOrganizationDetails_.mutateAsync(location);
+        } catch (salesError) {
+          if (active) {
+            console.error("Failed to fetch sales data:", salesError);
+          }
+        }
+      } catch (fetchError) {
+        if (active) {
+          setLocationDetailsError(fetchError);
+          console.error("Failed to fetch user location details:", fetchError);
+        }
       }
     };
 
-    if (id) {
-      fetchMeDetails();
-    }
-  }, [id]);
+    fetchData();
 
-  const loading = isLoading || useMe.isLoading;
+    return () => {
+      active = false;
+      GetAllOrganizationDetails_.reset();
+    };
+  }, [
+    GetAllOrganizationDetails_.mutateAsync,
+    GetAllOrganizationDetails_.reset,
+    GetMeDetails_.mutateAsync,
+    id,
+  ]);
+
+  const loading =
+    useMe.isLoading ||
+    GetMeDetails_.isPending ||
+    GetAllOrganizationDetails_.isPending;
+
+  const hasLocationDetails = Object.values(locationDetails).every(
+    (value) =>
+      value !== "" &&
+      value !== null &&
+      value !== undefined &&
+      (typeof value !== "string" || value.trim() !== ""),
+  );
+  const displayedError = locationDetailsError || error;
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({
     organization: null,
@@ -976,9 +1019,10 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
     leadTaken: LEAD_TAKEN_OPTIONS[0],
     leadTakenRange: { start: "", end: "" },
   });
+  const [sort, setSort] = useState({ key: null, dir: "asc" });
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState([]);
-  const [showStats, setShowStats] = useState(true);
+  const [showStats, setShowStats] = useState(false);
 
   const [preview, setPreview] = useState(null);
   const [meetingLead, setMeetingLead] = useState(null);
@@ -997,6 +1041,42 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
   const statusUpdateLock = useRef(false);
   const activityFetcherRef = useRef(getAllActivities_.mutateAsync);
   activityFetcherRef.current = getAllActivities_.mutateAsync;
+
+  useEffect(() => {
+    if (!actionMenu) return undefined;
+    const close = () => setActionMenu(null);
+    const onDown = (e) => {
+      if (
+        actionMenuRef.current?.contains(e.target) ||
+        actionBtnRef.current?.contains(e.target)
+      )
+        return;
+      close();
+    };
+    const onKey = (e) => e.key === "Escape" && close();
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [actionMenu]);
+
+  useLayoutEffect(() => {
+    if (!actionMenu || !actionMenuRef.current) return;
+    const h = actionMenuRef.current.offsetHeight;
+    if (actionMenu.top + h + 8 > window.innerHeight) {
+      setActionMenu((m) =>
+        m ? { ...m, top: Math.max(8, m.anchorTop - h - 4) } : m,
+      );
+    }
+  }, [actionMenu?.rowId]);
 
   const records = useMemo(
     () =>
@@ -1074,6 +1154,88 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
     });
   }, [uncontractedRecords, search, filters, scheduleNow]);
 
+  const sorted = useMemo(() => {
+    if (!sort.key) return filtered;
+
+    const sortValue = (lead) => {
+      switch (sort.key) {
+        case "leadTaken":
+          return Number.isFinite(lead.leadTakenAt)
+            ? lead.leadTakenAt
+            : null;
+        case "proposal":
+          return (
+            proposalCounts[String(getLeadId(lead))] ??
+            (Number.isFinite(Number(lead.proposal))
+              ? Number(lead.proposal)
+              : null)
+          );
+        case "followUp": {
+          const parsed = parseBsDateTime(
+            lead.followUpDate,
+            lead.followUpTime,
+          );
+          if (Number.isFinite(parsed)) return parsed;
+
+          const schedules = activitySchedules[String(getLeadId(lead))];
+          const schedule = getLeadScheduleStatus(schedules, scheduleNow).schedule;
+          return Number.isFinite(schedule?.startDateTime)
+            ? schedule.startDateTime
+            : null;
+        }
+        case "services":
+          return tableValue(lead.services);
+        default:
+          return tableValue(lead[sort.key]);
+      }
+    };
+
+    const direction = sort.dir === "asc" ? 1 : -1;
+
+    return [...filtered].sort((a, b) => {
+      const x = sortValue(a);
+      const y = sortValue(b);
+      const xEmpty =
+        x === null ||
+        x === undefined ||
+        (typeof x === "string" && x.trim() === "") ||
+        x === "-";
+      const yEmpty =
+        y === null ||
+        y === undefined ||
+        (typeof y === "string" && y.trim() === "") ||
+        y === "-";
+
+      if (xEmpty && yEmpty) return 0;
+      if (xEmpty) return 1;
+      if (yEmpty) return -1;
+
+      const result =
+        typeof x === "number" && typeof y === "number"
+          ? x - y
+          : String(x).localeCompare(String(y), undefined, {
+            numeric: true,
+            sensitivity: "base",
+          });
+      return result * direction;
+    });
+  }, [
+    filtered,
+    sort,
+    proposalCounts,
+    activitySchedules,
+    scheduleNow,
+  ]);
+
+  const toggleSort = (key) => {
+    setSort((current) =>
+      current.key === key
+        ? { key, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" },
+    );
+    setPage(1);
+  };
+
   const hasFilters = Boolean(
     search ||
     filters.organization ||
@@ -1129,11 +1291,11 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
     resetView();
   };
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
   const current = Math.min(page, totalPages);
   const pageRows = useMemo(
-    () => filtered.slice((current - 1) * PER_PAGE, current * PER_PAGE),
-    [filtered, current],
+    () => sorted.slice((current - 1) * PER_PAGE, current * PER_PAGE),
+    [sorted, current],
   );
   const pageIds = pageRows.map(getLeadRowId);
   const activityLeadIds = [
@@ -1304,7 +1466,29 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
   };
   const openForm = (lead = null) => {
     setPreview(null);
-    setForm({ lead });
+    if (!lead) {
+      setForm({ lead: null });
+      return;
+    }
+
+    const apiData = Array.isArray(data?.data) ? data.data : [];
+    const selectedId = lead._id;
+    const selectedLead = apiData.find((item) => item._id === selectedId);
+    const record = selectedLead || lead;
+    const leadDetails = record?.leadDetails?.[0] || record?.lead || {};
+    const organizationDetails =
+      record?.organizationDetails?.[0] || record?.organization || {};
+    const ownershipDetails =
+      record?.ownershipDetails?.[0] || record?.ownership || {};
+
+    setForm({
+      lead: {
+        ...record,
+        leadDetails: [leadDetails],
+        organizationDetails: [organizationDetails],
+        ownershipDetails: [ownershipDetails],
+      },
+    });
   };
 
   const refresh = async (verb, showSuccess = true) => {
@@ -1312,7 +1496,7 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
     const loadingMessage = "Refreshing leads...";
     waitingNotify(loadingMessage);
     try {
-      await GetAllOrganizationDetails_.refetch({ throwOnError: true });
+      await GetAllOrganizationDetails_.mutateAsync(locationDetails);
     } catch {
       ErrorNotify(`Lead was ${verb}, but the table could not be refreshed.`);
     } finally {
@@ -1324,7 +1508,7 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
     const loadingMessage = "Refreshing leads...";
     waitingNotify(loadingMessage);
     try {
-      await GetAllOrganizationDetails_.refetch({ throwOnError: true });
+      await GetAllOrganizationDetails_.mutateAsync(locationDetails);
     } catch {
       ErrorNotify(failMessage);
     } finally {
@@ -1435,26 +1619,35 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
             </motion.button>
           </header>
 
-          {error && (
+          {displayedError && (
             <div
               role="alert"
               className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
             >
-              <span>{error.message || "Unable to load leads."}</span>
-              <button
-                type="button"
-                onClick={() => GetAllOrganizationDetails_.refetch()}
-                className="shrink-0 font-semibold underline"
-              >
-                Retry
-              </button>
+              <span>
+                {displayedError.message ||
+                  (locationDetailsError
+                    ? "Unable to load your location details."
+                    : "Unable to load leads.")}
+              </span>
+              {error && hasLocationDetails && (
+                <button
+                  type="button"
+                  onClick={() => GetAllOrganizationDetails_.mutate(locationDetails)}
+                  disabled={loading}
+                  className="inline-flex shrink-0 items-center gap-1.5 font-semibold underline disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading && <LoaderCircle className="h-3 w-3 animate-spin text-red-600" strokeWidth={2.5} />}
+                  Retry
+                </button>
+              )}
             </div>
           )}
 
           <div
             role="tablist"
             aria-label="Lead status"
-            className={`-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 ${NO_SCROLLBAR}`}
+            className={`-mx-1 flex snap-x snap-proximity gap-1.5 overflow-x-auto overscroll-x-contain px-1 pb-1 scroll-px-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0 md:snap-none lg:gap-2 ${NO_SCROLLBAR}`}
           >
             {STATUS_TABS.map((tab) => {
               const active = (filters.status?.value || "all") === tab.key;
@@ -1467,13 +1660,20 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                   role="tab"
                   aria-selected={active}
                   onClick={() => selectStatusTab(tab.key)}
-                  className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition ${FOCUS} ${active ? `${BRAND} text-white shadow-sm` : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                  className={`inline-flex min-h-10 shrink-0 snap-start items-center gap-2 whitespace-nowrap rounded-lg px-3 text-xs font-semibold transition sm:px-3.5 md:min-h-9 lg:px-4 lg:text-[13px] ${FOCUS} ${active ? `${BRAND} text-white shadow-sm` : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
                 >
                   {tab.label}
                   <span
-                    className={`rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums ${active ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"}`}
+                    className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums ${active ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"}`}
                   >
-                    {loading ? "·" : count}
+                    {loading ? (
+                      <LoaderCircle
+                        className="h-3 w-3 animate-spin text-red-600"
+                        strokeWidth={2.5}
+                      />
+                    ) : (
+                      count
+                    )}
                   </span>
                 </button>
               );
@@ -1557,7 +1757,11 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                   isSearchable
                   isLoading={loading}
                   aria-label="Filter by organization"
-                  components={animatedComponents}
+                  components={{
+                    ...animatedComponents,
+                    LoadingIndicator: () => <Skeleton className="h-3 w-3 rounded-full" />,
+                  }}
+                  loadingMessage={() => <Skeleton className="h-3 w-24 rounded-full" />}
                   options={organizationOptions}
                   value={filters.organization}
                   onChange={(option) => updateFilter("organization", option)}
@@ -1681,9 +1885,9 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                 className="w-full min-w-[1900px] text-left text-xs"
                 aria-busy={loading}
               >
-                <thead className="bg-slate-50 text-slate-500">
+                <thead className="bg-amber-50/60 text-slate-600">
                   <tr>
-                    <th className="w-12 border-b border-slate-200 px-4 py-3">
+                    <th className="w-12 border-b border-amber-100 px-4 py-3">
                       <AnimatedCheckbox
                         checked={allSelected}
                         onChange={toggleAll}
@@ -1691,25 +1895,57 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                         disabled={loading}
                       />
                     </th>
-                    {COLUMNS.map(([name]) => (
-                      <th
-                        key={name}
-                        scope="col"
-                        className="whitespace-nowrap border-b border-slate-200 px-4 py-3 text-[11px] font-bold uppercase tracking-wide"
-                      >
-                        {name}
-                      </th>
-                    ))}
+                    {COLUMNS.map(([name, key]) => {
+                      const active = sort.key === key;
+                      const SortIcon = !active
+                        ? ArrowUpDown
+                        : sort.dir === "asc"
+                          ? ArrowUp
+                          : ArrowDown;
+                      return (
+                        <th
+                          key={name}
+                          scope="col"
+                          aria-sort={
+                            active
+                              ? sort.dir === "asc"
+                                ? "ascending"
+                                : "descending"
+                              : "none"
+                          }
+                          className={`whitespace-nowrap border-b border-amber-100 px-4 py-3 text-[11px] font-bold uppercase tracking-wide ${active ? "bg-amber-100/70 text-amber-800" : ""
+                            }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleSort(key)}
+                            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 transition ${active
+                                ? "text-amber-700 hover:bg-amber-100 hover:text-amber-900"
+                                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40`}
+                          >
+                            {name}
+                            <SortIcon
+                              size={13}
+                              className={
+                                active ? "text-amber-600" : "text-slate-400"
+                              }
+                              aria-hidden="true"
+                            />
+                          </button>
+                        </th>
+                      );
+                    })}
                     <th
                       scope="col"
-                      className="sticky right-0 z-10 whitespace-nowrap border-b border-l border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide"
+                      className="sticky right-0 z-10 whitespace-nowrap border-b border-l border-amber-100 bg-amber-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-slate-600"
                     >
                       Actions
                     </th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-slate-200 text-slate-700">
                   {loading ? (
                     <TableSkeleton rows={PER_PAGE} cols={COLUMNS.length} />
                   ) : pageRows.length ? (
@@ -1747,7 +1983,7 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                                   type="button"
                                   onClick={() => setPreview(lead)}
                                   title="View lead details"
-                                  className="rounded font-bold text-amber-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+                                  className="rounded cursor-pointer font-bold text-amber-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
                                 >
                                   {tableValue(lead[key])}
                                 </button>
@@ -1770,6 +2006,10 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                                       )}
                                       isDisabled={statusUpdating || !lead._id}
                                       isLoading={statusUpdating}
+                                      components={{
+                                        LoadingIndicator: () => <Skeleton className="h-3 w-3 rounded-full" />,
+                                      }}
+                                      loadingMessage={() => <Skeleton className="h-3 w-24 rounded-full" />}
                                       isSearchable={false}
                                       options={LEAD_STATUS_OPTIONS}
                                       onChange={(option) => {
@@ -1850,9 +2090,9 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                                 >
                                   {Number.isFinite(lead.leadTakenAt)
                                     ? formatRelativeTime(
-                                        lead.leadTakenAt,
-                                        scheduleNow,
-                                      )
+                                      lead.leadTakenAt,
+                                      scheduleNow,
+                                    )
                                     : "-"}
                                 </span>
                               ) : (
@@ -1867,7 +2107,39 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                           ))}
 
                           <td className="sticky right-0 border-l border-slate-200 bg-inherit px-3 py-3">
-                            <div className="flex items-center gap-0.5">
+                            <button
+                              type="button"
+                              title="Actions"
+                              aria-label="Row actions"
+                              aria-haspopup="menu"
+                              aria-expanded={actionMenu?.rowId === rowId}
+                              ref={actionMenu?.rowId === rowId ? actionBtnRef : null}
+                              onClick={(e) => {
+                                const r = e.currentTarget.getBoundingClientRect();
+                                setActionMenu((prev) =>
+                                  prev?.rowId === rowId
+                                    ? null
+                                    : {
+                                      row: lead,
+                                      rowId,
+                                      anchorTop: r.top,
+                                      top: r.bottom + 4,
+                                      left: Math.max(
+                                        8,
+                                        Math.min(
+                                          r.right - 192,
+                                          window.innerWidth - 192 - 8,
+                                        ),
+                                      ),
+                                    },
+                                );
+                              }}
+                              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 lg:hidden"
+                            >
+                              <MoreVertical size={18} />
+                            </button>
+
+                            <div className="hidden items-center gap-0.5 lg:flex">
                               <IconAction
                                 icon={Eye}
                                 label="View details"
@@ -1950,9 +2222,9 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                 <Skeleton className="h-4 w-44" />
               ) : (
                 <span className="text-[10px] font-medium text-slate-500">
-                  Showing {filtered.length ? (current - 1) * PER_PAGE + 1 : 0}{" "}
-                  to {Math.min(current * PER_PAGE, filtered.length)} of{" "}
-                  {filtered.length} leads
+                  Showing {sorted.length ? (current - 1) * PER_PAGE + 1 : 0}{" "}
+                  to {Math.min(current * PER_PAGE, sorted.length)} of{" "}
+                  {sorted.length} leads
                 </span>
               )}
 
@@ -1985,7 +2257,7 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
               title={form.lead ? "Update Lead Information" : "Create New Lead"}
               subtitle={
                 form.lead
-                  ? `${form.lead.organizationName || "Lead"} · ${form.lead.leadId || "-"}`
+                  ? `${form.lead.organizationDetails?.[0]?.organizationName || form.lead.organizationName || "Lead"} · ${form.lead.leadDetails?.[0]?.leadID || form.lead.leadId || "-"}`
                   : "Complete all three steps to register a lead."
               }
               onClose={() => setForm(null)}
@@ -2043,8 +2315,8 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                   disabled={isDeleting}
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-70"
                 >
-                  {isDeleting && <Loader2 size={14} className="animate-spin" />}
-                  {isDeleting ? "Deleting..." : "Delete lead"}
+                  {isDeleting && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+                  Delete lead
                 </button>
               </div>
             </Modal>
@@ -2180,12 +2452,8 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                         disabled={statusUpdating}
                         className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-70 ${isTermination ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
                       >
-                        {statusUpdating && (
-                          <Loader2 size={14} className="animate-spin" />
-                        )}
-                        {statusUpdating
-                          ? "Updating..."
-                          : `Confirm ${nextLabel.toLowerCase()}`}
+                        {statusUpdating && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+                        Confirm {nextLabel.toLowerCase()}
                       </button>
                     </div>
                   </>
@@ -2234,6 +2502,11 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
               <div className="space-y-4">
                 {PREVIEW_SECTIONS.map(
                   ({ title, icon: SectionIcon, fields }, section) => {
+                    const alternativeContacts =
+                      title === "Organization Information" &&
+                        Array.isArray(preview.organization?.alternativeContacts)
+                        ? preview.organization.alternativeContacts
+                        : [];
                     const rows = fields
                       .map(([text, icon, get]) => ({
                         text,
@@ -2241,7 +2514,7 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                         value: get(preview),
                       }))
                       .filter((r) => isDisplayable(r.value));
-                    if (!rows.length) return null;
+                    if (!rows.length && !alternativeContacts.length) return null;
 
                     return (
                       <section
@@ -2259,11 +2532,53 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
                               icon={r.icon}
                               label={r.text}
                               value={r.value}
-                              section={section}
-                              row={row}
+                              delay={0.15 + section * 0.08 + row * 0.04}
                             />
                           ))}
                         </dl>
+                        {alternativeContacts.length > 0 && (
+                          <div className="w-full border-t border-slate-200 px-4 py-3">
+                            <h4 className="mb-3 text-xs font-bold text-slate-600">
+                              Alternative Contacts
+                            </h4>
+
+                            {/* Full-width parent */}
+                            <div className="grid w-full grid-cols-1 gap-4">
+                              {alternativeContacts.map((contact, index) => {
+                                const details = [
+                                  ["Name", UserRound, contact?.name],
+                                  ["Role", BriefcaseBusiness, contact?.role],
+                                  ["Phone Number", Phone, contact?.number],
+                                  ["Email", Mail, contact?.email],
+                                ];
+
+                                return (
+                                  <div
+                                    key={contact?._id || `${contact?.email || "contact"}-${index}`}
+                                    className="w-full min-w-0 mt-3"
+                                  >
+                                    {/* 2 columns × 2 rows */}
+                                    <dl className="grid w-full grid-cols-2 gap-x-6 gap-y-5">
+                                      {details.map(([label, Icon, value], row) => (
+                                        <DetailRow
+                                          key={label}
+                                          icon={Icon}
+                                          label={label}
+                                          value={tableValue(value)}
+                                          delay={
+                                            0.15 +
+                                            section * 0.08 +
+                                            (rows.length + index * details.length + row) * 0.04
+                                          }
+                                        />
+                                      ))}
+                                    </dl>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </section>
                     );
                   },
@@ -2354,21 +2669,87 @@ export default function LeadsPage({ onAdd, onMeeting, onProposal }) {
             )}
           </AnimatePresence>
         </div>
+
+        {actionMenu &&
+          createPortal(
+            <div
+              ref={actionMenuRef}
+              role="menu"
+              style={{ top: actionMenu.top, left: actionMenu.left }}
+              className="fixed z-[300] w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-xs shadow-lg lg:hidden"
+            >
+              {[
+                {
+                  icon: Eye,
+                  label: "View details",
+                  tone: "text-blue-600",
+                  onClick: () => setPreview(actionMenu.row),
+                },
+                {
+                  icon: CalendarPlus,
+                  label: "Meetings and activity",
+                  tone: "text-amber-600",
+                  onClick: () => openMeetings(actionMenu.row),
+                },
+                {
+                  icon: FileText,
+                  label: "Proposal",
+                  tone: "text-emerald-600",
+                  onClick: () => openProposal(actionMenu.row),
+                },
+                {
+                  icon: Pencil,
+                  label: "Edit lead",
+                  tone: "text-slate-700",
+                  disabled: !actionMenu.row._id,
+                  onClick: () => openForm(actionMenu.row),
+                },
+                {
+                  icon: Trash2,
+                  label: "Delete lead",
+                  tone: "text-red-500",
+                  divider: true,
+                  disabled: !actionMenu.row._id,
+                  onClick: () => setLeadToDelete(actionMenu.row),
+                },
+              ].map(
+                ({
+                  icon: Icon,
+                  label,
+                  tone,
+                  divider,
+                  disabled,
+                  onClick,
+                }) => (
+                  <div key={label}>
+                    {divider && (
+                      <div className="my-1 h-px bg-slate-200" />
+                    )}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={disabled}
+                      onClick={() => {
+                        setActionMenu(null);
+                        onClick();
+                      }}
+                      className={`flex w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left font-semibold transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 ${tone}`}
+                    >
+                      <Icon size={15} aria-hidden="true" />
+                      {label}
+                    </button>
+                  </div>
+                ),
+              )}
+            </div>,
+            document.body,
+          )}
       </div>
     </MotionConfig>
   );
 }
 
 /* ------------------------------- Skeletons -------------------------------- */
-
-function Skeleton({ className = "" }) {
-  return (
-    <div
-      aria-hidden="true"
-      className={`animate-pulse rounded bg-slate-200/80 ${className}`}
-    />
-  );
-}
 
 const SKELETON_WIDTHS = [
   "w-20",
@@ -2395,7 +2776,8 @@ function TableSkeleton({ rows, cols }) {
         </td>
       ))}
       <td className="sticky right-0 border-l border-slate-200 bg-white px-3 py-3">
-        <div className="flex gap-1">
+        <Skeleton className="h-9 w-9 rounded-lg lg:hidden" />
+        <div className="hidden gap-1 lg:flex">
           {Array.from({ length: 7 }, (_, i) => (
             <Skeleton key={i} className="h-9 w-9 rounded-lg" />
           ))}
@@ -2495,7 +2877,7 @@ function IconAction({
     >
       <motion.span
         variants={iconVariants}
-        className="flex items-center justify-center"
+        className="flex items-center cursor-pointer justify-center"
       >
         <Icon size={16} />
       </motion.span>
@@ -2536,24 +2918,20 @@ function AnimatedCheckbox({ checked, onChange, label: text, disabled }) {
   );
 }
 
-function DetailRow({ icon: Icon, label: text, value, section = 0, row = 0 }) {
+function DetailRow({ icon: Icon, label, value, delay }) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{
-        duration: 0.3,
-        ease: "easeOut",
-        delay: 0.15 + section * 0.08 + row * 0.04,
-      }}
+      initial={{ x: 24, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ delay, duration: 0.3, ease: "easeOut" }}
       className="flex items-start gap-3 py-2.5"
     >
-      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-amber-600">
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
         <Icon size={16} />
       </span>
-      <div className="min-w-0">
-        <dt className="text-[11px] font-medium text-slate-400">{text}</dt>
-        <dd className="wrap-break-word text-sm font-semibold text-slate-800">
+      <div className="min-w-0 grid-cols-2">
+        <dt className="text-[11px] font-medium text-slate-400">{label}</dt>
+        <dd className="break-words text-xs font-bold text-slate-800 sm:text-sm">
           {String(value)}
         </dd>
       </div>

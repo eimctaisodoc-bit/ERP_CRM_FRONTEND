@@ -5,11 +5,11 @@ import {
   Download,
   Eye,
   FileText,
-  Loader2,
   X,
   HardDrive,
   FileType,
   FolderOpen,
+  LoaderCircle,
 } from "lucide-react";
 
 // Format file size
@@ -286,7 +286,7 @@ export default function FileAttachment({ file, baseUrl }) {
             aria-label={
               isDownloading ? `Downloading ${fileName}` : `Download ${fileName}`
             }
-            title={isDownloading ? "Downloading..." : "Download file"}
+            title="Download file"
             className={`flex h-9 w-9 items-center justify-center rounded-lg text-emerald-600 transition-all ${
               isDownloading
                 ? "cursor-wait bg-emerald-50 ring-1 ring-emerald-200"
@@ -294,7 +294,7 @@ export default function FileAttachment({ file, baseUrl }) {
             }`}
           >
             {isDownloading ? (
-              <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+              <LoaderCircle className="h-4 w-4 animate-spin text-emerald-600" strokeWidth={2.5} />
             ) : (
               <Download className="h-4 w-4" />
             )}
@@ -527,12 +527,12 @@ export default function FileAttachment({ file, baseUrl }) {
                   }`}
                 >
                   {isDownloading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <LoaderCircle className="h-4 w-4 animate-spin text-emerald-600" strokeWidth={2.5} />
                   ) : (
                     <Download className="h-4 w-4" />
                   )}
 
-                  {isDownloading ? "Downloading..." : "Download"}
+                  Download
                 </button>
               </div>
             </div>

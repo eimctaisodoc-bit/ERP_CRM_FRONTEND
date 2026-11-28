@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Lock, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
 import api from "../../api/axios";
+import { LoaderCircle } from "lucide-react";
 
 const fontLight = { fontFamily: "'Roboto Slab', serif", fontWeight: 300 };
 const fontBold = { fontFamily: "'Roboto Slab', serif", fontWeight: 700 };
@@ -222,14 +223,10 @@ const ResetPassword = () => {
                                 disabled={loading || success}
                                 className="w-full bg-blue-600 hover:bg-blue-700 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] text-white py-3.5 px-4 rounded-xl font-semibold shadow-lg shadow-blue-600/20 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:active:scale-100 flex items-center justify-center"
                             >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="animate-spin mr-2" size={20} />
-                                        Updating Security...
-                                    </>
-                                ) : (
-                                    "Reset Password"
+                                {loading && (
+                                    <LoaderCircle className="mr-2 h-3 w-3 animate-spin text-white" strokeWidth={2.5} />
                                 )}
+                                Reset Password
                             </button>
                         </div>
                     </form>

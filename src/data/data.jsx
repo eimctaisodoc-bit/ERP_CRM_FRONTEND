@@ -20,7 +20,8 @@ import {
   Settings,
   LogOut,
   BusFront,
-  Building2
+  Building2,
+  TrendingUp
 
 } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
@@ -46,92 +47,125 @@ const menus = {
     { name: "Finance", path: "/admin/finance", icon: CreditCard },
     { name: "Sales", path: "/admin/sales", icon: BarChart3 },
     // { name: "Tasks", path: "/admin/tasks", icon: ClipboardList },
-    { name: "DMS", path: "/admin/dms", icon: FileText },
     // { name: "Inbox", path: "/admin/inbox", icon: MessageCircle },
+    { name: "Notes", path: "/admin/notes", icon: MessageCircle },
+    { name: "Documents", path: "/admin/dms", icon: FileText },
     { name: "Settings", path: "/admin/settings", icon: Settings },
   ],
+
   admin_cro: [
     { name: "Dashboard", path: "/admin/report", icon: LayoutDashboard },
+    { name: "Employee Management", path: "/admin/employee", icon: Users },
     { name: "HR", path: "/admin/hr", icon: Users },
     { name: "Finance", path: "/admin/finance", icon: CreditCard },
-    { name: "DMS", path: "/admin/dms", icon: FileText },
-    { name: 'Meeting', path: '/admin/meeting', icon: Calendar },
-    {
-      name: 'Employee Management', path: '/admin/employee', icon: Users
-    },
-    {
-      name: "Travel & Vehicle", path: '/admin/travel', icon: BusFront
-    },
+    { name: "Meeting", path: "/admin/meeting", icon: Calendar },
     { name: "Scheduling", path: "/admin/sales", icon: Calendar },
+    { name: "Travel & Vehicle", path: "/admin/travel", icon: BusFront },
+    { name: "Notes", path: "/admin/notes", icon: MessageCircle },
+    { name: "Documents", path: "/admin/dms", icon: FileText },
     { name: "Settings", path: "/admin/settings", icon: Settings },
-
   ],
+
   super_admin: [
     { name: "Dashboard", path: "/super_admin/report", icon: LayoutDashboard },
     { name: "HR", path: "/super_admin/hr", icon: Users },
-    { name: "Contract Management", path: "/super_admin/contract", icon: BarChart3 },
     { name: "Lead Management", path: "/super_admin/lead", icon: BarChart3 },
-    {
-      name: "Branch Management", path: "/super_admin/branch", icon: Building2
-    },
-    { name: "DMS", path: "/super_admin/dms", icon: FileText },
-
+    { name: "Contract Management", path: "/super_admin/contract", icon: BarChart3 },
+    { name: "Branch Management", path: "/super_admin/branch", icon: Building2 },
+    { name: "Notes", path: "/super_admin/notes", icon: MessageCircle },
+    { name: "Documents", path: "/super_admin/dms", icon: FileText },
     { name: "Settings", path: "/super_admin/settings", icon: Settings },
   ],
+
   client: [
     { name: "Dashboard", path: "/client/report", icon: LayoutDashboard },
-    { name: "My Orders", path: "/client/hr", icon: ClipboardList },
+    { name: "Tasks", path: "/client/tasks", icon: ClipboardList },
+    { name: "Contracts", path: "/client/contracts", icon: Briefcase },
+    { name: "Notes", path: "/client/notes", icon: MessageCircle },
+    { name: "Documents", path: "/client/documents", icon: FileText },
     { name: "Profile", path: "/client/profile", icon: User },
-    { name: "Support", path: "/client/support", icon: MessageCircle },
   ],
+
   staff: [
     { name: "Dashboard", path: "/staff/report", icon: LayoutDashboard },
     { name: "HR Management", path: "/staff/hr", icon: Users },
     { name: "Sales", path: "/staff/contract", icon: BarChart3 },
-    { name: "DMS", path: "/staff/dms", icon: FileText },
+    { name: "Notes", path: "/staff/notes", icon: MessageCircle },
+    { name: "Documents", path: "/staff/dms", icon: FileText },
     { name: "Settings", path: "/staff/settings", icon: Settings },
   ],
+
   staff_sales: [
     { name: "Dashboard", path: "/staff/report", icon: LayoutDashboard },
     { name: "HR", path: "/staff/hr", icon: Users },
-    { name: "Lead Management", path: "/staff/lead", icon: BarChart3 },
+    { name: "Lead ", path: "/staff/lead", icon: BarChart3 },
     { name: "Contract", path: "/staff/contract", icon: BarChart3 },
-    { name: "Note", path: "/staff/note", icon: Users },
-    { name: "DMS", path: "/staff/dms", icon: FileText },
+    { name: "Notes", path: "/staff/note", icon: MessageCircle },
+    { name: "Documents", path: "/staff/dms", icon: FileText },
     { name: "Settings", path: "/staff/settings", icon: Settings },
   ],
+
   staff_consultant: [
     { name: "Dashboard", path: "/staff/report", icon: LayoutDashboard },
     { name: "Task Schedule", path: "/staff/tasks", icon: ClipboardList },
-    { name: "DMS", path: "/staff/dms", icon: FileText },
     { name: "HR", path: "/staff/hr", icon: Users },
+    { name: "Notes", path: "/staff/notes", icon: MessageCircle },
+    { name: "Documents", path: "/staff/dms", icon: FileText },
     { name: "Settings", path: "/staff/settings", icon: Settings },
   ],
+
   staff_hr: [
     { name: "Dashboard", path: "/hr/report", icon: LayoutDashboard },
-    { name: "Recruitment & Hiring", path: "/hr/recruitment", icon: Briefcase },
+    { name: "Recruitment & Hiring", path: "/staff/hr/recruitment", icon: Briefcase },
     { name: "Employee Management", path: "/hr/employees", icon: Users },
     { name: "Attendance & Leave", path: "/hr/attendance", icon: Calendar },
     { name: "Payroll & Benefits", path: "/hr/payroll", icon: CreditCard },
+    { name: "Notes", path: "/hr/notes", icon: MessageCircle },
     { name: "HR Settings", path: "/hr/settings", icon: Settings },
   ],
+  digitalmarketing: [
+    { name: "Dashboard", path: "/digital-marketing/report", icon: LayoutDashboard },
+
+    {name: "Tasks",
+      path: "/digital-marketing/tasks",
+      icon: ClipboardList
+    },
+    { name: "Notes", path: "/digital-marketing/notes", icon: MessageCircle },
+    { name: "Settings", path: "/digital-marketing/settings", icon: Settings },
+  ]
 };
 
+
 const getMenusForUser = (role, jobRole = getUserRole()) => {
-  const normalizedRole = role?.toLowerCase();
-  const normalizedJobRole = jobRole?.trim().toLowerCase();
+  const normalizedRole = role?.trim().toLowerCase();
+  const normalizedJobRole = jobRole
+    ?.trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+
+  // console.log(normalizedRole, normalizedJobRole);
 
   if (normalizedRole === "admin" && normalizedJobRole === "cro") {
     return menus.admin_cro;
   }
+
   if (normalizedRole === "staff" && normalizedJobRole === "sales") {
     return menus.staff_sales;
   }
+
   if (normalizedRole === "staff" && normalizedJobRole === "consultant") {
     return menus.staff_consultant;
   }
+
   if (normalizedRole === "staff" && normalizedJobRole === "hr") {
     return menus.staff_hr;
+  }
+
+  if (
+    normalizedRole === "staff" &&
+    normalizedJobRole === "digital_marketing"
+  ) {
+    return menus.digitalmarketing;
   }
 
   return menus[normalizedRole] || [];
@@ -170,7 +204,7 @@ const ClientEmp_form = [
         name: "gender",
         label: "Gender",
         type: "select",
-        options: ["Male", "Female", "Other"]
+        options: ["Male", "Female"]
       },
       {
         name: "dob",
@@ -182,13 +216,13 @@ const ClientEmp_form = [
         name: "maritalStatus",
         label: "Marital Status",
         type: "select",
-        options: ["Single", "Married", "Divorced", "Widowed"]
+        options: ["Single", "Married", "Divorced",]
       },
       {
         name: "nationality",
         label: "Nationality",
         type: "select",
-        options: ["Nepali", "Indian", "Other"]
+        options: ["Nepali", "Indian",]
       },
       {
         name: "citizenshipId",
@@ -256,16 +290,16 @@ const ClientEmp_form = [
       // Organization
       {
         name: "department",
-        label: "Department / Function",
+        label: "Department ",
         type: "select",
         options: [
           "Corporate HR",
-          "Corporate Finance",
           "Corporate CRO",
           "Corporate Reception",
           "Corporate Document Control",
           "Corporate ERP & IT",
           "Consultancy ",
+          "Corporate Sales"
         ]
       },
 
@@ -286,9 +320,6 @@ const ClientEmp_form = [
 
         ]
       },
-
-      // Application access level
-
 
       // Employment type
       {
@@ -312,17 +343,6 @@ const ClientEmp_form = [
       },
 
 
-
-      // Main or Branch
-      {
-        name: "officeType",
-        label: "Office Type",
-        type: "select",
-        options: [
-          "Main Office",
-          "Branch Office"
-        ]
-      },
 
       // Province
       {
@@ -368,6 +388,13 @@ const ClientEmp_form = [
         type: "select",
         dependsOn: "province",
         optionsSource: "districtsByProvince"
+      },
+      {
+        name: "localLevel",
+        label: "Local Level",
+        type: "select",
+        dependsOn: "district",
+        optionsSource: "localLevelsByDistrict"
       },
 
       // Specific office / branch
@@ -467,6 +494,12 @@ const ClientEmp_form = [
             name: "endDate",
             label: "End Date",
             type: "date"
+          },
+          {
+            name: 'level',
+            label: 'Level',
+            type: 'select',
+            options: ["Entry Level", "Mid Level", "Senior Level"]
           },
           {
             name: "tenure",

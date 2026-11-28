@@ -1,680 +1,465 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import DOMPurify from 'dompurify';
 import {
-    File, FileArchive, FileAudio, FileCode, FileImage, FileSpreadsheet, FileText, FileVideo, Check,
-    Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, FileText as NoteIcon, Loader2, Save
+    ArrowLeft,
+    Bell,
+    CalendarClock,
+    CalendarPlus,
+    Check,
+    Clock,
+    Download,
+    File as FileIcon,
+    FileImage,
+    FileText,
+    LoaderCircle,
+    Paperclip,
+    Plus,
+    Save,
+    Search,
+    StickyNote,
+    Trash2,
+    X,
 } from 'lucide-react';
-
 import NepaliDate from 'nepali-date-converter';
 
-/* ------------------------------------------------------------------ */
-/* Motion presets                                                      */
-/* ------------------------------------------------------------------ */
-const EASE_OUT = [0.22, 1, 0.36, 1];
 
-const stagger = {
-    hidden: {},
-    show: { transition: { staggerChildren: 0.14, delayChildren: 0.35 } },
-};
-
-const listStagger = {
-    hidden: {},
-    show: { transition: { staggerChildren: 0.06, delayChildren: 0.05 } },
-};
-
-const fadeUp = {
-    hidden: { opacity: 0, y: 22 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE_OUT } },
-};
-
-const press = (disabled) =>
-    disabled ? {} : { whileHover: 'hover', whileTap: 'tap' };
-
-const btnVariants = {
-    hover: { scale: 1.02 },
-    tap: { scale: 0.97 },
-};
-
-const iconVariants = {
-    hover: { rotate: -8, scale: 1.12 },
-    tap: { scale: 0.92 },
-};
-
-const softSpring = { type: 'spring', stiffness: 180, damping: 22 };
-const GRADIENT = 'bg-gradient-to-r from-amber-500 to-orange-500';
+import NepaliDateInput from '../../nepalidate/testDate';
+import { Skeleton } from '../../skeleton';
+import { useGet } from '../../hooks/useGet';
+import { useAuth } from '../../hooks/useAuth';
+import { useEdit } from '../../hooks/useEdit';
+import { UseDelete } from '../../hooks/useDelete';
+import { UseAdd } from '../../hooks/useadd';
+import { ErrorNotify, SuccessNotify, waitingNotify } from '../../hotToaster';
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
 /* ------------------------------------------------------------------ */
-const NOTES_KEY = 'nexus_dms_notes';
-const MAX_UPLOAD_SIZE = 50 * 1024 * 1024;
-const MAX_ATTACHMENTS = 10;
-const ALLOWED_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'txt'];
-const ACCEPT = ALLOWED_EXT.map(e => `.${e}`).join(',');
+const EASE_OUT = [0.22, 1, 0.36, 1];
+const softSpring = { type: 'spring', stiffness: 180, damping: 22 };
+const GRADIENT = 'bg-gradient-to-r from-amber-500 to-orange-500';
+
+/* ---- Upload rules (keep in sync with the multer config) ------------ */
+const UPLOAD_FIELD = 'files';                  // CustomNote_.array('files', 10)
+const MAX_ATTACHMENTS = 10;                    // CustomNote_.array('files', 10)
+const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;      // limits.fileSize = 10 MB
+const ALLOWED_MIME = [
+    'image/png',
+    'image/jpg',
+    'image/jpeg',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/pdf',
+];
+const ALLOWED_EXT = ['png', 'jpg', 'jpeg', 'docx', 'pdf'];
+const ACCEPT = [...ALLOWED_MIME, ...ALLOWED_EXT.map(extension => `.${extension}`)].join(',');
+const TYPE_HINT = 'PNG, JPG, JPEG, DOCX or PDF';
+
+// Prefix for files stored on the server, e.g. 'http://localhost:5000'.
+// Leave empty when the API is served from the same origin as this app.
+const FILE_BASE_URL = '';
+
 const NP_TZ = 'Asia/Kathmandu';
 const NP_OFFSET = '+05:45';
+const STATE_KEY_PREFIX = 'nexus_notes_schedule_state';
+const SOON_MS = 60 * 60 * 1000;
+const STALE_DUE_MS = 60 * 1000;
 
-const FONT_FAMILIES = [
-    { label: 'Poppins', css: "'Poppins', sans-serif" },
-    { label: 'Noto Sans Devanagari', css: "'Noto Sans Devanagari', sans-serif" },
-    { label: 'Merriweather', css: "'Merriweather', serif" },
-    { label: 'Playfair Display', css: "'Playfair Display', serif" },
-    { label: 'Roboto Mono', css: "'Roboto Mono', monospace" },
-    { label: 'Caveat', css: "'Caveat', cursive" },
-    { label: 'Georgia', css: 'Georgia, serif' },
-    { label: 'Arial', css: 'Arial, Helvetica, sans-serif' }
+// Ordered from the furthest reminder to the due moment.
+const REMINDER_TIERS = [
+    { key: 'm30', ms: 30 * 60 * 1000, text: 'Starts in 30 minutes' },
+    { key: 'm15', ms: 15 * 60 * 1000, text: 'Starts in 15 minutes' },
+    { key: 'm5', ms: 5 * 60 * 1000, text: 'Starts in 5 minutes' },
+    { key: 'due', ms: 0, text: 'Started / due now' },
 ];
+
 const SWATCHES = ['#0f172a', '#b45309', '#ea580c', '#dc2626', '#059669', '#2563eb', '#7c3aed', '#db2777'];
 const HIGHLIGHTS = ['#fef3c7', '#fed7aa', '#fecaca', '#bbf7d0', '#bfdbfe', '#ddd6fe'];
 
 const FONT_EFFECTS = [
     { id: 'uppercase', label: 'UPPERCASE', styles: { 'text-transform': 'uppercase' } },
     { id: 'lowercase', label: 'lowercase', styles: { 'text-transform': 'lowercase' } },
-    { id: 'capitalize', label: 'Capitalize', styles: { 'text-transform': 'capitalize' } }
+    { id: 'capitalize', label: 'Capitalize', styles: { 'text-transform': 'capitalize' } },
 ];
 
 const FORMAT_TOOLS = [
     { command: 'bold', label: 'Bold', text: 'B', className: 'font-black' },
     { command: 'italic', label: 'Italic', text: 'I', className: 'italic' },
     { command: 'underline', label: 'Underline', text: 'U', className: 'underline' },
-    { command: 'strikeThrough', label: 'Strikethrough', text: 'S', className: 'line-through' }
+    { command: 'strikeThrough', label: 'Strikethrough', text: 'S', className: 'line-through' },
 ];
 const BLOCK_TOOLS = [
     { command: 'justifyLeft', label: 'Align left', text: '⇤' },
     { command: 'justifyCenter', label: 'Align center', text: '↔' },
     { command: 'justifyRight', label: 'Align right', text: '⇥' },
     { command: 'insertUnorderedList', label: 'Bulleted list', text: '• List' },
-    { command: 'insertOrderedList', label: 'Numbered list', text: '1. List' }
+    { command: 'insertOrderedList', label: 'Numbered list', text: '1. List' },
 ];
-const QUERY_COMMANDS = [...FORMAT_TOOLS, ...BLOCK_TOOLS].map(t => t.command);
+const QUERY_COMMANDS = [...FORMAT_TOOLS, ...BLOCK_TOOLS].map(tool => tool.command);
 
 /* ------------------------------------------------------------------ */
-/* Helpers                                                             */
+/* Generic helpers                                                     */
 /* ------------------------------------------------------------------ */
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-const pad = (n) => String(n).padStart(2, '0');
+const pad = value => String(value).padStart(2, '0');
+const getNoteId = note => note?._id || note?.id;
+const getExt = name => (name || '').split('.').pop()?.toLowerCase() || '';
+const isImage = name => ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(getExt(name));
 
-const formatFileSize = (bytes) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / 1048576).toFixed(2) + ' MB';
+const formatFileSize = bytes => {
+    if (!Number.isFinite(bytes)) return '0 B';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(2)} MB`;
 };
 
-const getExt = (name) => name.split('.').pop()?.toLowerCase() || '';
-const isImage = (name) => ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(getExt(name));
-
-const getFileIcon = (filename) => {
+const getFileIcon = filename => {
     const extension = getExt(filename);
-    if (['pdf', 'doc', 'docx', 'rtf', 'txt', 'ppt', 'pptx'].includes(extension)) return { Icon: FileText, color: 'text-amber-600' };
-    if (['xls', 'xlsx', 'csv'].includes(extension)) return { Icon: FileSpreadsheet, color: 'text-orange-600' };
+    if (['pdf', 'doc', 'docx'].includes(extension)) return { Icon: FileText, color: 'text-amber-600' };
     if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(extension)) return { Icon: FileImage, color: 'text-orange-600' };
-    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) return { Icon: FileArchive, color: 'text-amber-600' };
-    if (['mp3', 'wav', 'ogg', 'm4a'].includes(extension)) return { Icon: FileAudio, color: 'text-orange-600' };
-    if (['mp4', 'mov', 'avi', 'mkv'].includes(extension)) return { Icon: FileVideo, color: 'text-amber-600' };
-    if (['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'xml'].includes(extension)) return { Icon: FileCode, color: 'text-orange-600' };
-    return { Icon: File, color: 'text-slate-500' };
+    return { Icon: FileIcon, color: 'text-slate-500' };
 };
 
-/* ---- Nepal date & time ------------------------------------------- */
-const kathmanduParts = (date) => {
-    const parts = Object.fromEntries(
-        new Intl.DateTimeFormat('en-US', {
-            timeZone: NP_TZ, year: 'numeric', month: '2-digit', day: '2-digit'
-        }).formatToParts(date).map(p => [p.type, p.value])
-    );
-    return { y: Number(parts.year), m: Number(parts.month), d: Number(parts.day) };
+/* ---- Attachment helpers --------------------------------------------
+ * A draft attachment is either
+ *   - an existing server file: { key, name, size, mime, url, file: null, raw }
+ *   - a new local file:        { key, name, size, mime, url: '',  file: File, raw: null }
+ * `raw` is the untouched object the API returned, so it can be sent back as-is.
+ * ------------------------------------------------------------------ */
+const attachmentKey = raw => raw?._id || raw?.id || raw?.url || raw?.path || raw?.filename || raw?.originalName || raw?.name || '';
+
+const resolveFileUrl = raw => {
+    const source = raw?.url || raw?.fileUrl || raw?.location || raw?.path || '';
+    if (!source) return '';
+    if (/^(https?:|blob:|data:)/i.test(source)) return source;
+    return `${FILE_BASE_URL}/${String(source).replace(/\\/g, '/').replace(/^\/+/, '')}`;
 };
 
-const formatNepalTime = (date) =>
-    new Intl.DateTimeFormat('en-US', { timeZone: NP_TZ, hour: 'numeric', minute: '2-digit', hour12: true }).format(date);
-
-const toNepaliDate = (date) => {
-    const { y, m, d } = kathmanduParts(date);
-    return new NepaliDate(new Date(y, m - 1, d));
-};
-
-const formatBsDate = (date) => toNepaliDate(date).format('ddd, DD MMMM YYYY');
-const formatBsStamp = (iso) => {
-    const date = new Date(iso);
-    return `${formatBsDate(date)} · ${formatNepalTime(date)}`;
-};
-
-const bsStringToLabel = (bs) => {
-    try { return new NepaliDate(bs).format('ddd, DD MMMM YYYY'); } catch { return bs; }
-};
-
-const timeToLabel = (time) => {
-    if (!time) return '';
-    const [h, m, s] = time.split(':').map(Number);
-    const period = h >= 12 ? 'PM' : 'AM';
-    const displayH = h % 12 || 12;
-    return s !== undefined ? `${displayH}:${pad(m)}:${pad(s)} ${period}` : `${displayH}:${pad(m)} ${period}`;
-};
-
-const computeDueAt = (bs, time) => {
-    const js = new NepaliDate(bs).toJsDate();
-    const parts = (time || '00:00:00').split(':');
-    const h = pad(parts[0] || 0);
-    const m = pad(parts[1] || 0);
-    const s = pad(parts[2] || 0);
-    return `${js.getFullYear()}-${pad(js.getMonth() + 1)}-${pad(js.getDate())}T${h}:${m}:${s}${NP_OFFSET}`;
-};
-
-const extractBsDate = (arg) => {
-    if (!arg) return null;
-    if (typeof arg === 'string') {
-        const match = /(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(arg);
-        if (match) {
-            const [, y, m, d] = match.map(Number);
-            if (y < 2050) {
-                try { return new NepaliDate(new Date(y, m - 1, d)).format('YYYY-MM-DD'); } catch { return null; }
-            }
-            return `${y}-${pad(m)}-${pad(d)}`;
-        }
-        return arg;
-    }
-    if (typeof arg === 'object') {
-        if (arg.bsDate) return arg.bsDate;
-        const y = arg.year || arg.y;
-        const m = arg.month || arg.m;
-        const d = arg.date || arg.day || arg.d;
-        if (y && m && d) {
-            return `${y}-${pad(m)}-${pad(d)}`;
-        }
-    }
-    return null;
-};
-
-const getRemainingTimeText = (dueAt, now) => {
-    const diff = new Date(dueAt).getTime() - now.getTime();
-    if (diff <= 0) return 'Due / Started';
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days}d ${hours % 24}h remaining`;
-    if (hours > 0) return `${hours}h ${minutes % 60}m remaining`;
-    if (minutes > 0) return `${minutes}m ${seconds % 60}s remaining`;
-    return `${seconds}s remaining`;
-};
-
-/* ---- HTML sanitising --------------------------------------------- */
-const ALLOWED_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'DEL', 'UL', 'OL', 'LI', 'BR', 'DIV', 'P', 'SPAN', 'FONT', 'SUB', 'SUP']);
-const ALLOWED_STYLE = new Set([
-    'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant', 'color', 'background-color',
-    'background-image', 'background-clip', '-webkit-background-clip', 'text-shadow', 'text-transform',
-    'letter-spacing', 'text-align', 'text-decoration', 'text-decoration-line',
-    '-webkit-text-stroke', '-webkit-text-stroke-width', '-webkit-text-stroke-color'
-]);
-
-const cleanStyle = (style) => style.split(';').map(s => s.trim()).filter(Boolean).map(decl => {
-    const i = decl.indexOf(':');
-    if (i < 0) return null;
-    const prop = decl.slice(0, i).trim().toLowerCase();
-    const value = decl.slice(i + 1).trim();
-    if (!ALLOWED_STYLE.has(prop) || /url\(|expression|javascript|@import/i.test(value)) return null;
-    return `${prop}: ${value}`;
-}).filter(Boolean).join('; ');
-
-const sanitizeHtml = (html) => {
-    const doc = new DOMParser().parseFromString(`<body>${html || ''}</body>`, 'text/html');
-    const walk = (node) => {
-        Array.from(node.childNodes).forEach(child => {
-            if (child.nodeType === 1) {
-                if (!ALLOWED_TAGS.has(child.tagName)) {
-                    child.replaceWith(document.createTextNode(child.textContent || ''));
-                    return;
-                }
-                const style = child.getAttribute('style');
-                Array.from(child.attributes).forEach(attr => child.removeAttribute(attr.name));
-                if (style) {
-                    const cleaned = cleanStyle(style);
-                    if (cleaned) child.setAttribute('style', cleaned);
-                }
-                walk(child);
-            } else if (child.nodeType !== 3) {
-                child.remove();
-            }
-        });
-    };
-    walk(doc.body);
-    return doc.body.innerHTML;
-};
-
-const htmlToText = (html) => {
-    const doc = new DOMParser().parseFromString(html || '', 'text/html');
-    return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
-};
-
-/* ---- IndexedDB ---------------------------------------------------- */
-const openDb = () => new Promise((resolve, reject) => {
-    const req = indexedDB.open('nexus_dms_notes', 1);
-    req.onupgradeneeded = () => req.result.createObjectStore('files');
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+const serverAttachmentToDraft = raw => ({
+    key: attachmentKey(raw) || uid(),
+    name: raw?.originalName || raw?.originalname || raw?.name || raw?.filename || 'attachment',
+    size: Number(raw?.size) || 0,
+    mime: raw?.mimetype || raw?.mime || raw?.type || '',
+    url: resolveFileUrl(raw),
+    file: null,
+    raw,
 });
-const withStore = async (mode, fn) => {
-    const db = await openDb();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction('files', mode);
-        const req = fn(tx.objectStore('files'));
-        tx.oncomplete = () => { db.close(); resolve(req?.result); };
-        tx.onerror = () => { db.close(); reject(tx.error); };
+
+const fileToDraft = file => ({
+    key: uid(),
+    name: file.name,
+    size: file.size,
+    mime: file.type,
+    url: '',
+    file,
+    raw: null,
+});
+
+const buildNoteFormData = ({ userId, title, content, isScheduled, schedules, keep = [], removed = [], newFiles = [] }) => {
+    const formData = new FormData();
+    formData.append('userId', userId);
+    formData.append('title', title);
+    formData.append('content', content);
+    formData.append('isScheduled', String(Boolean(isScheduled)));
+    (Array.isArray(schedules) ? schedules : []).forEach((schedule, index) => {
+        formData.append(`schedules[${index}][label]`, schedule.label || '');
+        formData.append(`schedules[${index}][bsDate]`, schedule.bsDate || '');
+        formData.append(`schedules[${index}][time]`, schedule.time || '');
     });
+    formData.append('retainedAttachments', JSON.stringify(keep));
+    formData.append('removedAttachments', JSON.stringify(removed));
+    newFiles.forEach(file => formData.append(UPLOAD_FIELD, file, file.name));
+    return formData;
 };
-const putFile = (id, blob) => withStore('readwrite', s => s.put(blob, id));
-const getFile = (id) => withStore('readonly', s => s.get(id));
-const deleteFile = (id) => withStore('readwrite', s => s.delete(id));
 
 const downloadBlob = (blob, name) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = name;
+    link.download = name || 'attachment';
     document.body.appendChild(link);
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-const useBlobUrl = (fileId, enabled = true) => {
-    const [url, setUrl] = useState(null);
-    useEffect(() => {
-        if (!enabled) return undefined;
-        let revoked = false;
-        let objectUrl = null;
-        getFile(fileId).then(blob => {
-            if (blob && !revoked) {
-                objectUrl = URL.createObjectURL(blob);
-                setUrl(objectUrl);
-            }
-        }).catch(() => { });
-        return () => { revoked = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-    }, [fileId, enabled]);
-    return url;
+/* ---- Schedule value helpers --------------------------------------- */
+const normalizeScheduleTime = time => {
+    if (!time) return '00:00:00';
+    const match = /^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/.exec(String(time).trim());
+    if (!match) return '00:00:00';
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    const seconds = Number(match[3] || 0);
+    if (hours > 23 || minutes > 59 || seconds > 59) return '00:00:00';
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+};
+
+const extractBsDate = value => {
+    if (!value) return '';
+    if (typeof value === 'string') {
+        const match = /(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(value);
+        if (match) return `${match[1]}-${pad(match[2])}-${pad(match[3])}`;
+        return value;
+    }
+    if (typeof value === 'object') {
+        if (value.bsDate) return value.bsDate;
+        const year = value.year || value.y;
+        const month = value.month || value.m;
+        const day = value.date || value.day || value.d;
+        if (year && month && day) return `${year}-${pad(month)}-${pad(day)}`;
+    }
+    return '';
+};
+
+const scheduleSig = (bsDate, time) => `${bsDate || ''}|${time || ''}`;
+
+const timeToLabel = value => {
+    if (!value) return '—';
+    const [hours, minutes, seconds] = normalizeScheduleTime(value).split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHour = hours % 12 || 12;
+    return `${displayHour}:${pad(minutes)}${seconds ? `:${pad(seconds)}` : ''} ${period}`;
+};
+
+// Builds an absolute instant from a BS date + time, pinned to Nepal's UTC offset
+// so countdowns are correct whatever timezone the browser is in.
+const computeDueAt = (bsDate, time) => {
+    if (!bsDate || !time) return null;
+    try {
+        const js = new NepaliDate(bsDate).toJsDate();
+        const [h, m, s] = normalizeScheduleTime(time).split(':');
+        const iso = `${js.getFullYear()}-${pad(js.getMonth() + 1)}-${pad(js.getDate())}T${h}:${m}:${s}${NP_OFFSET}`;
+        return Number.isNaN(new Date(iso).getTime()) ? null : iso;
+    } catch {
+        return null;
+    }
+};
+
+/* ---- Nepal date & time -------------------------------------------- */
+const kathmanduParts = date => {
+    const parts = Object.fromEntries(
+        new Intl.DateTimeFormat('en-US', { timeZone: NP_TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
+            .formatToParts(date)
+            .map(part => [part.type, part.value])
+    );
+    return { y: Number(parts.year), m: Number(parts.month), d: Number(parts.day) };
+};
+
+const formatNepalTime = date =>
+    new Intl.DateTimeFormat('en-US', { timeZone: NP_TZ, hour: 'numeric', minute: '2-digit', hour12: true }).format(date);
+
+const formatBsDate = date => {
+    try {
+        const { y, m, d } = kathmanduParts(date);
+        return new NepaliDate(new Date(y, m - 1, d)).format('ddd, DD MMMM YYYY');
+    } catch {
+        return date.toLocaleDateString();
+    }
+};
+
+const currentNepalBsDate = date => {
+    const { y, m, d } = kathmanduParts(date);
+    return new NepaliDate(new Date(y, m - 1, d)).format('YYYY-MM-DD');
+};
+
+const formatBsStamp = value => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return `${formatBsDate(date)} · ${formatNepalTime(date)}`;
+};
+
+const bsStringToLabel = value => {
+    if (!value) return '—';
+    try {
+        return new NepaliDate(value).format('ddd, DD MMMM YYYY');
+    } catch {
+        return value;
+    }
+};
+
+const getRemainingText = (dueMs, nowMs) => {
+    const diff = dueMs - nowMs;
+    if (diff <= 0) return 'Due / Started';
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days}d ${hours % 24}h remaining`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m remaining`;
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s remaining`;
+    return `${seconds}s remaining`;
+};
+
+const scheduleStatus = (dueMs, done, nowMs) => {
+    if (done) return { key: 'done', label: 'Done', cls: 'bg-emerald-100 text-emerald-700' };
+    if (!dueMs) return { key: 'invalid', label: 'Invalid time', cls: 'bg-slate-100 text-slate-600' };
+    const diff = dueMs - nowMs;
+    if (diff < 0) return { key: 'overdue', label: 'Due / Ended', cls: 'bg-red-100 text-red-600' };
+    if (diff < SOON_MS) return { key: 'soon', label: 'Due soon', cls: 'bg-amber-100 text-amber-700' };
+    return { key: 'upcoming', label: 'Upcoming', cls: 'bg-slate-100 text-slate-600' };
+};
+
+/* ---- HTML sanitising (DOMPurify) ------------------------------------ */
+const PURIFY_CONFIG = {
+    ALLOWED_TAGS: ['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'ul', 'ol', 'li', 'br', 'div', 'p', 'span', 'sub', 'sup', 'a'],
+    // target / rel are added by linkHook below, never taken from the input.
+    ALLOWED_ATTR: ['style', 'href'],
+    ALLOWED_URI_REGEXP: /^(?:https?:|mailto:|tel:)/i,
+    KEEP_CONTENT: true,
+};
+
+const ALLOWED_STYLE = new Set([
+    'font-weight', 'font-style', 'color', 'background-color', 'text-align',
+    'text-decoration', 'text-decoration-line', 'text-transform',
+]);
+
+const cleanStyle = style => style.split(';').map(part => part.trim()).filter(Boolean).map(declaration => {
+    const index = declaration.indexOf(':');
+    if (index < 0) return null;
+    const prop = declaration.slice(0, index).trim().toLowerCase();
+    const value = declaration.slice(index + 1).trim();
+    if (!ALLOWED_STYLE.has(prop) || /url\(|expression|javascript|@import/i.test(value)) return null;
+    return `${prop}: ${value}`;
+}).filter(Boolean).join('; ');
+
+// DOMPurify keeps `style` as-is, so only the formatting properties the toolbar produces are allowed through.
+const styleHook = (_node, data) => {
+    if (data.attrName !== 'style') return;
+    const cleaned = cleanStyle(data.attrValue || '');
+    if (cleaned) data.attrValue = cleaned;
+    else data.keepAttr = false;
+};
+
+const linkHook = node => {
+    if (node.tagName !== 'A') return;
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+};
+
+// Hooks are added and removed around every call so they never leak into
+// other DOMPurify.sanitize() calls elsewhere in the app.
+const sanitizeHtml = html => {
+    if (!html || typeof window === 'undefined') return '';
+    DOMPurify.addHook('uponSanitizeAttribute', styleHook);
+    DOMPurify.addHook('afterSanitizeAttributes', linkHook);
+    try {
+        return DOMPurify.sanitize(html, PURIFY_CONFIG);
+    } finally {
+        DOMPurify.removeHook('uponSanitizeAttribute', styleHook);
+        DOMPurify.removeHook('afterSanitizeAttributes', linkHook);
+    }
+};
+
+const htmlToText = html => {
+    if (typeof document === 'undefined') return String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const doc = new DOMParser().parseFromString(html || '', 'text/html');
+    return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
 };
 
 /* ------------------------------------------------------------------ */
-/* Smart-Positioned Date & Time Pickers for Scheduling Notes          */
+/* Hooks                                                               */
 /* ------------------------------------------------------------------ */
-const useSmartPosition = (isOpen, triggerRef, popoverRef) => {
-    const [position, setPosition] = useState('bottom');
+// One shared 1-second ticker for every countdown on the page.
+const tickStore = (() => {
+    let now = Date.now();
+    let timer = null;
+    const listeners = new Set();
+    return {
+        subscribe(listener) {
+            listeners.add(listener);
+            if (!timer) {
+                now = Date.now();
+                timer = setInterval(() => {
+                    now = Date.now();
+                    listeners.forEach(callback => callback());
+                }, 1000);
+                queueMicrotask(() => listeners.forEach(callback => callback()));
+            }
+            return () => {
+                listeners.delete(listener);
+                if (!listeners.size && timer) {
+                    clearInterval(timer);
+                    timer = null;
+                }
+            };
+        },
+        getSnapshot: () => now,
+    };
+})();
+const useNow = () => useSyncExternalStore(tickStore.subscribe, tickStore.getSnapshot, () => Date.now());
+
+// URL to display an attachment: a temporary object URL for a local file
+// (revoked on cleanup), or the server URL for a saved one.
+const useAttachmentUrl = (attachment, enabled = true) => {
+    const file = attachment?.file || null;
+    const remoteUrl = attachment?.url || '';
+    const [objectUrl, setObjectUrl] = useState(null);
 
     useEffect(() => {
-        if (!isOpen || !triggerRef.current || !popoverRef.current) return;
-        const triggerRect = triggerRef.current.getBoundingClientRect();
-        const popoverRect = popoverRef.current.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-
-        const spaceBelow = viewportHeight - triggerRect.bottom;
-        const spaceAbove = triggerRect.top;
-
-        if (spaceBelow < popoverRect.height && spaceAbove > spaceBelow) {
-            setPosition('top');
-        } else {
-            setPosition('bottom');
+        if (!enabled || !file) {
+            setObjectUrl(null);
+            return undefined;
         }
-    }, [isOpen, triggerRef, popoverRef]);
+        const created = URL.createObjectURL(file);
+        setObjectUrl(created);
+        return () => URL.revokeObjectURL(created);
+    }, [file, enabled]);
 
+    if (!enabled) return null;
+    return file ? objectUrl : remoteUrl || null;
+};
+
+// localStorage-backed object scoped to a key (per user). Reads/writes are
+// ignored until the key's data has been loaded so one user's data never
+// overwrites another's.
+const useScopedStorage = key => {
+    const [store, setStore] = useState({ key: null, data: {} });
+
+    useEffect(() => {
+        if (!key) return;
+        let data = {};
+        try { data = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch { data = {}; }
+        setStore({ key, data });
+    }, [key]);
+
+    useEffect(() => {
+        if (!key || store.key !== key) return;
+        try { localStorage.setItem(key, JSON.stringify(store.data)); } catch { /* storage unavailable */ }
+    }, [key, store]);
+
+    const setData = useCallback(updater => {
+        setStore(previous => ({
+            ...previous,
+            data: typeof updater === 'function' ? updater(previous.data) : updater,
+        }));
+    }, []);
+
+    return [store.data, setData, Boolean(key) && store.key === key];
+};
+
+const useSmartPosition = (isOpen, triggerRef, popoverRef) => {
+    const [position, setPosition] = useState('bottom');
+    useEffect(() => {
+        if (!isOpen || !triggerRef.current || !popoverRef.current) return;
+        const trigger = triggerRef.current.getBoundingClientRect();
+        const popover = popoverRef.current.getBoundingClientRect();
+        const below = window.innerHeight - trigger.bottom;
+        const above = trigger.top;
+        setPosition(below < popover.height + 8 && above > below ? 'top' : 'bottom');
+    }, [isOpen, triggerRef, popoverRef]);
     return position;
 };
 
-const NepaliDatePickerUI = ({ value, onChange, placeholder = "Select Future Date" }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const triggerRef = useRef(null);
-    const popoverRef = useRef(null);
-    const position = useSmartPosition(isOpen, triggerRef, popoverRef);
-
-    const todayBs = useMemo(() => toNepaliDate(new Date()), []);
-    const selectedBs = useMemo(() => {
-        if (!value) return null;
-        try {
-            const extracted = extractBsDate(value);
-            return extracted ? new NepaliDate(extracted) : null;
-        } catch {
-            return null;
-        }
-    }, [value]);
-
-    const [viewYear, setViewYear] = useState(() => (selectedBs ? selectedBs.getYear() : todayBs.getYear()));
-    const [viewMonth, setViewMonth] = useState(() => (selectedBs ? selectedBs.getMonth() : todayBs.getMonth()));
-
-    useEffect(() => {
-        if (selectedBs) {
-            setViewYear(selectedBs.getYear());
-            setViewMonth(selectedBs.getMonth());
-        }
-    }, [selectedBs]);
-
-    useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (triggerRef.current && !triggerRef.current.contains(e.target) &&
-                popoverRef.current && !popoverRef.current.contains(e.target)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const monthNames = [
-        'Baishakh', 'Jestha', 'Ashadh', 'Shrawan', 'Bhadra', 'Ashwin',
-        'Kartik', 'Mangsir', 'Poush', 'Magh', 'Falgun', 'Chaitra'
-    ];
-    const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-    const handlePrevMonth = () => {
-        if (viewMonth === 0) {
-            setViewMonth(11);
-            setViewYear(v => v - 1);
-        } else {
-            setViewMonth(v => v - 1);
-        }
-    };
-
-    const handleNextMonth = () => {
-        if (viewMonth === 11) {
-            setViewMonth(0);
-            setViewYear(v => v + 1);
-        } else {
-            setViewMonth(v => v + 1);
-        }
-    };
-
-    const daysInMonth = useMemo(() => {
-        try {
-            let count = 28;
-            while (count <= 32) {
-                try {
-                    new NepaliDate(viewYear, viewMonth, count);
-                    count++;
-                } catch {
-                    break;
-                }
-            }
-            return count - 1;
-        } catch {
-            return 30;
-        }
-    }, [viewYear, viewMonth]);
-
-    const startDayOfWeek = useMemo(() => {
-        try {
-            return new NepaliDate(viewYear, viewMonth, 1).toJsDate().getDay();
-        } catch {
-            return 0;
-        }
-    }, [viewYear, viewMonth]);
-
-    const handleSelectDay = (day) => {
-        const selected = new NepaliDate(viewYear, viewMonth, day);
-        const todayJs = new Date();
-        todayJs.setHours(0, 0, 0, 0);
-        if (selected.toJsDate() < todayJs) return;
-
-        const formatted = selected.format('YYYY-MM-DD');
-        onChange(formatted);
-        setIsOpen(false);
-    };
-
-    const isDayDisabled = (day) => {
-        const date = new NepaliDate(viewYear, viewMonth, day).toJsDate();
-        const todayJs = new Date();
-        todayJs.setHours(0, 0, 0, 0);
-        return date < todayJs;
-    };
-
-    const isDaySelected = (day) => {
-        if (!selectedBs) return false;
-        return selectedBs.getYear() === viewYear &&
-            selectedBs.getMonth() === viewMonth &&
-            selectedBs.getDate() === day;
-    };
-
-    const isToday = (day) => {
-        return todayBs.getYear() === viewYear &&
-            todayBs.getMonth() === viewMonth &&
-            todayBs.getDate() === day;
-    };
-
-    return (
-        <div className="relative w-full">
-            <div
-                ref={triggerRef}
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex h-10 w-full cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-800 transition-all duration-300 focus-within:ring-2 focus-within:ring-amber-500 hover:bg-white"
-            >
-                <span className={selectedBs ? 'font-bold text-slate-900' : 'font-extralight text-slate-400'}>
-                    {selectedBs ? selectedBs.format('ddd, DD MMMM YYYY') : placeholder}
-                </span>
-                <CalendarIcon className="h-4 w-4 text-amber-600" />
-            </div>
-
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.div
-                        ref={popoverRef}
-                        initial={{ opacity: 0, scale: 0.95, y: position === 'top' ? 10 : -10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.2 }}
-                        className={`absolute left-0 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl ${position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'}`}
-                    >
-                        <div className="mb-3 flex items-center justify-between">
-                            <button
-                                type="button"
-                                onClick={handlePrevMonth}
-                                className="rounded-lg p-1 text-slate-600 hover:bg-slate-100 cursor-pointer"
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </button>
-                            <span className="text-xs font-bold text-slate-800">
-                                {monthNames[viewMonth]} {viewYear}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={handleNextMonth}
-                                className="rounded-lg p-1 text-slate-600 hover:bg-slate-100 cursor-pointer"
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400">
-                            {dayNames.map(d => <div key={d}>{d}</div>)}
-                        </div>
-
-                        <div className="mt-2 grid grid-cols-7 gap-1">
-                            {Array.from({ length: startDayOfWeek }).map((_, i) => (
-                                <div key={`empty-${i}`} />
-                            ))}
-                            {Array.from({ length: daysInMonth }).map((_, i) => {
-                                const day = i + 1;
-                                const disabled = isDayDisabled(day);
-                                const selected = isDaySelected(day);
-                                const current = isToday(day);
-
-                                return (
-                                    <button
-                                        key={day}
-                                        type="button"
-                                        disabled={disabled}
-                                        onClick={() => handleSelectDay(day)}
-                                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium transition-colors ${selected
-                                            ? `${GRADIENT} font-bold text-white`
-                                            : current
-                                                ? 'border border-amber-500 font-bold text-amber-600'
-                                                : disabled
-                                                    ? 'cursor-not-allowed opacity-30 text-slate-400'
-                                                    : 'cursor-pointer text-slate-700 hover:bg-amber-50 hover:text-amber-600'
-                                            }`}
-                                    >
-                                        {day}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-};
-
-const TimePickerUI = ({ value, onChange, placeholder = "Select Time" }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const triggerRef = useRef(null);
-    const popoverRef = useRef(null);
-    const position = useSmartPosition(isOpen, triggerRef, popoverRef);
-
-    const parsedTime = useMemo(() => {
-        if (!value) return { hours: 12, minutes: 0, seconds: 0, period: 'AM' };
-        const parts = value.split(':');
-        let h = parseInt(parts[0] || '0', 10);
-        const m = parseInt(parts[1] || '0', 10);
-        const s = parseInt(parts[2] || '0', 10);
-        const period = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12;
-        return { hours: h, minutes: m, seconds: s, period };
-    }, [value]);
-
-    useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (triggerRef.current && !triggerRef.current.contains(e.target) &&
-                popoverRef.current && !popoverRef.current.contains(e.target)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const updateTime = (h, m, s, p) => {
-        let hour24 = h % 12;
-        if (p === 'PM') hour24 += 12;
-        const formatted = `${pad(hour24)}:${pad(m)}:${pad(s)}`;
-        onChange(formatted);
-    };
-
-    return (
-        <div className="relative w-full">
-            <div
-                ref={triggerRef}
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex h-10 w-full cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-800 transition-all duration-300 focus-within:ring-2 focus-within:ring-amber-500 hover:bg-white"
-            >
-                <span className={value ? 'font-bold text-slate-900' : 'font-extralight text-slate-400'}>
-                    {value ? timeToLabel(value) : placeholder}
-                </span>
-                <Clock className="h-4 w-4 text-amber-600" />
-            </div>
-
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.div
-                        ref={popoverRef}
-                        initial={{ opacity: 0, scale: 0.95, y: position === 'top' ? 10 : -10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.2 }}
-                        className={`absolute right-0 z-50 flex gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl ${position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'}`}
-                    >
-                        {/* Hours */}
-                        <div className="flex flex-col items-center">
-                            <span className="mb-1 text-[10px] font-bold text-slate-400">HH</span>
-                            <div className="h-32 w-12 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-1 text-center scrollbar-thin">
-                                {Array.from({ length: 12 }).map((_, i) => {
-                                    const h = i + 1;
-                                    const active = parsedTime.hours === h;
-                                    return (
-                                        <button
-                                            key={h}
-                                            type="button"
-                                            onClick={() => updateTime(h, parsedTime.minutes, parsedTime.seconds, parsedTime.period)}
-                                            className={`w-full rounded py-1 text-xs font-medium transition-colors cursor-pointer ${active ? 'bg-amber-500 text-white font-bold' : 'hover:bg-amber-50 text-slate-700'}`}
-                                        >
-                                            {pad(h)}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Minutes */}
-                        <div className="flex flex-col items-center">
-                            <span className="mb-1 text-[10px] font-bold text-slate-400">MM</span>
-                            <div className="h-32 w-12 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-1 text-center scrollbar-thin">
-                                {Array.from({ length: 60 }).map((_, m) => {
-                                    const active = parsedTime.minutes === m;
-                                    return (
-                                        <button
-                                            key={m}
-                                            type="button"
-                                            onClick={() => updateTime(parsedTime.hours, m, parsedTime.seconds, parsedTime.period)}
-                                            className={`w-full rounded py-1 text-xs font-medium transition-colors cursor-pointer ${active ? 'bg-amber-500 text-white font-bold' : 'hover:bg-amber-50 text-slate-700'}`}
-                                        >
-                                            {pad(m)}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Seconds */}
-                        <div className="flex flex-col items-center">
-                            <span className="mb-1 text-[10px] font-bold text-slate-400">SS</span>
-                            <div className="h-32 w-12 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-1 text-center scrollbar-thin">
-                                {Array.from({ length: 60 }).map((_, s) => {
-                                    const active = parsedTime.seconds === s;
-                                    return (
-                                        <button
-                                            key={s}
-                                            type="button"
-                                            onClick={() => updateTime(parsedTime.hours, parsedTime.minutes, s, parsedTime.period)}
-                                            className={`w-full rounded py-1 text-xs font-medium transition-colors cursor-pointer ${active ? 'bg-amber-500 text-white font-bold' : 'hover:bg-amber-50 text-slate-700'}`}
-                                        >
-                                            {pad(s)}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* AM/PM */}
-                        <div className="flex flex-col items-center">
-                            <span className="mb-1 text-[10px] font-bold text-slate-400">AM/PM</span>
-                            <div className="flex h-32 flex-col gap-1 rounded-lg border border-slate-100 bg-slate-50 p-1">
-                                {['AM', 'PM'].map((p) => {
-                                    const active = parsedTime.period === p;
-                                    return (
-                                        <button
-                                            key={p}
-                                            type="button"
-                                            onClick={() => updateTime(parsedTime.hours, parsedTime.minutes, parsedTime.seconds, p)}
-                                            className={`flex-1 rounded px-2 text-xs font-bold transition-colors cursor-pointer ${active ? 'bg-amber-500 text-white' : 'hover:bg-amber-50 text-slate-700'}`}
-                                        >
-                                            {p}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-};
-
 /* ------------------------------------------------------------------ */
-/* Shared UI                                                          */
+/* Shared UI                                                           */
 /* ------------------------------------------------------------------ */
 const MotionButton = ({ className = '', disabled, children, ...props }) => (
     <motion.button
         type="button"
-        variants={btnVariants}
-        {...press(disabled)}
+        whileHover={disabled ? undefined : { scale: 1.02 }}
+        whileTap={disabled ? undefined : { scale: 0.97 }}
         transition={softSpring}
         disabled={disabled}
         className={`cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
@@ -684,54 +469,18 @@ const MotionButton = ({ className = '', disabled, children, ...props }) => (
     </motion.button>
 );
 
-const Skeleton = ({ className = '', style }) => (
-    <motion.div
-        aria-hidden="true"
-        style={style}
-        className={`rounded-md bg-slate-200 ${className}`}
-        animate={{ opacity: [0.45, 0.9, 0.45] }}
-        transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-    />
-);
-
-const NoteListSkeleton = () => (
-    <div className="space-y-2 p-3" aria-hidden="true">
-        {[0, 1, 2, 3].map(i => (
-            <div key={i} className="space-y-2 rounded-xl border border-slate-200 p-3">
-                <Skeleton className="h-3 w-2/3" />
-                <Skeleton className="h-2.5 w-full" />
-                <Skeleton className="h-2.5 w-1/2" />
-            </div>
-        ))}
-    </div>
-);
-
-const EditorSkeleton = () => (
-    <div className="space-y-4 p-5" aria-hidden="true">
-        <Skeleton className="h-8 w-1/2" />
-        <Skeleton className="h-3 w-1/3" />
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <Skeleton className="h-48 w-full rounded-xl" />
-        <Skeleton className="h-20 w-full rounded-xl" />
-    </div>
-);
-
-const ProgressBar = ({ value, complete, label }) => (
-    <div
-        className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200"
-        role="progressbar"
+const Checkbox = ({ checked, onChange, label }) => (
+    <motion.button
+        type="button"
+        role="checkbox"
+        aria-checked={checked}
         aria-label={label}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={value}
+        onClick={event => { event.stopPropagation(); onChange(); }}
+        whileTap={{ scale: 0.86 }}
+        className={`flex h-[18px] w-[18px] shrink-0 cursor-pointer items-center justify-center rounded-md border-2 transition-colors ${checked ? `border-amber-500 ${GRADIENT}` : 'border-slate-300 bg-white hover:border-amber-400'}`}
     >
-        <motion.div
-            className={`h-full rounded-full ${complete ? 'bg-emerald-500' : GRADIENT}`}
-            initial={false}
-            animate={{ width: `${value}%` }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-        />
-    </div>
+        {checked && <Check className="h-3 w-3 text-white" strokeWidth={3.5} />}
+    </motion.button>
 );
 
 const InlineMessage = ({ children, tone = 'error' }) => (
@@ -753,27 +502,216 @@ const InlineMessage = ({ children, tone = 'error' }) => (
 
 const modalPanel = {
     initial: { opacity: 0, y: 22, scale: 0.98 },
-    animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, ease: EASE_OUT } },
-    exit: { opacity: 0, y: 12, scale: 0.98, transition: { duration: 0.25, ease: EASE_OUT } },
+    animate: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: EASE_OUT } },
+    exit: { opacity: 0, y: 12, scale: 0.98, transition: { duration: 0.2, ease: EASE_OUT } },
 };
 
 const Modal = ({ onClose, children }) => {
     useEffect(() => {
-        const onKey = (e) => e.key === 'Escape' && onClose();
+        const onKey = event => event.key === 'Escape' && onClose();
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
     }, [onClose]);
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true">
             <motion.div
-                className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                 onClick={onClose}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.3, ease: EASE_OUT }}
+                transition={{ duration: 0.25, ease: EASE_OUT }}
             />
             {children}
+        </div>
+    );
+};
+
+const ConfirmDialog = ({ confirm, onClose }) => {
+    if (!confirm) return null;
+    const danger = confirm.tone !== 'neutral';
+    return (
+        <Modal onClose={onClose}>
+            <motion.div {...modalPanel} className="relative w-full max-w-md space-y-4 rounded-2xl bg-white p-5 sm:p-6">
+                <div>
+                    <h3 className="text-sm font-bold text-slate-900 sm:text-base">{confirm.title}</h3>
+                    <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{confirm.message}</p>
+                </div>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <MotionButton onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 sm:py-2">
+                        {confirm.cancelLabel || 'Cancel'}
+                    </MotionButton>
+                    <MotionButton
+                        onClick={() => { const run = confirm.onConfirm; onClose(); run?.(); }}
+                        className={`rounded-xl px-4 py-2.5 text-xs font-bold text-white sm:py-2 ${danger ? 'bg-red-600 hover:bg-red-700' : GRADIENT}`}
+                    >
+                        {confirm.confirmLabel || 'Confirm'}
+                    </MotionButton>
+                </div>
+            </motion.div>
+        </Modal>
+    );
+};
+
+const Countdown = ({ dueAt, done = false, className = '' }) => {
+    const now = useNow();
+    if (done) return <span className={className}>Completed</span>;
+    const dueMs = dueAt ? new Date(dueAt).getTime() : 0;
+    if (!dueMs) return <span className={className}>—</span>;
+    return <span className={`tabular-nums ${className}`}>{getRemainingText(dueMs, now)}</span>;
+};
+
+const NepalClock = ({ className = '' }) => {
+    const now = new Date(useNow());
+    return (
+        <div className={`text-right ${className}`} title="Current Nepal date and time">
+            <p className="text-[11px] font-bold text-slate-800">{formatBsDate(now)}</p>
+            <p className="text-[11px] font-extralight text-slate-500">{formatNepalTime(now)} · Nepal Time</p>
+        </div>
+    );
+};
+
+const ToastStack = ({ toasts, onDismiss }) => (
+    <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2" aria-live="polite">
+        <AnimatePresence>
+            {toasts.map(toast => (
+                <motion.div
+                    key={toast.id}
+                    initial={{ opacity: 0, y: 22 }}
+                    animate={{ opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_OUT } }}
+                    exit={{ opacity: 0, x: 40, transition: { duration: 0.2 } }}
+                    className="pointer-events-auto flex items-start gap-3 rounded-xl border border-amber-300 bg-white p-3 shadow-lg"
+                    role="status"
+                >
+                    <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${toast.tone === 'due' ? 'bg-orange-100 text-orange-600' : 'bg-amber-100 text-amber-600'}`}>
+                        {toast.tone === 'due' ? <Clock className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-bold text-slate-800">{toast.title}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500">{toast.message}</p>
+                    </div>
+                    <button type="button" onClick={() => onDismiss(toast.id)} aria-label="Dismiss reminder" className="cursor-pointer text-slate-400 transition-colors hover:text-slate-700">
+                        <X className="h-4 w-4" />
+                    </button>
+                </motion.div>
+            ))}
+        </AnimatePresence>
+    </div>
+);
+
+/* ------------------------------------------------------------------ */
+/* Time picker (12-hour, HH:MM:SS)                                     */
+/* ------------------------------------------------------------------ */
+const TimePickerUI = ({ value, onChange, placeholder = 'Select time' }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const triggerRef = useRef(null);
+    const popoverRef = useRef(null);
+    const position = useSmartPosition(isOpen, triggerRef, popoverRef);
+
+    const parsed = useMemo(() => {
+        if (!value) return { hours: 12, minutes: 0, seconds: 0, period: 'AM' };
+        const parts = value.split(':');
+        const rawHours = parseInt(parts[0] || '0', 10);
+        return {
+            hours: rawHours % 12 || 12,
+            minutes: parseInt(parts[1] || '0', 10),
+            seconds: parseInt(parts[2] || '0', 10),
+            period: rawHours >= 12 ? 'PM' : 'AM',
+        };
+    }, [value]);
+
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        const onPointerDown = event => {
+            if (triggerRef.current?.contains(event.target) || popoverRef.current?.contains(event.target)) return;
+            setIsOpen(false);
+        };
+        document.addEventListener('mousedown', onPointerDown);
+        return () => document.removeEventListener('mousedown', onPointerDown);
+    }, [isOpen]);
+
+    const update = (hours, minutes, seconds, period) => {
+        let hour24 = hours % 12;
+        if (period === 'PM') hour24 += 12;
+        onChange(`${pad(hour24)}:${pad(minutes)}:${pad(seconds)}`);
+    };
+
+    const columns = [
+        { label: 'HH', items: Array.from({ length: 12 }, (_, i) => i + 1), active: parsed.hours, set: item => update(item, parsed.minutes, parsed.seconds, parsed.period) },
+        { label: 'MM', items: Array.from({ length: 60 }, (_, i) => i), active: parsed.minutes, set: item => update(parsed.hours, item, parsed.seconds, parsed.period) },
+        { label: 'SS', items: Array.from({ length: 60 }, (_, i) => i), active: parsed.seconds, set: item => update(parsed.hours, parsed.minutes, item, parsed.period) },
+    ];
+
+    return (
+        <div className="relative w-full">
+            <button
+                ref={triggerRef}
+                type="button"
+                onClick={() => setIsOpen(open => !open)}
+                aria-haspopup="dialog"
+                aria-expanded={isOpen}
+                className="flex h-10 w-full cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 transition-colors hover:border-amber-300 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+            >
+                <span className={value ? 'font-bold text-slate-900' : 'font-extralight text-slate-400'}>
+                    {value ? timeToLabel(value) : placeholder}
+                </span>
+                <Clock className="h-4 w-4 text-amber-600" />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        ref={popoverRef}
+                        initial={{ opacity: 0, scale: 0.97, y: position === 'top' ? 8 : -8 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.97 }}
+                        transition={{ duration: 0.18 }}
+                        className={`absolute left-0 z-50 w-max max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl ${position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'}`}
+                    >
+                        <div className="flex gap-2">
+                            {columns.map(column => (
+                                <div key={column.label} className="flex flex-col items-center">
+                                    <span className="mb-1 text-[11px] font-bold text-slate-400">{column.label}</span>
+                                    <div className="h-32 w-12 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-1 text-center">
+                                        {column.items.map(item => (
+                                            <button
+                                                key={item}
+                                                type="button"
+                                                onClick={() => column.set(item)}
+                                                className={`w-full cursor-pointer rounded py-1 text-xs font-medium transition-colors ${column.active === item ? 'bg-amber-500 font-bold text-white' : 'text-slate-700 hover:bg-amber-50'}`}
+                                            >
+                                                {pad(item)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="flex flex-col items-center">
+                                <span className="mb-1 text-[11px] font-bold text-slate-400">AM/PM</span>
+                                <div className="flex h-32 flex-col gap-1 rounded-lg border border-slate-100 bg-slate-50 p-1">
+                                    {['AM', 'PM'].map(period => (
+                                        <button
+                                            key={period}
+                                            type="button"
+                                            onClick={() => update(parsed.hours, parsed.minutes, parsed.seconds, period)}
+                                            className={`flex-1 cursor-pointer rounded px-2 text-xs font-bold transition-colors ${parsed.period === period ? 'bg-amber-500 text-white' : 'text-slate-700 hover:bg-amber-50'}`}
+                                        >
+                                            {period}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsOpen(false)}
+                            className={`mt-3 w-full cursor-pointer rounded-lg py-1.5 text-xs font-bold text-white ${GRADIENT}`}
+                        >
+                            Done
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
@@ -784,78 +722,111 @@ const Modal = ({ onClose, children }) => {
 const AttachmentCard = ({ attachment, onOpen, onRemove }) => {
     const { Icon, color } = getFileIcon(attachment.name);
     const image = isImage(attachment.name);
-    const thumb = useBlobUrl(attachment.id, image);
+    const url = useAttachmentUrl(attachment, image);
+    const [broken, setBroken] = useState(false);
+
+    useEffect(() => { setBroken(false); }, [url]);
+
     return (
         <motion.li
             layout
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE_OUT } }}
-            exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.25, ease: EASE_OUT } }}
-            className="group flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 transition-colors duration-300 hover:border-amber-400"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_OUT } }}
+            exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
+            className="group flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 transition-colors hover:border-amber-400"
         >
             <button type="button" onClick={() => onOpen(attachment)} className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left">
-                {image && thumb ? (
-                    <img src={thumb} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />
-                ) : image ? (
+                {image && url && !broken ? (
+                    <img src={url} alt="" onError={() => setBroken(true)} className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />
+                ) : image && attachment.file && !url ? (
                     <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
                 ) : (
-                    <div className={`shrink-0 rounded-lg bg-slate-100 p-2.5 transition-colors duration-300 group-hover:bg-amber-50 ${color}`}>
+                    <div className={`shrink-0 rounded-lg bg-slate-100 p-2.5 transition-colors group-hover:bg-amber-50 ${color}`}>
                         <Icon className="h-5 w-5" aria-hidden="true" />
                     </div>
                 )}
                 <span className="min-w-0">
-                    <span className="block truncate text-xs font-bold text-slate-800 transition-colors duration-300 group-hover:text-amber-600">{attachment.name}</span>
-                    <span className="block text-[10px] font-extralight text-slate-500">{formatFileSize(attachment.size)} · {getExt(attachment.name).toUpperCase()}</span>
+                    <span className="block truncate text-xs font-bold text-slate-800 transition-colors group-hover:text-amber-600">{attachment.name}</span>
+                    <span className="block text-[11px] font-extralight text-slate-500">
+                        {formatFileSize(attachment.size)} · {getExt(attachment.name).toUpperCase()}
+                        {attachment.file ? ' · Uploads on save' : ''}
+                    </span>
                 </span>
             </button>
-            <MotionButton
-                onClick={() => onRemove(attachment)}
-                aria-label={`Remove ${attachment.name}`}
-                className="rounded-lg px-2 py-1 text-[10px] font-medium text-slate-600 transition-colors duration-300 hover:bg-slate-100 hover:text-red-600 cursor-pointer"
-            >
-                Remove
-            </MotionButton>
+            {onRemove && (
+                <MotionButton
+                    onClick={() => onRemove(attachment)}
+                    aria-label={`Remove ${attachment.name}`}
+                    className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600"
+                >
+                    Remove
+                </MotionButton>
+            )}
         </motion.li>
     );
 };
 
 const PreviewModal = ({ attachment, onClose }) => {
     const image = isImage(attachment.name);
-    const isText = getExt(attachment.name) === 'txt';
-    const url = useBlobUrl(attachment.id, image);
-    const [text, setText] = useState(null);
+    const pdf = getExt(attachment.name) === 'pdf';
+    const canDownload = Boolean(attachment.file || attachment.url);
+    const previewable = (image || pdf) && canDownload;
+    const url = useAttachmentUrl(attachment, previewable);
     const { Icon, color } = getFileIcon(attachment.name);
 
-    useEffect(() => {
-        if (!isText) return;
-        getFile(attachment.id).then(blob => blob?.text()).then(t => setText((t || '').slice(0, 8000))).catch(() => setText('Could not read this file.'));
-    }, [attachment.id, isText]);
-
     const handleDownload = async () => {
-        const blob = await getFile(attachment.id);
-        if (blob) downloadBlob(blob, attachment.name);
+        try {
+            if (attachment.file) {
+                downloadBlob(attachment.file, attachment.name);
+                return;
+            }
+            if (!attachment.url) throw new Error('This file has no download link.');
+            const response = await fetch(attachment.url, { credentials: 'include' });
+            if (!response.ok) throw new Error('Could not download the attachment.');
+            downloadBlob(await response.blob(), attachment.name);
+        } catch (error) {
+            // Cross-origin servers may block fetch(); fall back to opening the file directly.
+            if (attachment.url) window.open(attachment.url, '_blank', 'noopener,noreferrer');
+            else ErrorNotify(error?.message || 'Could not download the attachment.');
+        }
     };
 
     return (
         <Modal onClose={onClose}>
-            <motion.div {...modalPanel} className="relative max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl bg-white p-5 sm:p-6">
-                <h3 className="pr-8 text-base font-bold text-slate-900">{attachment.name}</h3>
-                <p className="-mt-3 text-xs font-extralight text-slate-500">{formatFileSize(attachment.size)}</p>
-                {image ? (
-                    url ? <img src={url} alt={attachment.name} className="max-h-[60vh] w-full rounded-xl border border-slate-200 object-contain" /> : <Skeleton className="h-64 w-full rounded-xl" />
-                ) : isText ? (
-                    text === null ? <Skeleton className="h-40 w-full rounded-xl" /> : (
-                        <pre className="max-h-[50vh] overflow-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-4 font-mono text-xs font-medium text-slate-700">{text}</pre>
+            <motion.div {...modalPanel} className="relative max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl bg-white p-4 sm:p-6">
+                <div className="pr-8">
+                    <h3 className="truncate text-sm font-bold text-slate-900 sm:text-base">{attachment.name}</h3>
+                    <p className="text-[11px] font-extralight text-slate-500">
+                        {formatFileSize(attachment.size)}
+                        {attachment.file ? ' · Uploads when you save the note' : ''}
+                    </p>
+                </div>
+                <button type="button" onClick={onClose} aria-label="Close preview" className="absolute right-3 top-3 cursor-pointer rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                    <X className="h-4 w-4" />
+                </button>
+                {previewable ? (
+                    url ? (
+                        image ? (
+                            <img src={url} alt={attachment.name} className="max-h-[60vh] w-full rounded-xl border border-slate-200 object-contain" />
+                        ) : (
+                            <iframe title={attachment.name} src={url} className="h-[60vh] w-full rounded-xl border border-slate-200" />
+                        )
+                    ) : (
+                        <Skeleton className="h-64 w-full rounded-xl" />
                     )
                 ) : (
                     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
                         <Icon className={`h-10 w-10 ${color}`} aria-hidden="true" />
-                        <p className="text-xs font-extralight text-slate-500">Preview isn’t available for this file type. Download it to open it.</p>
+                        <p className="text-xs font-extralight text-slate-500">
+                            {canDownload ? 'Preview isn’t available for this file type. Download it to open it.' : 'This file isn’t available to preview or download.'}
+                        </p>
                     </div>
                 )}
-                <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
-                    <MotionButton onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-medium transition-colors duration-300 hover:bg-slate-50 sm:py-2">Close</MotionButton>
-                    <MotionButton onClick={handleDownload} className={`rounded-xl px-4 py-2.5 text-xs font-bold text-white sm:py-2 ${GRADIENT}`}>Download</MotionButton>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <MotionButton onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 sm:py-2">Close</MotionButton>
+                    <MotionButton onClick={handleDownload} disabled={!canDownload} className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold text-white sm:py-2 ${GRADIENT}`}>
+                        <Download className="h-3.5 w-3.5" /> Download
+                    </MotionButton>
                 </div>
             </motion.div>
         </Modal>
@@ -863,209 +834,559 @@ const PreviewModal = ({ attachment, onClose }) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* Schedule helpers                                                    */
+/* Skeletons                                                           */
 /* ------------------------------------------------------------------ */
-const scheduleStatus = (dueAt, done, now) => {
-    if (done) return { key: 'done', label: 'Done', cls: 'bg-emerald-100 text-emerald-700' };
-    const diff = new Date(dueAt).getTime() - now.getTime();
-    if (diff < 0) return { key: 'overdue', label: 'Due / Ended', cls: 'bg-red-100 text-red-600' };
-    if (diff < 3600000) return { key: 'soon', label: 'Due soon', cls: 'bg-amber-100 text-amber-700' };
-    return { key: 'upcoming', label: 'Upcoming', cls: 'bg-slate-100 text-slate-600' };
+const NoteListSkeleton = () => (
+    <div className="space-y-2 p-3" aria-hidden="true">
+        {[0, 1, 2, 3].map(index => (
+            <div key={index} className="space-y-2 rounded-xl border border-slate-200 p-3">
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-2.5 w-full" />
+                <Skeleton className="h-2.5 w-1/2" />
+            </div>
+        ))}
+    </div>
+);
+
+const EditorSkeleton = () => (
+    <div className="space-y-4 p-5" aria-hidden="true">
+        <Skeleton className="h-8 w-1/2" />
+        <Skeleton className="h-3 w-1/3" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+    </div>
+);
+
+/* ------------------------------------------------------------------ */
+/* Note list badge                                                     */
+/* ------------------------------------------------------------------ */
+const NextScheduleBadge = ({ entries, doneMap }) => {
+    const now = useNow();
+    const pending = entries.filter(entry => entry.dueMs && !doneMap[entry.key]?.done);
+    if (!pending.length) return null;
+    const upcoming = pending.filter(entry => entry.dueMs > now).sort((a, b) => a.dueMs - b.dueMs)[0];
+    if (!upcoming) {
+        return <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600">Due</span>;
+    }
+    return (
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-700">
+            <Clock className="h-2.5 w-2.5" />
+            {getRemainingText(upcoming.dueMs, now).replace(' remaining', '')}
+        </span>
+    );
 };
+
+/* ------------------------------------------------------------------ */
+/* Schedule tab                                                        */
+/* ------------------------------------------------------------------ */
+const FILTERS = [
+    { id: 'all', label: 'All' },
+    { id: 'upcoming', label: 'Upcoming' },
+    { id: 'overdue', label: 'Overdue' },
+    { id: 'done', label: 'Done' },
+];
+
+const SchedulePanel = ({ entries, doneMap, isLoading, isError, onRetry, onToggleDone, onOpenNote, onRemove, removing, requestConfirm }) => {
+    const now = useNow();
+    const [filter, setFilter] = useState('all');
+    const [selected, setSelected] = useState([]);
+
+    const rows = useMemo(() => entries.map(entry => {
+        const done = Boolean(doneMap[entry.key]?.done);
+        return { ...entry, done, status: scheduleStatus(entry.dueMs, done, now) };
+    }), [entries, doneMap, now]);
+
+    const counts = useMemo(() => ({
+        all: rows.length,
+        upcoming: rows.filter(row => ['upcoming', 'soon'].includes(row.status.key)).length,
+        overdue: rows.filter(row => row.status.key === 'overdue').length,
+        done: rows.filter(row => row.done).length,
+    }), [rows]);
+
+    const filtered = useMemo(() => rows.filter(row => {
+        if (filter === 'upcoming') return ['upcoming', 'soon'].includes(row.status.key);
+        if (filter === 'overdue') return row.status.key === 'overdue';
+        if (filter === 'done') return row.done;
+        return true;
+    }), [rows, filter]);
+
+    const selectedRows = filtered.filter(row => selected.includes(row.key));
+    const allSelected = filtered.length > 0 && selectedRows.length === filtered.length;
+
+    const toggle = key => setSelected(previous => (previous.includes(key) ? previous.filter(item => item !== key) : [...previous, key]));
+    const toggleAll = () => setSelected(allSelected ? [] : filtered.map(row => row.key));
+
+    const askRemove = targets => requestConfirm({
+        title: targets.length > 1 ? `Remove ${targets.length} schedules?` : 'Remove this schedule?',
+        message: 'The schedule entries are removed from their notes. The notes themselves are kept.',
+        confirmLabel: 'Remove',
+        onConfirm: async () => {
+            await onRemove(targets);
+            setSelected(previous => previous.filter(key => !targets.some(target => target.key === key)));
+        },
+    });
+
+    return (
+        <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE_OUT }} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <h1 className="text-sm font-bold text-slate-900 sm:text-base">Schedule &amp; Countdowns</h1>
+                    <p className="mt-1 text-[11px] font-extralight text-slate-500">
+                        Every schedule across your notes, with live countdowns and reminders at 30m, 15m, 5m and the due time.
+                    </p>
+                </div>
+                {selectedRows.length > 0 && (
+                    <MotionButton
+                        onClick={() => askRemove(selectedRows)}
+                        disabled={removing}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-700"
+                    >
+                        {removing ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                        Remove selected ({selectedRows.length})
+                    </MotionButton>
+                )}
+            </div>
+
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-100 p-1">
+                    {FILTERS.map(item => {
+                        const active = filter === item.id;
+                        return (
+                            <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => setFilter(item.id)}
+                                aria-pressed={active}
+                                className={`cursor-pointer whitespace-nowrap rounded-lg px-3 py-1.5 text-xs transition-colors ${active ? 'bg-white font-bold text-amber-700 shadow-sm' : 'font-medium text-slate-600 hover:text-slate-900'}`}
+                            >
+                                {item.label} <span className="font-extralight text-slate-400">{counts[item.id]}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+                {filtered.length > 0 && (
+                    <label className="flex cursor-pointer items-center gap-2 text-[11px] font-medium text-slate-600">
+                        <Checkbox checked={allSelected} onChange={toggleAll} label="Select all schedules" />
+                        Select all
+                    </label>
+                )}
+            </div>
+
+            {isLoading ? (
+                <div className="space-y-2">{[0, 1, 2].map(index => <Skeleton key={index} className="h-20 w-full rounded-xl" />)}</div>
+            ) : isError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+                    <p className="text-xs font-bold text-red-700">Could not load schedules.</p>
+                    <button type="button" onClick={onRetry} className="mt-3 cursor-pointer rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700">Try again</button>
+                </div>
+            ) : filtered.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 p-10 text-center">
+                    <CalendarClock className="mx-auto h-8 w-8 text-amber-500" />
+                    <p className="mt-3 text-xs font-medium text-slate-500">
+                        {entries.length === 0 ? 'No schedules yet. Create a scheduled note to get started.' : 'No schedules match this filter.'}
+                    </p>
+                </div>
+            ) : (
+                <ul className="space-y-2.5">
+                    <AnimatePresence initial={false}>
+                        {filtered.map(row => (
+                            <motion.li
+                                key={row.key}
+                                layout
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.97 }}
+                                transition={{ duration: 0.25, ease: EASE_OUT }}
+                                className="rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-amber-300 sm:p-4"
+                            >
+                                <div className="flex items-start gap-3">
+                                    <div className="pt-0.5">
+                                        <Checkbox checked={selected.includes(row.key)} onChange={() => toggle(row.key)} label={`Select schedule ${row.label}`} />
+                                    </div>
+                                    <button type="button" onClick={() => onOpenNote(row.noteId)} className="min-w-0 flex-1 cursor-pointer text-left">
+                                        <span className="flex flex-wrap items-center gap-2">
+                                            <span className={`truncate text-sm font-bold ${row.done ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{row.label || 'Untitled schedule'}</span>
+                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${row.status.cls}`}>{row.status.label}</span>
+                                        </span>
+                                        <span className="mt-0.5 block truncate text-[11px] text-slate-500">{row.noteTitle}</span>
+                                        <span className="mt-1 block text-xs text-slate-600">
+                                            {bsStringToLabel(row.bsDate)} · {timeToLabel(row.time)}
+                                        </span>
+                                    </button>
+                                </div>
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 sm:pl-[30px]">
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700">
+                                        <Clock className="h-3.5 w-3.5" />
+                                        <Countdown dueAt={row.dueAt} done={row.done} />
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                        <MotionButton onClick={() => onToggleDone(row.key)} className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-50">
+                                            {row.done ? 'Reopen' : 'Mark done'}
+                                        </MotionButton>
+                                        <MotionButton onClick={() => onOpenNote(row.noteId)} className="rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-100">
+                                            Open note
+                                        </MotionButton>
+                                        <MotionButton onClick={() => askRemove([row])} disabled={removing} aria-label={`Remove schedule ${row.label}`} className="rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-red-50 hover:text-red-600">
+                                            Remove
+                                        </MotionButton>
+                                    </div>
+                                </div>
+                            </motion.li>
+                        ))}
+                    </AnimatePresence>
+                </ul>
+            )}
+        </motion.section>
+    );
+};
+
+/* ------------------------------------------------------------------ */
+/* Draft helpers                                                       */
+/* ------------------------------------------------------------------ */
+const blankSchedule = () => ({ _key: uid(), _orig: null, label: '', bsDate: '', time: '' });
+
+const emptyDraft = (scheduled = false) => ({
+    title: '',
+    content: '',
+    isScheduled: scheduled,
+    schedules: scheduled ? [blankSchedule()] : [],
+    attachments: [],
+});
+
+const noteToDraft = note => ({
+    title: note.title || '',
+    content: note.content || '',
+    isScheduled: Boolean(note.isScheduled),
+    schedules: (note.schedules || []).map(schedule => {
+        const bsDate = extractBsDate(schedule.bsDate);
+        const time = schedule.time ? normalizeScheduleTime(schedule.time) : '';
+        return { _key: uid(), _orig: scheduleSig(bsDate, time), label: schedule.label || '', bsDate, time };
+    }),
+    attachments: (Array.isArray(note.attachments) ? note.attachments : []).map(serverAttachmentToDraft),
+});
+
+const draftSignature = draft => JSON.stringify({
+    t: (draft.title || '').trim(),
+    c: htmlToText(draft.content) ? draft.content : '',
+    s: Boolean(draft.isScheduled),
+    sc: draft.isScheduled ? (draft.schedules || []).map(item => [item.label || '', extractBsDate(item.bsDate), item.time || '']) : [],
+    a: (draft.attachments || []).map(item => item.key),
+});
+
+const hasFiles = event => Array.from(event.dataTransfer?.types || []).includes('Files');
 
 /* ------------------------------------------------------------------ */
 /* Main component                                                      */
 /* ------------------------------------------------------------------ */
 export default function NotesScheduler() {
-    const [view, setView] = useState('notes');
-    const [isLoading, setIsLoading] = useState(true);
-    const [now, setNow] = useState(() => new Date());
-    const [search, setSearch] = useState('');
-    const [showEditorMobile, setShowEditorMobile] = useState(false);
+    const { useMe } = useAuth();
+    const { role, id } = useMe?.data?.user?.decoded || {};
 
-    // Simulated API Action Loading States
-    const [isCreatingNote, setIsCreatingNote] = useState(false);
-    const [isUpdatingNote, setIsUpdatingNote] = useState(false);
-
-    const [notes, setNotes] = useState(() => {
-        try {
-            const stored = localStorage.getItem(NOTES_KEY);
-            return stored ? JSON.parse(stored) : [];
-        } catch {
-            return [];
-        }
+    const { ST_GetNote_ } = useGet({
+        currentUser: { role },
+        isAuthLoading: useMe.isLoading,
     });
-    const [activeId, setActiveId] = useState(null);
-    const [savedAt, setSavedAt] = useState(null);
-    const [formattingState, setFormattingState] = useState({});
-    const [styleHint, setStyleHint] = useState(null);
+    const { ST_CreateNote_ } = UseAdd();
+    const { ST_UpdateNote_ } = useEdit();
+    const { ST_DeleteNote_ } = UseDelete();
 
-    // Explicit Draft Editing State (Nothing saves/updates until you click the Save button)
+    const [view, setView] = useState('notes');
+    const [showEditorMobile, setShowEditorMobile] = useState(false);
+    const [search, setSearch] = useState('');
+    const [notes, setNotes] = useState([]);
+
+    // Draft (nothing is sent to the API until Create / Update is clicked)
+    const [editingId, setEditingId] = useState(null);
     const [draftTitle, setDraftTitle] = useState('');
     const [draftContent, setDraftContent] = useState('');
     const [draftIsScheduled, setDraftIsScheduled] = useState(false);
-    const [draftScheduleDate, setDraftScheduleDate] = useState(null);
-    const [draftScheduleTime, setDraftScheduleTime] = useState(null);
-    const [draftDueAt, setDraftDueAt] = useState(null);
+    const [draftSchedules, setDraftSchedules] = useState([]);
+    const [draftAttachments, setDraftAttachments] = useState([]);
+    const [baseline, setBaseline] = useState(() => draftSignature(emptyDraft(false)));
 
-    const [uploads, setUploads] = useState([]);
-    const [uploadError, setUploadError] = useState(null);
+    const [validationError, setValidationError] = useState(null);
+    const [uploadError, setUploadError] = useState('');
     const [isDragging, setIsDragging] = useState(false);
     const [previewAttachment, setPreviewAttachment] = useState(null);
+    const [formattingState, setFormattingState] = useState({});
+    const [styleHint, setStyleHint] = useState(null);
 
-    const [schedError, setSchedError] = useState(null);
-    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-
-    // Multiple note & schedule selection state
+    const [actionPending, setActionPending] = useState('');
+    const [deleting, setDeleting] = useState(false);
+    const [removingSchedules, setRemovingSchedules] = useState(false);
     const [selectedNoteIds, setSelectedNoteIds] = useState([]);
-    const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
-
+    const [confirm, setConfirm] = useState(null);
     const [toasts, setToasts] = useState([]);
 
     const editorRef = useRef(null);
     const titleRef = useRef(null);
-    const savedRange = useRef(null);
-    const activeIdRef = useRef(null);
     const fileInputRef = useRef(null);
-    activeIdRef.current = activeId;
+    const savedRange = useRef(null);
 
-    const activeNote = notes.find(n => n.id === activeId) || null;
+    /* ---- Server data ---------------------------------------------- */
+    // Resolves with the fresh notes array (or null on failure) so callers can
+    // re-open the note they just saved without waiting for a re-render.
+    const refreshNotes = useCallback(async () => {
+        if (!id) return null;
+        try {
+            const { data } = await ST_GetNote_.mutateAsync({ params: { id } });
+            setNotes(data);
+            return data;
+        } catch (error) {
+            ErrorNotify(error?.message || 'Could not load notes.');
+            return null;
+        }
+    }, [id, ST_GetNote_.mutateAsync]);
 
     useEffect(() => {
-        const t = setTimeout(() => setIsLoading(false), 700);
-        return () => clearTimeout(t);
+        if (!useMe.isLoading && id) void refreshNotes();
+    }, [useMe.isLoading, id, refreshNotes]);
+
+    const editingNote = useMemo(() => notes.find(note => getNoteId(note) === editingId) || null, [notes, editingId]);
+
+    const noteIndex = useMemo(() => notes
+        .map(note => ({
+            note,
+            id: getNoteId(note),
+            text: htmlToText(note.content),
+            time: new Date(note.updatedAt || note.createdAt || 0).getTime() || 0,
+        }))
+        .sort((a, b) => b.time - a.time), [notes]);
+
+    const visibleNotes = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        if (!query) return noteIndex;
+        return noteIndex.filter(item => `${item.note.title || ''} ${item.text}`.toLowerCase().includes(query));
+    }, [noteIndex, search]);
+
+    /* ---- Schedule entries, done flags & reminders ------------------ */
+    const storageKey = id ? `${STATE_KEY_PREFIX}:${id}` : null;
+    const [scheduleState, setScheduleState, scheduleStateReady] = useScopedStorage(storageKey);
+
+    const scheduleEntries = useMemo(() => notes.flatMap(note => {
+        if (!note.isScheduled) return [];
+        const noteId = getNoteId(note);
+        return (note.schedules || []).map((schedule, index) => {
+            const bsDate = extractBsDate(schedule.bsDate);
+            const time = schedule.time ? normalizeScheduleTime(schedule.time) : '';
+            const dueAt = computeDueAt(bsDate, time);
+            return {
+                key: `${noteId}:${schedule._id || index}:${bsDate}:${time}`,
+                noteId,
+                noteTitle: note.title || 'Untitled note',
+                index,
+                label: schedule.label || '',
+                bsDate,
+                time,
+                dueAt,
+                dueMs: dueAt ? new Date(dueAt).getTime() : 0,
+            };
+        });
+    }).sort((a, b) => (a.dueMs || Infinity) - (b.dueMs || Infinity)), [notes]);
+
+    const entriesByNote = useMemo(() => {
+        const map = new Map();
+        scheduleEntries.forEach(entry => map.set(entry.noteId, [...(map.get(entry.noteId) || []), entry]));
+        return map;
+    }, [scheduleEntries]);
+
+    const pendingCount = scheduleEntries.filter(entry => !scheduleState[entry.key]?.done).length;
+
+    const entriesRef = useRef([]);
+    const stateRef = useRef({});
+    const readyRef = useRef(false);
+    entriesRef.current = scheduleEntries;
+    stateRef.current = scheduleState;
+    readyRef.current = scheduleStateReady;
+
+    const pushToast = useCallback(toast => {
+        const toastId = uid();
+        setToasts(previous => [...previous, { id: toastId, ...toast }]);
+        setTimeout(() => setToasts(previous => previous.filter(item => item.id !== toastId)), 7000);
     }, []);
 
+    const dismissToast = useCallback(toastId => setToasts(previous => previous.filter(item => item.id !== toastId)), []);
+
+    // Reminder engine: runs outside React state updaters so toasts never double-fire.
     useEffect(() => {
-        const id = 'notes-scheduler-fonts';
-        if (document.getElementById(id)) return;
-        const link = document.createElement('link');
-        link.id = id;
-        link.rel = 'stylesheet';
-        link.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@200;400;600;700&family=Noto+Sans+Devanagari:wght@300;400;700&family=Merriweather:wght@300;400;700&family=Playfair+Display:wght@400;700&family=Roboto+Mono:wght@300;400;700&family=Caveat:wght@400;700&display=swap';
-        document.head.appendChild(link);
+        const check = () => {
+            if (!readyRef.current) return;
+            const nowMs = Date.now();
+            const changes = {};
+            entriesRef.current.forEach(entry => {
+                if (!entry.dueMs) return;
+                const current = { ...(stateRef.current[entry.key] || {}), ...(changes[entry.key] || {}) };
+                if (current.done) return;
+                const diff = entry.dueMs - nowMs;
+                const tierIndex = diff <= 0 ? 3 : diff <= REMINDER_TIERS[2].ms ? 2 : diff <= REMINDER_TIERS[1].ms ? 1 : diff <= REMINDER_TIERS[0].ms ? 0 : -1;
+                if (tierIndex < 0) return;
+                const tier = REMINDER_TIERS[tierIndex];
+                if (current[tier.key]) return;
+                const marks = {};
+                REMINDER_TIERS.slice(0, tierIndex + 1).forEach(item => { marks[item.key] = true; });
+                changes[entry.key] = { ...(changes[entry.key] || {}), ...marks };
+                // Don't announce events that ended long before the page opened.
+                if (tier.key === 'due' && diff < -STALE_DUE_MS) return;
+                pushToast({
+                    tone: tier.key === 'due' ? 'due' : 'reminder',
+                    title: entry.label || entry.noteTitle,
+                    message: `${entry.noteTitle} · ${tier.text} (${timeToLabel(entry.time)})`,
+                });
+            });
+            const changedKeys = Object.keys(changes);
+            if (!changedKeys.length) return;
+            const merged = { ...stateRef.current };
+            changedKeys.forEach(key => { merged[key] = { ...(merged[key] || {}), ...changes[key] }; });
+            stateRef.current = merged;
+            setScheduleState(previous => {
+                const next = { ...previous };
+                changedKeys.forEach(key => { next[key] = { ...(next[key] || {}), ...changes[key] }; });
+                return next;
+            });
+        };
+        const timer = setInterval(check, 1000);
+        return () => clearInterval(timer);
+    }, [pushToast, setScheduleState]);
+
+    // Drop saved flags for schedules that no longer exist.
+    useEffect(() => {
+        if (!scheduleStateReady || !ST_GetNote_?.isSuccess) return;
+        const valid = new Set(scheduleEntries.map(entry => entry.key));
+        setScheduleState(previous => {
+            const stale = Object.keys(previous).filter(key => !valid.has(key));
+            if (!stale.length) return previous;
+            const next = { ...previous };
+            stale.forEach(key => delete next[key]);
+            return next;
+        });
+    }, [scheduleEntries, scheduleStateReady, ST_GetNote_?.isSuccess, setScheduleState]);
+
+    const toggleScheduleDone = key => setScheduleState(previous => ({
+        ...previous,
+        [key]: { ...(previous[key] || {}), done: !previous[key]?.done },
+    }));
+
+    /* ---- Draft lifecycle ------------------------------------------- */
+    const currentSignature = useMemo(() => draftSignature({
+        title: draftTitle,
+        content: draftContent,
+        isScheduled: draftIsScheduled,
+        schedules: draftSchedules,
+        attachments: draftAttachments,
+    }), [draftTitle, draftContent, draftIsScheduled, draftSchedules, draftAttachments]);
+    const isDirty = currentSignature !== baseline;
+
+    useEffect(() => {
+        if (!isDirty) return undefined;
+        const onBeforeUnload = event => { event.preventDefault(); event.returnValue = ''; };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [isDirty]);
+
+    // The editor is uncontrolled; restore its HTML whenever the Notes tab remounts it.
+    useEffect(() => {
+        if (view === 'notes' && editorRef.current) editorRef.current.innerHTML = sanitizeHtml(draftContent);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [view]);
+
+    const applyDraft = useCallback((draft, noteId = null) => {
+        const html = sanitizeHtml(draft.content || '');
+        setEditingId(noteId);
+        setDraftTitle(draft.title || '');
+        setDraftContent(html);
+        setDraftIsScheduled(Boolean(draft.isScheduled));
+        setDraftSchedules(draft.schedules || []);
+        setDraftAttachments(draft.attachments || []);
+        setBaseline(draftSignature({ ...draft, content: html }));
+        setValidationError(null);
+        setUploadError('');
+        if (editorRef.current) editorRef.current.innerHTML = html;
     }, []);
 
-    // 1-second interval for real-time remaining countdowns and precise milestone alerts
-    useEffect(() => {
-        const t = setInterval(() => setNow(new Date()), 1000);
-        return () => clearInterval(t);
-    }, []);
+    const requestConfirm = useCallback(config => setConfirm(config), []);
 
-    useEffect(() => {
-        try { localStorage.setItem(NOTES_KEY, JSON.stringify(notes)); } catch { }
-    }, [notes]);
-
-    const pushToast = (message) => {
-        const id = uid();
-        setToasts(prev => [...prev, { id, message }]);
-        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 7000);
+    // Runs `action` straight away, or after the user confirms discarding unsaved edits.
+    const guardDirty = action => {
+        if (!isDirty) { action(); return; }
+        setConfirm({
+            title: 'Discard unsaved changes?',
+            message: 'You have edits that haven’t been saved. If you continue, they will be lost.',
+            confirmLabel: 'Discard changes',
+            cancelLabel: 'Keep editing',
+            onConfirm: action,
+        });
     };
 
-    // 30, 15, 5 minute notifications + due/after-start notification
-    useEffect(() => {
-        const currentTime = now.getTime();
-        setNotes(prevNotes => {
-            let updated = false;
-            const newNotes = prevNotes.map(n => {
-                if (!n.isScheduled || !n.dueAt || n.done) return n;
-                const dueTime = new Date(n.dueAt).getTime();
-                const diffMs = dueTime - currentTime;
-
-                let n30 = n.notified30;
-                let n15 = n.notified15;
-                let n5 = n.notified5;
-                let nDue = n.notifiedDue || n.notified;
-
-                if (!n30 && diffMs <= 30 * 60 * 1000 && diffMs > 15 * 60 * 1000) {
-                    n30 = true;
-                    pushToast(`🔔 30m Reminder: ${n.title || 'Scheduled Note'} starts at ${timeToLabel(n.scheduleTime)}`);
-                    updated = true;
-                }
-                if (!n15 && diffMs <= 15 * 60 * 1000 && diffMs > 5 * 60 * 1000) {
-                    n15 = true;
-                    n30 = true;
-                    pushToast(`🔔 15m Reminder: ${n.title || 'Scheduled Note'} starts soon!`);
-                    updated = true;
-                }
-                if (!n5 && diffMs <= 5 * 60 * 1000 && diffMs > 0) {
-                    n5 = true;
-                    n15 = true;
-                    n30 = true;
-                    pushToast(`🔔 5m Reminder: ${n.title || 'Scheduled Note'} is about to begin!`);
-                    updated = true;
-                }
-                if (!nDue && diffMs <= 0) {
-                    nDue = true;
-                    n5 = true;
-                    n15 = true;
-                    n30 = true;
-                    pushToast(`⏰ Event Started / Due: ${n.title || 'Scheduled Note'}`);
-                    updated = true;
-                }
-
-                if (n30 !== n.notified30 || n15 !== n.notified15 || n5 !== n.notified5 || nDue !== (n.notifiedDue || n.notified)) {
-                    return { ...n, notified30: n30, notified15: n15, notified5: n5, notifiedDue: nDue, notified: nDue };
-                }
-                return n;
-            });
-            return updated ? newNotes : prevNotes;
+    const startNewNote = scheduled => {
+        setView('notes');
+        guardDirty(() => {
+            applyDraft(emptyDraft(scheduled), null);
+            setShowEditorMobile(true);
+            setTimeout(() => titleRef.current?.focus(), 150);
         });
-    }, [now]);
+    };
 
-    /* ---- Sync Draft State when Active Note changes -------------------- */
-    useEffect(() => {
-        if (activeNote) {
-            setDraftTitle(activeNote.title || '');
-            setDraftContent(activeNote.content || '');
-            setDraftIsScheduled(Boolean(activeNote.isScheduled));
-            setDraftScheduleDate(activeNote.scheduleDate || null);
-            setDraftScheduleTime(activeNote.scheduleTime || null);
-            setDraftDueAt(activeNote.dueAt || null);
-            if (editorRef.current) {
-                editorRef.current.innerHTML = sanitizeHtml(activeNote.content || '');
-            }
-            setSavedAt(new Date(activeNote.updatedAt));
-        } else {
-            setDraftTitle('');
-            setDraftContent('');
-            setDraftIsScheduled(false);
-            setDraftScheduleDate(null);
-            setDraftScheduleTime(null);
-            setDraftDueAt(null);
-            if (editorRef.current) editorRef.current.innerHTML = '';
-            setSavedAt(null);
-        }
-        setUploadError(null);
-        setSchedError(null);
-    }, [activeId]);
+    const openNote = noteId => {
+        if (noteId === editingId) { setView('notes'); setShowEditorMobile(true); return; }
+        const note = notes.find(item => getNoteId(item) === noteId);
+        if (!note || ST_GetNote_?.isPending) return;
+        guardDirty(() => {
+            const loadNote = async () => {
+                try {
+                    const { data } = await ST_GetNote_.mutateAsync({ params: { id: noteId } });
+                    const details = Array.isArray(data) ? data.find(item => getNoteId(item) === noteId) : data;
+                    const selectedNote = details && getNoteId(details) === noteId ? details : note;
+                    if (selectedNote !== note) {
+                        setNotes(previous => previous.map(item => getNoteId(item) === noteId ? selectedNote : item));
+                    }
+                    applyDraft(noteToDraft(selectedNote), noteId);
+                } catch (error) {
+                    ErrorNotify(error?.message || 'Could not load note details.');
+                    applyDraft(noteToDraft(note), noteId);
+                }
+                setView('notes');
+                setShowEditorMobile(true);
+            };
+            void loadNote();
+        });
+    };
 
+    const cancelEdit = () => guardDirty(() => {
+        applyDraft(emptyDraft(false), null);
+        setShowEditorMobile(false);
+    });
+
+    /* ---- Rich text ------------------------------------------------- */
     const readFormatting = () => {
         try {
-            setFormattingState(Object.fromEntries(QUERY_COMMANDS.map(c => [c, document.queryCommandState(c)])));
-        } catch { }
+            setFormattingState(Object.fromEntries(QUERY_COMMANDS.map(command => [command, document.queryCommandState(command)])));
+        } catch { /* unsupported */ }
     };
 
     useEffect(() => {
         const onSelectionChange = () => {
             const editor = editorRef.current;
-            const sel = document.getSelection();
-            if (!editor || !sel?.rangeCount || !editor.contains(sel.anchorNode)) return;
-            savedRange.current = sel.getRangeAt(0).cloneRange();
+            const selection = document.getSelection();
+            if (!editor || !selection?.rangeCount || !editor.contains(selection.anchorNode)) return;
+            savedRange.current = selection.getRangeAt(0).cloneRange();
             readFormatting();
         };
         document.addEventListener('selectionchange', onSelectionChange);
         return () => document.removeEventListener('selectionchange', onSelectionChange);
     }, []);
 
+    const syncContent = () => {
+        if (editorRef.current) setDraftContent(sanitizeHtml(editorRef.current.innerHTML));
+    };
+
     const restoreSelection = () => {
         const editor = editorRef.current;
         if (!editor) return false;
         editor.focus();
         if (savedRange.current) {
-            const sel = document.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(savedRange.current);
+            const selection = document.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(savedRange.current);
         }
         return true;
     };
@@ -1075,326 +1396,296 @@ export default function NotesScheduler() {
         document.execCommand('styleWithCSS', false, true);
         document.execCommand(command, false, value);
         readFormatting();
-        if (editorRef.current) {
-            setDraftContent(sanitizeHtml(editorRef.current.innerHTML));
-        }
+        syncContent();
     };
 
-    const wrapSelection = (styles) => {
+    const wrapSelection = styles => {
         if (!restoreSelection()) return;
-        const sel = document.getSelection();
-        if (!sel.rangeCount || sel.isCollapsed) {
+        const selection = document.getSelection();
+        if (!selection.rangeCount || selection.isCollapsed) {
             setStyleHint('Select some text first, then apply the style.');
             setTimeout(() => setStyleHint(null), 2500);
             return;
         }
-        const range = sel.getRangeAt(0);
+        const range = selection.getRangeAt(0);
         const span = document.createElement('span');
         Object.entries(styles).forEach(([prop, value]) => span.style.setProperty(prop, value));
         span.appendChild(range.extractContents());
         range.insertNode(span);
-        sel.removeAllRanges();
+        selection.removeAllRanges();
         const next = document.createRange();
         next.selectNodeContents(span);
-        sel.addRange(next);
+        selection.addRange(next);
         savedRange.current = next.cloneRange();
-        if (editorRef.current) {
-            setDraftContent(sanitizeHtml(editorRef.current.innerHTML));
-        }
+        syncContent();
     };
 
-    const selectNote = (id) => {
-        setActiveId(id);
-        setShowEditorMobile(true);
+    const handleEditorInput = event => {
+        const element = event.currentTarget;
+        if (!element.textContent.trim() && !element.querySelector('li') && element.innerHTML === '<br>') element.innerHTML = '';
+        setValidationError(null);
+        syncContent();
     };
 
-    /* ---- 1. EXPLICIT NOTE CREATION BUTTON ACTION (Only adds after API loading) --- */
-    const createNote = async (isScheduledMode = false) => {
-        setIsCreatingNote(true);
-
-        // Simulated API network loading delay
-        await new Promise(resolve => setTimeout(resolve, 650));
-
-        const nowIso = new Date().toISOString();
-        const note = {
-            id: uid(),
-            title: '',
-            content: '',
-            createdAt: nowIso,
-            updatedAt: nowIso,
-            attachments: [],
-            isScheduled: isScheduledMode,
-            scheduleDate: null,
-            scheduleTime: null,
-            dueAt: null,
-            done: false,
-            notified: false,
-            notified30: false,
-            notified15: false,
-            notified5: false,
-            notifiedDue: false,
-            schedules: []
-        };
-
-        // Note is added to state ONLY after API loading resolves
-        setNotes(prev => [note, ...prev]);
-        setView('notes');
-        setActiveId(note.id);
-        setShowEditorMobile(true);
-        setSearch('');
-        setIsCreatingNote(false);
-
-        setTimeout(() => titleRef.current?.focus(), 350);
+    const handlePaste = event => {
+        event.preventDefault();
+        const text = event.clipboardData?.getData('text/plain') || '';
+        if (text) document.execCommand('insertText', false, text);
     };
 
-    /* ---- 2. EXPLICIT NOTE UPDATE BUTTON ACTION (Only updates when button is clicked) --- */
-    const handleExplicitUpdate = async () => {
-        if (!activeNote) return;
-        setIsUpdatingNote(true);
-
-        // Simulated API network loading delay
-        await new Promise(resolve => setTimeout(resolve, 600));
-
-        const updatedContent = editorRef.current ? sanitizeHtml(editorRef.current.innerHTML) : draftContent;
-
-        setNotes(prev => prev.map(n => n.id === activeNote.id ? {
-            ...n,
-            title: draftTitle,
-            content: updatedContent,
-            isScheduled: draftIsScheduled,
-            scheduleDate: draftScheduleDate,
-            scheduleTime: draftScheduleTime,
-            dueAt: draftDueAt,
-            updatedAt: new Date().toISOString()
-        } : n));
-
-        setSavedAt(new Date());
-        setIsUpdatingNote(false);
-        pushToast(`💾 Successfully saved: "${draftTitle || 'Untitled Note'}"`);
-    };
-
-    const deleteNote = async (id) => {
-        const note = notes.find(n => n.id === id);
-        await Promise.all((note?.attachments || []).map(a => deleteFile(a.id).catch(() => { })));
-        setNotes(prev => prev.filter(n => n.id !== id));
-        if (activeIdRef.current === id) { setActiveId(null); setShowEditorMobile(false); }
-        setConfirmDeleteId(null);
-        setSelectedNoteIds(prev => prev.filter(i => i !== id));
-    };
-
-    const deleteSelectedNotes = async () => {
-        if (selectedNoteIds.length === 0) return;
-        const notesToDelete = notes.filter(n => selectedNoteIds.includes(n.id));
-        for (const note of notesToDelete) {
-            await Promise.all((note?.attachments || []).map(a => deleteFile(a.id).catch(() => { })));
-        }
-
-        setNotes(prev => prev.filter(n => !selectedNoteIds.includes(n.id)));
-        if (selectedNoteIds.includes(activeIdRef.current)) {
-            setActiveId(null);
-            setShowEditorMobile(false);
-        }
-        setSelectedNoteIds([]);
-    };
-
-    const toggleSelectNote = (id) => {
-        setSelectedNoteIds(prev =>
-            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-        );
-    };
-
-    const toggleSelectAllNotes = () => {
-        if (selectedNoteIds.length === visibleNotes.length) {
-            setSelectedNoteIds([]);
-        } else {
-            setSelectedNoteIds(visibleNotes.map(n => n.id));
-        }
-    };
-
-    const startUpload = (files) => {
-        const noteId = activeIdRef.current;
-        if (!noteId) return;
-        const currentCount = activeNote?.attachments?.length || 0;
-        if (currentCount + files.length > MAX_ATTACHMENTS) {
-            setUploadError(`Maximum limit of ${MAX_ATTACHMENTS} attachments reached.`);
-            return;
-        }
-
+    /* ---- Attachments ----------------------------------------------- */
+    // Files are only validated and held in memory here; they are uploaded to the
+    // server together with the note when Create / Update is clicked.
+    const addFiles = files => {
+        if (!files.length) return;
         const errors = [];
-        const valid = [];
+        let valid = [];
         files.forEach(file => {
-            if (file.size > MAX_UPLOAD_SIZE) errors.push(`${file.name} exceeds the 50 MB limit.`);
-            else if (!ALLOWED_EXT.includes(getExt(file.name))) errors.push(`${file.name} isn’t a supported type.`);
-            else valid.push(file);
+            const ext = getExt(file.name);
+            const mimeOk = !file.type || ALLOWED_MIME.includes(file.type);
+            if (!ALLOWED_EXT.includes(ext) || !mimeOk) {
+                errors.push(`${file.name} is not a supported type (${TYPE_HINT}).`);
+            } else if (file.size > MAX_UPLOAD_SIZE) {
+                errors.push(`${file.name} exceeds the ${formatFileSize(MAX_UPLOAD_SIZE).replace('.00', '')} limit.`);
+            } else if (file.size === 0) {
+                errors.push(`${file.name} is empty.`);
+            } else {
+                valid.push(file);
+            }
         });
-        setUploadError(errors.length ? errors.join(' ') : null);
-
-        valid.forEach(file => {
-            const id = uid();
-            setUploads(prev => [...prev, { id, name: file.name, size: file.size, progress: 0 }]);
-            const reader = new FileReader();
-            reader.onprogress = (e) => {
-                if (!e.lengthComputable) return;
-                const progress = Math.min(99, Math.round((e.loaded / e.total) * 100));
-                setUploads(prev => prev.map(u => (u.id === id ? { ...u, progress } : u)));
-            };
-            reader.onerror = () => {
-                setUploads(prev => prev.filter(u => u.id !== id));
-                setUploadError(`Could not read ${file.name}.`);
-            };
-            reader.onload = async () => {
-                try {
-                    await putFile(id, new Blob([reader.result], { type: file.type || 'application/octet-stream' }));
-                    setNotes(prev => prev.map(n => (n.id === noteId
-                        ? { ...n, updatedAt: new Date().toISOString(), attachments: [...n.attachments, { id, name: file.name, size: file.size, mime: file.type }] }
-                        : n)));
-                    setUploads(prev => prev.map(u => (u.id === id ? { ...u, progress: 100 } : u)));
-                    setTimeout(() => setUploads(prev => prev.filter(u => u.id !== id)), 700);
-                } catch {
-                    setUploads(prev => prev.filter(u => u.id !== id));
-                    setUploadError(`Could not save ${file.name}. Storage may be full.`);
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        });
-    };
-
-    const removeAttachment = async (attachment) => {
-        await deleteFile(attachment.id).catch(() => { });
-        if (!activeNote) return;
-        setNotes(prev => prev.map(n => n.id === activeNote.id ? { ...n, attachments: n.attachments.filter(a => a.id !== attachment.id) } : n));
-    };
-
-    /* ---- Scheduling Handlers (Draft) ----------------------------------- */
-    const handleScheduleDateChange = (date) => {
-        const bsDate = extractBsDate(date);
-        if (!bsDate) {
-            setSchedError("Pick a valid future Nepali date.");
-            return;
+        const slots = Math.max(MAX_ATTACHMENTS - draftAttachments.length, 0);
+        if (valid.length > slots) {
+            errors.push(`Maximum limit of ${MAX_ATTACHMENTS} attachments reached.`);
+            valid = valid.slice(0, slots);
         }
-        let dueAt = draftDueAt;
-        if (draftScheduleTime) {
-            try {
-                dueAt = computeDueAt(bsDate, draftScheduleTime);
-                if (new Date(dueAt) <= new Date()) {
-                    setSchedError("Choose a future time (Nepal time).");
-                    return;
+        setUploadError(errors.join(' '));
+        if (valid.length) {
+            setDraftAttachments(previous => [...previous, ...valid.map(fileToDraft)].slice(0, MAX_ATTACHMENTS));
+        }
+    };
+
+    // Saved files are only removed from disk once the update succeeds (the server
+    // receives them in `removedAttachments`); new files are simply dropped.
+    const removeAttachment = attachment => setDraftAttachments(previous => previous.filter(item => item.key !== attachment.key));
+
+    /* ---- Schedule entries in the draft ----------------------------- */
+    const addSchedule = () => {
+        setValidationError(null);
+        setDraftSchedules(previous => [...previous, blankSchedule()]);
+    };
+    const updateSchedule = (key, field, value) => {
+        setValidationError(null);
+        setDraftSchedules(previous => previous.map(item => (item._key === key ? { ...item, [field]: value } : item)));
+    };
+    const removeDraftSchedule = key => {
+        setValidationError(null);
+        setDraftSchedules(previous => previous.filter(item => item._key !== key));
+    };
+
+    const setScheduledMode = enabled => {
+        setDraftIsScheduled(enabled);
+        setValidationError(null);
+        if (enabled && draftSchedules.length === 0) setDraftSchedules([blankSchedule()]);
+    };
+
+    /* ---- Save (create / update) ------------------------------------ */
+    const buildPayload = () => ({
+        userId: id,
+        title: draftTitle.trim(),
+        content: sanitizeHtml(editorRef.current?.innerHTML || draftContent),
+        isScheduled: draftIsScheduled,
+        schedules: draftIsScheduled ? draftSchedules.map(item => ({
+            label: String(item.label || '').trim(),
+            bsDate: extractBsDate(item.bsDate),
+            time: item.time ? normalizeScheduleTime(item.time) : '',
+        })) : [],
+    });
+
+    const validatePayload = payload => {
+        if (!payload.title) return { field: 'title', message: 'Note title is required.' };
+        if (!htmlToText(payload.content)) return { field: 'content', message: 'Note content is required.' };
+        if (!payload.userId) return { field: 'form', message: 'Authenticated user is unavailable.' };
+        if (draftAttachments.length > MAX_ATTACHMENTS) {
+            return { field: 'attachments', message: `You can attach up to ${MAX_ATTACHMENTS} files.` };
+        }
+        if (payload.isScheduled) {
+            if (!payload.schedules.length) return { field: 'schedules', message: 'Add at least one schedule entry.' };
+            for (let index = 0; index < payload.schedules.length; index += 1) {
+                const schedule = payload.schedules[index];
+                const draft = draftSchedules[index];
+                if (!schedule.label) return { field: 'label', scheduleIndex: index, message: 'Add a description.' };
+                if (!schedule.bsDate) return { field: 'date', scheduleIndex: index, message: 'Select a Bikram Sambat date.' };
+                if (!schedule.time) return { field: 'time', scheduleIndex: index, message: 'Select a time.' };
+                const dueAt = computeDueAt(schedule.bsDate, schedule.time);
+                if (!dueAt) return { field: 'time', scheduleIndex: index, message: 'The date or time is invalid.' };
+                const changed = scheduleSig(schedule.bsDate, schedule.time) !== draft?._orig;
+                const now = Date.now();
+                if (changed && new Date(dueAt).getTime() <= now) {
+                    if (schedule.bsDate === currentNepalBsDate(new Date(now))) {
+                        return { field: 'time', scheduleIndex: index, message: 'Select a time later than the current Nepal time.' };
+                    }
+                    return { field: 'time', scheduleIndex: index, message: 'Choose a future date and time (Nepal Time).' };
                 }
-            } catch {
-                setSchedError("Invalid date/time combination.");
-                return;
             }
         }
-        setSchedError(null);
-        setDraftScheduleDate(bsDate);
-        setDraftDueAt(dueAt);
+        return null;
     };
 
-    const handleScheduleTimeChange = (time) => {
-        if (!draftScheduleDate) {
-            setSchedError("Please select a Nepali date first.");
+    const handleSave = async () => {
+        if (actionPending || deleting) return;
+        const payload = buildPayload();
+        const error = validatePayload(payload);
+        if (error) {
+            setValidationError(error);
             return;
         }
-        let dueAt;
+        setValidationError(null);
+        const isUpdate = Boolean(editingId);
+
+        // Split the attachments into: kept on the server, new uploads, and removed.
+        const keptAttachments = draftAttachments.filter(item => !item.file);
+        const keptKeys = new Set(keptAttachments.map(item => item.key));
+        const newFiles = draftAttachments.filter(item => item.file).map(item => item.file);
+        const formData = buildNoteFormData({
+            ...payload,
+            keep: keptAttachments.map(item => item.raw),
+            removed: isUpdate ? (editingNote?.attachments || []).filter(raw => !keptKeys.has(attachmentKey(raw))) : [],
+            newFiles,
+        });
+
+        console.log('Sending newFiles:', newFiles.map(f => ({ name: f.name, type: f.type, size: f.size })));
+        setActionPending(isUpdate ? 'update' : 'create');
+        waitingNotify(isUpdate ? 'Updating note...' : 'Creating note...');
         try {
-            dueAt = computeDueAt(draftScheduleDate, time);
-            if (new Date(dueAt) <= new Date()) {
-                setSchedError("Choose a time in the future (Nepal time).");
-                return;
+            if (isUpdate) {
+                await ST_UpdateNote_.mutateAsync({ id: editingId, data: formData });
+            } else {
+                await ST_CreateNote_.mutateAsync(formData);
             }
-        } catch {
-            setSchedError("Invalid time format.");
-            return;
+            SuccessNotify(isUpdate ? 'Note updated successfully.' : 'Note created successfully.');
+            const fresh = await refreshNotes();
+            const saved = isUpdate && Array.isArray(fresh) ? fresh.find(note => getNoteId(note) === editingId) : null;
+            if (saved) {
+                // Reload from the server so new uploads become saved files (and aren't re-sent on the next save).
+                applyDraft(noteToDraft(saved), editingId);
+            } else {
+                applyDraft(emptyDraft(false), null);
+                setShowEditorMobile(false);
+            }
+        } catch (mutationError) {
+            ErrorNotify(mutationError?.response?.data?.message || mutationError?.message || (isUpdate ? 'Could not update the note.' : 'Could not create the note.'));
+        } finally {
+            setActionPending('');
         }
-        setSchedError(null);
-        setDraftScheduleTime(time);
-        setDraftDueAt(dueAt);
     };
 
-    const toggleDraftScheduledMode = (isScheduled) => {
-        setDraftIsScheduled(isScheduled);
-        if (!isScheduled) {
-            setDraftScheduleDate(null);
-            setDraftScheduleTime(null);
-            setDraftDueAt(null);
+    /* ---- Delete ----------------------------------------------------- */
+    const handleDelete = async noteIds => {
+        if (!noteIds.length || deleting || actionPending) return;
+        setDeleting(true);
+        waitingNotify(noteIds.length > 1 ? 'Deleting notes...' : 'Deleting note...');
+        try {
+            await ST_DeleteNote_.mutateAsync(noteIds);
+            SuccessNotify(noteIds.length > 1 ? 'Notes deleted successfully.' : 'Note deleted successfully.');
+            if (noteIds.includes(editingId)) {
+                applyDraft(emptyDraft(false), null);
+                setShowEditorMobile(false);
+            }
+            setSelectedNoteIds(previous => previous.filter(item => !noteIds.includes(item)));
+            await refreshNotes();
+        } catch (mutationError) {
+            ErrorNotify(mutationError?.response?.data?.message || mutationError?.message || 'Could not delete the note.');
+        } finally {
+            setDeleting(false);
         }
     };
 
-    const toggleNoteDone = (noteId) => {
-        const note = notes.find(n => n.id === noteId);
-        if (!note) return;
-        setNotes(prev => prev.map(n => n.id === noteId ? { ...n, done: !note.done, updatedAt: new Date().toISOString() } : n));
-    };
+    const askDeleteNotes = noteIds => setConfirm({
+        title: noteIds.length > 1 ? `Delete ${noteIds.length} notes?` : 'Delete this note?',
+        message: 'This permanently deletes the note, its schedules and its attachments.',
+        confirmLabel: 'Delete',
+        onConfirm: () => handleDelete(noteIds),
+    });
 
-    const removeNoteSchedule = (noteId) => {
-        setNotes(prev => prev.map(n => n.id === noteId ? { ...n, isScheduled: false, scheduleDate: null, scheduleTime: null, dueAt: null, done: false, updatedAt: new Date().toISOString() } : n));
-    };
+    const toggleSelectNote = noteId => setSelectedNoteIds(previous => (previous.includes(noteId) ? previous.filter(item => item !== noteId) : [...previous, noteId]));
+    const allVisibleSelected = visibleNotes.length > 0 && visibleNotes.every(item => selectedNoteIds.includes(item.id));
+    const toggleSelectAllNotes = () => setSelectedNoteIds(allVisibleSelected ? [] : visibleNotes.map(item => item.id));
 
-    const toggleSelectSchedule = (scheduleId) => {
-        setSelectedScheduleIds(prev =>
-            prev.includes(scheduleId) ? prev.filter(id => id !== scheduleId) : [...prev, scheduleId]
-        );
-    };
-
-    const deleteSelectedSchedules = () => {
-        if (selectedScheduleIds.length === 0) return;
-        setNotes(prev => prev.map(n => {
-            if (selectedScheduleIds.includes(n.id)) {
-                return { ...n, isScheduled: false, scheduleDate: null, scheduleTime: null, dueAt: null };
-            }
-            return {
-                ...n,
-                schedules: (n.schedules || []).filter(s => !selectedScheduleIds.includes(s.id))
-            };
-        }));
-        setSelectedScheduleIds([]);
-    };
-
-    const visibleNotes = useMemo(() => {
-        const q = search.trim().toLowerCase();
-        return [...notes]
-            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-            .filter(n => !q || `${n.title} ${htmlToText(n.content)}`.toLowerCase().includes(q));
-    }, [notes, search]);
-
-    const allSchedules = useMemo(() => {
-        const list = [];
-        notes.forEach(n => {
-            if (n.isScheduled && n.dueAt) {
-                list.push({
-                    id: n.id,
-                    noteId: n.id,
-                    label: n.title || 'Scheduling Note',
-                    bsDate: n.scheduleDate,
-                    time: n.scheduleTime || '00:00:00',
-                    dueAt: n.dueAt,
-                    done: n.done,
-                    noteTitle: n.title || 'Untitled note',
-                    isMainSchedule: true
-                });
-            }
-            (n.schedules || []).forEach(s => {
-                list.push({ ...s, noteId: n.id, noteTitle: n.title || 'Untitled note' });
-            });
-        });
-        return list.sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt));
+    useEffect(() => {
+        const valid = new Set(notes.map(getNoteId));
+        setSelectedNoteIds(previous => (previous.every(item => valid.has(item)) ? previous : previous.filter(item => valid.has(item))));
     }, [notes]);
 
-    const pendingCount = allSchedules.filter(s => !s.done).length;
+    /* ---- Remove schedules from the Schedule tab -------------------- */
+    const removeScheduleEntries = async targets => {
+        if (!targets.length || removingSchedules) return;
+        const byNote = new Map();
+        targets.forEach(target => byNote.set(target.noteId, [...(byNote.get(target.noteId) || []), target.index]));
+        if (byNote.has(editingId) && isDirty) {
+            ErrorNotify('Save or discard your changes to the open note before removing its schedules.');
+            return;
+        }
+        setRemovingSchedules(true);
+        waitingNotify('Removing schedule...');
+        let failed = 0;
+        let editingTouched = false;
+        for (const [noteId, indexes] of byNote) {
+            const note = notes.find(item => getNoteId(item) === noteId);
+            if (!note) continue;
+            const remaining = (note.schedules || []).filter((_, index) => !indexes.includes(index));
+            try {
+                // Only the schedules change: every saved attachment is kept, nothing is uploaded or deleted.
+                const formData = buildNoteFormData({
+                    userId: id,
+                    title: note.title || '',
+                    content: note.content || '',
+                    isScheduled: remaining.length > 0,
+                    schedules: remaining.map(item => ({
+                        label: String(item.label || ''),
+                        bsDate: extractBsDate(item.bsDate),
+                        time: normalizeScheduleTime(item.time),
+                    })),
+                    keep: Array.isArray(note.attachments) ? note.attachments : [],
+                });
+                await ST_UpdateNote_.mutateAsync({ id: noteId, data: formData });
+                if (noteId === editingId) editingTouched = true;
+            } catch {
+                failed += 1;
+            }
+        }
+        if (failed) ErrorNotify(`Could not update ${failed} note${failed > 1 ? 's' : ''}.`);
+        else SuccessNotify('Schedule removed successfully.');
+        const fresh = await refreshNotes();
+        if (editingTouched) {
+            // The open draft still lists the removed schedules, so reload it from the server.
+            const saved = Array.isArray(fresh) ? fresh.find(note => getNoteId(note) === editingId) : null;
+            if (saved) applyDraft(noteToDraft(saved), editingId);
+            else applyDraft(emptyDraft(false), null);
+        }
+        setRemovingSchedules(false);
+    };
+
+    /* ---- Render ------------------------------------------------------ */
+    const isBusy = Boolean(actionPending) || deleting;
+    const listLoading = useMe.isLoading || ST_GetNote_?.isPending;
+    const tabs = [
+        { id: 'notes', label: 'Notes' },
+        { id: 'schedule', label: `Schedule${pendingCount ? ` (${pendingCount})` : ''}` },
+    ];
 
     return (
         <div className="flex min-h-screen flex-col bg-white font-sans text-slate-800">
-            <header className="sticky top-0 z-35 border-b border-slate-200 bg-white">
-                <div className="mx-auto flex min-h-16 w-full flex-wrap items-center justify-between gap-3 py-2 px-4">
+            <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+                <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2 sm:px-4">
                     <div className="flex shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
-                        {[{ id: 'notes', label: 'Notes' }, { id: 'schedule', label: `Schedule${pendingCount ? ` (${pendingCount})` : ''}` }].map(tab => {
+                        {tabs.map(tab => {
                             const active = view === tab.id;
                             return (
                                 <MotionButton
                                     key={tab.id}
                                     onClick={() => setView(tab.id)}
                                     aria-pressed={active}
-                                    className={`relative whitespace-nowrap rounded-lg px-3 py-1.5 text-xs transition-colors duration-300 ${active ? 'font-bold text-white' : 'font-medium text-slate-600 hover:bg-slate-200/50 hover:text-slate-900'}`}
+                                    className={`relative whitespace-nowrap rounded-lg px-3 py-1.5 text-xs transition-colors ${active ? 'font-bold text-white' : 'font-medium text-slate-600 hover:bg-slate-200/50 hover:text-slate-900'}`}
                                 >
                                     {active && <motion.span layoutId="notes-view-pill" className={`absolute inset-0 rounded-lg ${GRADIENT}`} transition={softSpring} />}
                                     <span className="relative">{tab.label}</span>
@@ -1403,542 +1694,517 @@ export default function NotesScheduler() {
                         })}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <div className="hidden text-right sm:block" title="Current Nepal date and time">
-                            <p className="text-xs font-bold text-slate-800">{formatBsDate(now)}</p>
-                            <p className="text-[10px] font-extralight text-slate-500">{formatNepalTime(now)} · Nepal Time</p>
-                        </div>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <NepalClock className="hidden md:block" />
                         <MotionButton
-                            onClick={() => createNote(false)}
-                            disabled={isCreatingNote}
-                            className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white ${GRADIENT}`}
+                            onClick={() => startNewNote(false)}
+                            aria-label="New note"
+                            title="New note"
+                            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white ${GRADIENT}`}
                         >
-                            {isCreatingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <NoteIcon className="h-4 w-4" />}
-                            <span>{isCreatingNote ? 'Creating...' : 'New Note'}</span>
+                            <Plus className="h-4 w-4" />
+                            <span className="hidden sm:inline">New Note</span>
                         </MotionButton>
                         <MotionButton
-                            onClick={() => createNote(true)}
-                            disabled={isCreatingNote}
-                            className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-colors"
+                            onClick={() => startNewNote(true)}
+                            aria-label="New scheduled note"
+                            title="New scheduled note"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 transition-colors hover:bg-amber-100"
                         >
-                            {isCreatingNote ? <Loader2 className="h-4 w-4 animate-spin text-amber-600" /> : <Clock className="h-4 w-4 text-amber-600" />}
-                            <span>{isCreatingNote ? 'Creating...' : 'New Scheduled Note'}</span>
+                            <CalendarClock className="h-4 w-4 text-amber-600" />
+                            <span className="hidden sm:inline">New Scheduled Note</span>
                         </MotionButton>
                     </div>
                 </div>
             </header>
 
-            <main className="mx-auto w-full flex-1 mt-3">
+            <main className="mx-auto mt-3 w-full max-w-7xl flex-1 px-0 pb-8 sm:px-4">
                 {view === 'notes' ? (
-                    <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[320px_1fr]">
-                        <div className={`${showEditorMobile ? 'hidden md:flex' : 'flex'} h-[80vh] min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white xl:h-[85vh]`}>
-                            <div className="border-b border-slate-100 p-3 space-y-2">
+                    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-6">
+                        {/* ---------------- Note list ---------------- */}
+                        <aside className={`${showEditorMobile ? 'hidden lg:flex' : 'flex'} h-[calc(100vh-8rem)] min-h-[420px] flex-col overflow-hidden rounded-xl
+                         border border-slate-200 bg-white lg:sticky lg:top-[4.75rem] lg:h-[calc(100vh-6.5rem)]`}>
+                            <div className="space-y-2 border-b border-slate-100 p-3">
                                 <div className="relative">
-                                    <svg className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                    <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -mt-2 text-slate-400" aria-hidden="true" />
                                     <input
                                         type="search"
                                         value={search}
-                                        onChange={e => setSearch(e.target.value)}
+                                        onChange={event => setSearch(event.target.value)}
                                         placeholder="Search notes..."
                                         aria-label="Search notes"
-                                        className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs font-medium transition-all duration-300 placeholder:font-extralight focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                        className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-xs font-medium transition-all placeholder:font-extralight focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                                     />
                                 </div>
                                 {visibleNotes.length > 0 && (
                                     <div className="flex items-center justify-between px-1 text-[11px]">
-                                        <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 font-medium">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedNoteIds.length === visibleNotes.length && visibleNotes.length > 0}
-                                                onChange={toggleSelectAllNotes}
-                                                className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
-                                            />
-                                            <span>Select all</span>
+                                        <label className="flex cursor-pointer items-center gap-2 font-medium text-slate-600">
+                                            <Checkbox checked={allVisibleSelected} onChange={toggleSelectAllNotes} label="Select all notes" />
+                                            Select all
                                         </label>
                                         {selectedNoteIds.length > 0 && (
                                             <button
                                                 type="button"
-                                                onClick={deleteSelectedNotes}
-                                                className="font-bold text-red-600 hover:underline cursor-pointer"
+                                                onClick={() => askDeleteNotes(selectedNoteIds)}
+                                                disabled={isBusy}
+                                                className="inline-flex cursor-pointer items-center gap-1 font-bold text-red-600 hover:underline disabled:opacity-50"
                                             >
-                                                Delete ({selectedNoteIds.length})
+                                                <Trash2 className="h-3 w-3" /> Delete ({selectedNoteIds.length})
                                             </button>
                                         )}
                                     </div>
                                 )}
                             </div>
+
                             <div className="min-h-0 flex-1 overflow-y-auto">
-                                {isLoading ? <NoteListSkeleton /> : (
-                                    <motion.ul variants={listStagger} initial="hidden" animate="show" className="space-y-2 p-3">
+                                {listLoading ? <NoteListSkeleton /> : ST_GetNote_?.isError ? (
+                                    <div className="m-3 rounded-xl border border-red-200 bg-red-50 p-5 text-center">
+                                        <p className="text-xs font-bold text-red-700">Could not load notes.</p>
+                                        <button type="button" onClick={refreshNotes} className="mt-3 cursor-pointer rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700">Try again</button>
+                                    </div>
+                                ) : (
+                                    <ul className="space-y-2 p-3">
                                         {visibleNotes.length === 0 && (
-                                            <li className="py-10 text-center text-xs font-extralight text-slate-500">
-                                                {notes.length === 0 ? 'No notes yet. Create your first note.' : 'No notes match your search.'}
+                                            <li className="px-4 py-10 text-center">
+                                                <StickyNote className="mx-auto h-8 w-8 text-amber-500" />
+                                                <p className="mt-3 text-xs font-extralight text-slate-500">
+                                                    {notes.length === 0 ? 'No notes yet. Create your first note.' : 'No notes match your search.'}
+                                                </p>
                                             </li>
                                         )}
                                         <AnimatePresence initial={false}>
-                                            {visibleNotes.map(note => {
-                                                const active = note.id === activeId;
-                                                const isSelected = selectedNoteIds.includes(note.id);
+                                            {visibleNotes.map(item => {
+                                                const active = item.id === editingId;
+                                                const noteEntries = entriesByNote.get(item.id) || [];
                                                 return (
-                                                    <motion.li key={note.id} variants={fadeUp} exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.25 } }} className="flex items-center gap-2">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isSelected}
-                                                            onChange={() => toggleSelectNote(note.id)}
-                                                            aria-label={`Select ${note.title || 'Untitled note'}`}
-                                                            className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 shrink-0 ml-1 cursor-pointer"
-                                                        />
-                                                        <motion.button
+                                                    <motion.li
+                                                        key={item.id}
+                                                        layout="position"
+                                                        initial={{ opacity: 0, y: 8 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        exit={{ opacity: 0, scale: 0.95 }}
+                                                        transition={{ duration: 0.25, ease: EASE_OUT }}
+                                                        className="flex items-start gap-2"
+                                                    >
+                                                        <div className="pl-1 pt-3.5">
+                                                            <Checkbox checked={selectedNoteIds.includes(item.id)} onChange={() => toggleSelectNote(item.id)} label={`Select ${item.note.title || 'Untitled note'}`} />
+                                                        </div>
+                                                        <button
                                                             type="button"
-                                                            onClick={() => selectNote(note.id)}
-                                                            whileHover={{ y: -2 }}
-                                                            transition={softSpring}
-                                                            className={`w-full cursor-pointer rounded-xl border p-3 text-left transition-colors duration-300 ${active ? 'border-amber-400 bg-amber-50/40' : 'border-slate-200 bg-white hover:border-amber-400'}`}
+                                                            onClick={() => openNote(item.id)}
+                                                            className={`w-full min-w-0 cursor-pointer rounded-xl border p-3 text-left transition-colors ${active ? 'border-amber-400 bg-amber-50/50' : 'border-slate-200 bg-white hover:border-amber-300'}`}
                                                         >
                                                             <span className="flex items-center justify-between gap-2">
-                                                                <span className={`truncate text-xs font-bold ${active ? 'text-amber-700' : 'text-slate-800'}`}>
-                                                                    {note.title || 'Untitled note'}
+                                                                <span className={`truncate text-xs font-bold ${active ? 'text-amber-700' : 'text-slate-800'}`}>{item.note.title || 'Untitled note'}</span>
+                                                                {noteEntries.length > 0 && <NextScheduleBadge entries={noteEntries} doneMap={scheduleState} />}
+                                                            </span>
+                                                            <span className="mt-1 line-clamp-2 block text-[11px] font-medium text-slate-500">{item.text || 'No content'}</span>
+                                                            <span className="mt-1.5 flex items-center justify-between gap-2 text-[11px] font-extralight text-slate-500">
+                                                                <span className="truncate">{formatBsStamp(item.note.updatedAt || item.note.createdAt)}</span>
+                                                                <span className="flex shrink-0 items-center gap-2">
+                                                                    {noteEntries.length > 0 && <span className="inline-flex items-center gap-0.5"><CalendarClock className="h-3 w-3" />{noteEntries.length}</span>}
+                                                                    {item.note.attachments?.length > 0 && <span className="inline-flex items-center gap-0.5"><Paperclip className="h-3 w-3" />{item.note.attachments.length}</span>}
                                                                 </span>
-                                                                {note.isScheduled && note.dueAt && (
-                                                                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                                                                        ⏳ {getRemainingTimeText(note.dueAt, now)}
-                                                                    </span>
-                                                                )}
                                                             </span>
-                                                            <span className="mt-1 line-clamp-2 block text-[11px] font-medium text-slate-500">{htmlToText(note.content) || 'No content'}</span>
-                                                            <span className="mt-1.5 flex items-center justify-between text-[10px] font-extralight text-slate-500">
-                                                                <span>{formatBsStamp(note.updatedAt)}</span>
-                                                                {note.attachments?.length > 0 && <span>📎 {note.attachments.length}</span>}
-                                                            </span>
-                                                        </motion.button>
+                                                        </button>
                                                     </motion.li>
                                                 );
                                             })}
                                         </AnimatePresence>
-                                    </motion.ul>
+                                    </ul>
                                 )}
                             </div>
-                        </div>
+                        </aside>
 
-                        <div className={`${showEditorMobile ? 'flex' : 'hidden md:flex'} h-[80vh] min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white xl:h-[85vh]`}>
-                            {isLoading ? <EditorSkeleton /> : !activeNote ? (
-                                <motion.div variants={fadeUp} initial="hidden" animate="show" className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-                                    <div className="rounded-2xl bg-amber-50 p-4 text-amber-600">
-                                        <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                    </div>
-                                    <h3 className="text-base font-bold text-slate-900">Select or create a note</h3>
-                                    <p className="max-w-xs text-xs font-extralight text-slate-500">Choose between Non-Scheduling and Scheduling modes, attach files, and format your thoughts.</p>
-                                    <div className="flex gap-2">
-                                        <MotionButton onClick={() => createNote(false)} disabled={isCreatingNote} className={`rounded-xl px-4 py-2 text-xs font-bold text-white ${GRADIENT}`}>
-                                            {isCreatingNote ? 'Creating...' : 'New Note'}
-                                        </MotionButton>
-                                        <MotionButton onClick={() => createNote(true)} disabled={isCreatingNote} className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100">
-                                            {isCreatingNote ? 'Creating...' : 'New Scheduled Note'}
-                                        </MotionButton>
-                                    </div>
-                                </motion.div>
-                            ) : (
+                        {/* ---------------- Editor ---------------- */}
+                        <section className={`${showEditorMobile ? 'block' : 'hidden lg:block'} min-w-0 rounded-2xl border border-slate-200 bg-white`}>
+                            {useMe.isLoading ? <EditorSkeleton /> : (
                                 <>
-                                    <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
                                         <div className="flex min-w-0 items-center gap-2">
-                                            <MotionButton onClick={() => setShowEditorMobile(false)} aria-label="Back to notes" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 md:hidden cursor-pointer">
-                                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                                            <MotionButton onClick={() => setShowEditorMobile(false)} aria-label="Back to notes" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden">
+                                                <ArrowLeft className="h-4 w-4" />
                                             </MotionButton>
-                                            <div className="min-w-0 text-[10px] font-extralight text-slate-500">
-                                                <p className="truncate">Created {formatBsStamp(activeNote.createdAt)}</p>
-                                                <p className="truncate">
-                                                    {savedAt ? `Last saved ${formatNepalTime(savedAt)}` : 'Unsaved draft'}
-                                                    {' · '}Edited {formatBsStamp(activeNote.updatedAt)}
+                                            <div className="min-w-0">
+                                                <h1 className="truncate text-sm font-bold text-slate-900 sm:text-base">{editingId ? 'Edit Note' : 'Create Note'}</h1>
+                                                <p className="truncate text-[11px] font-extralight text-slate-500">
+                                                    {editingNote
+                                                        ? `Created ${formatBsStamp(editingNote.createdAt)} · Edited ${formatBsStamp(editingNote.updatedAt)}`
+                                                        : 'New note · not saved yet'}
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            {/* Explicit Save/Update Button */}
-                                            <MotionButton
-                                                onClick={handleExplicitUpdate}
-                                                disabled={isUpdatingNote}
-                                                className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white ${GRADIENT}`}
-                                            >
-                                                {isUpdatingNote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                                                <span>{isUpdatingNote ? 'Saving...' : 'Save Note'}</span>
-                                            </MotionButton>
 
-                                            {/* Mode Selector Toggle */}
-                                            <div className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {isDirty && (
+                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+                                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Unsaved
+                                                </span>
+                                            )}
+                                            <div className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-1" role="group" aria-label="Note type">
                                                 <button
                                                     type="button"
-                                                    disabled={isUpdatingNote}
-                                                    onClick={() => toggleDraftScheduledMode(false)}
-                                                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer ${!draftIsScheduled ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                                                    disabled={isBusy}
+                                                    onClick={() => setScheduledMode(false)}
+                                                    aria-pressed={!draftIsScheduled}
+                                                    className={`cursor-pointer rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors sm:text-xs ${!draftIsScheduled ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
                                                 >
-                                                    Non-Scheduling Note
+                                                    Non-Scheduling
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    disabled={isUpdatingNote}
-                                                    onClick={() => toggleDraftScheduledMode(true)}
-                                                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer ${draftIsScheduled ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                                                    disabled={isBusy}
+                                                    onClick={() => setScheduledMode(true)}
+                                                    aria-pressed={draftIsScheduled}
+                                                    className={`cursor-pointer rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors sm:text-xs ${draftIsScheduled ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
                                                 >
-                                                    Scheduling Note
+                                                    Scheduling
                                                 </button>
                                             </div>
-
-                                            <AnimatePresence mode="wait" initial={false}>
-                                                {confirmDeleteId === activeNote.id ? (
-                                                    <motion.div key="confirm" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }} className="flex items-center gap-1">
-                                                        <MotionButton onClick={() => deleteNote(activeNote.id)} className="rounded-lg bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white cursor-pointer">Delete</MotionButton>
-                                                        <MotionButton onClick={() => setConfirmDeleteId(null)} className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 cursor-pointer">Cancel</MotionButton>
-                                                    </motion.div>
-                                                ) : (
-                                                    <motion.div key="delete" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                                                        <MotionButton onClick={() => setConfirmDeleteId(activeNote.id)} aria-label="Delete note" title="Delete note" className="rounded-lg p-2 text-slate-400 transition-colors duration-300 hover:bg-slate-100 hover:text-red-600 cursor-pointer">
-                                                            <motion.svg variants={iconVariants} transition={softSpring} className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></motion.svg>
-                                                        </MotionButton>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
+                                            {editingId && (
+                                                <MotionButton
+                                                    onClick={() => askDeleteNotes([editingId])}
+                                                    disabled={isBusy}
+                                                    aria-label="Delete note"
+                                                    title="Delete note"
+                                                    className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                                >
+                                                    {deleting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                                </MotionButton>
+                                            )}
                                         </div>
                                     </div>
 
-                                    <div className="min-h-0 flex-1 overflow-y-auto">
-                                        <motion.div key={activeNote.id} variants={stagger} initial="hidden" animate="show" className="space-y-5 p-4 sm:p-5">
-                                            <motion.div variants={fadeUp}>
-                                                <input
-                                                    ref={titleRef}
-                                                    value={draftTitle}
-                                                    onChange={e => setDraftTitle(e.target.value)}
-                                                    placeholder="Note title (required)"
-                                                    aria-label="Note title"
-                                                    className="w-full border-b border-transparent bg-transparent pb-1 text-xl font-bold text-slate-900 transition-colors duration-300 placeholder:font-extralight placeholder:text-slate-300 focus:border-amber-400 focus:outline-none"
-                                                />
-                                            </motion.div>
+                                    <div className="space-y-5 p-4 sm:p-5">
+                                        <div>
+                                            <label htmlFor="note-title" className="mb-1.5 block text-xs font-bold text-slate-700">
+                                                Note title <span className="text-red-600">*</span>
+                                            </label>
+                                            <input
+                                                id="note-title"
+                                                ref={titleRef}
+                                                value={draftTitle}
+                                                onChange={event => {
+                                                    setValidationError(null);
+                                                    setDraftTitle(event.target.value);
+                                                }}
+                                                placeholder="Enter a clear note title"
+                                                className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-900 outline-none transition-colors placeholder:font-extralight placeholder:text-slate-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                            />
+                                            <InlineMessage>{validationError?.field === 'title' ? validationError.message : ''}</InlineMessage>
+                                        </div>
 
-                                            {/* Scheduling Fields (ONLY shown in Scheduling Note mode) */}
-                                            <AnimatePresence>
-                                                {draftIsScheduled && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, height: 0 }}
-                                                        animate={{ opacity: 1, height: 'auto' }}
-                                                        exit={{ opacity: 0, height: 0 }}
-                                                        className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 space-y-3"
-                                                    >
-                                                        <div className="flex items-center justify-between">
-                                                            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
-                                                                <Clock className="h-3.5 w-3.5 text-amber-600" />
-                                                                <span>Schedule Details & Countdown</span>
-                                                            </h4>
-                                                            <span className="text-[10px] font-extralight text-slate-500">Nepal Time (UTC+5:45)</span>
-                                                        </div>
-
-                                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                                            <div>
-                                                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Nepali Future Date (BS)</label>
-                                                                <NepaliDatePickerUI
-                                                                    value={draftScheduleDate}
-                                                                    onChange={handleScheduleDateChange}
-                                                                    placeholder="Select future date"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Time (HH:MM:SS 12-Hour)</label>
-                                                                <TimePickerUI
-                                                                    value={draftScheduleTime}
-                                                                    onChange={handleScheduleTimeChange}
-                                                                    placeholder="Select 12-hour time"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        {draftDueAt && (
-                                                            <div className="rounded-lg bg-amber-100/60 px-3 py-2 text-xs font-bold text-amber-900 flex items-center justify-between">
-                                                                <span>⏳ Time remaining to start:</span>
-                                                                <span className="font-mono text-amber-700">{getRemainingTimeText(draftDueAt, now)}</span>
-                                                            </div>
-                                                        )}
-                                                        <InlineMessage>{schedError}</InlineMessage>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-
-                                            <motion.div variants={fadeUp}>
-                                                <div
-                                                    onDragEnter={e => { e.preventDefault(); setIsDragging(true); }}
-                                                    onDragOver={e => e.preventDefault()}
-                                                    onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setIsDragging(false); }}
-                                                    onDrop={e => { e.preventDefault(); setIsDragging(false); if (e.dataTransfer.files?.length) startUpload(Array.from(e.dataTransfer.files)); }}
-                                                    className={`relative overflow-hidden rounded-xl border bg-white transition-shadow duration-300 focus-within:ring-2 focus-within:ring-amber-500 ${isDragging ? 'border-amber-500 ring-2 ring-amber-400/60' : 'border-slate-200'}`}
+                                        {/* Scheduling fields (Scheduling mode only) */}
+                                        <AnimatePresence initial={false}>
+                                            {draftIsScheduled && (
+                                                <motion.div
+                                                    key="schedule-block"
+                                                    initial={{ opacity: 0, y: -8 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -8 }}
+                                                    transition={{ duration: 0.25, ease: EASE_OUT }}
+                                                    className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/40 p-3 sm:p-4"
                                                 >
-                                                    <input
-                                                        ref={fileInputRef}
-                                                        type="file"
-                                                        multiple
-                                                        accept={ACCEPT}
-                                                        onChange={e => { const files = Array.from(e.target.files || []); if (files.length) startUpload(files); e.target.value = ''; }}
-                                                        className="sr-only"
-                                                        tabIndex={-1}
-                                                    />
-                                                    <AnimatePresence>
-                                                        {isDragging && (
-                                                            <motion.div
-                                                                initial={{ opacity: 0 }}
-                                                                animate={{ opacity: 1 }}
-                                                                exit={{ opacity: 0 }}
-                                                                transition={{ duration: 0.2 }}
-                                                                className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-amber-50/90"
-                                                            >
-                                                                <p className="text-xs font-bold text-amber-700">Drop files to attach to this note</p>
-                                                            </motion.div>
-                                                        )}
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <div>
+                                                            <h2 className="flex items-center gap-1.5 text-sm font-bold text-amber-800">
+                                                                <Clock className="h-3.5 w-3.5 text-amber-600" /> Schedule details &amp; countdown
+                                                            </h2>
+                                                            <p className="text-[11px] font-extralight text-slate-500">Nepal Time (UTC+5:45) · reminders at 30m, 15m, 5m and the due time</p>
+                                                        </div>
+                                                        <MotionButton onClick={addSchedule} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-50">
+                                                            <CalendarPlus className="h-3.5 w-3.5" /> Add schedule
+                                                        </MotionButton>
+                                                    </div>
+                                                    <InlineMessage>{validationError?.field === 'schedules' ? validationError.message : ''}</InlineMessage>
+
+                                                    {draftSchedules.length === 0 && (
+                                                        <p className="rounded-lg border border-dashed border-amber-300 bg-white p-4 text-center text-xs text-slate-500">No schedule entries yet. Add one to set a date and time.</p>
+                                                    )}
+
+                                                    <AnimatePresence initial={false}>
+                                                        {draftSchedules.map((schedule, index) => {
+                                                            const dueAt = computeDueAt(extractBsDate(schedule.bsDate), schedule.time);
+                                                            const scheduleError = validationError?.scheduleIndex === index ? validationError : null;
+                                                            return (
+                                                                <motion.div
+                                                                    key={schedule._key}
+                                                                    initial={{ opacity: 0, y: 8 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    exit={{ opacity: 0, scale: 0.98 }}
+                                                                    transition={{ duration: 0.2 }}
+                                                                    className="rounded-xl border border-amber-200 bg-white p-3 sm:p-4"
+                                                                >
+                                                                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                                                        <p className="flex items-center gap-1.5 text-xs font-bold text-amber-800">
+                                                                            <CalendarClock className="h-3.5 w-3.5 text-amber-600" /> Schedule {index + 1}
+                                                                        </p>
+                                                                        <div className="flex items-center gap-2">
+                                                                            {dueAt && (
+                                                                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-800">
+                                                                                    <Clock className="h-3 w-3" />
+                                                                                    <Countdown dueAt={dueAt} />
+                                                                                </span>
+                                                                            )}
+                                                                            <MotionButton onClick={() => removeDraftSchedule(schedule._key)} aria-label={`Remove schedule ${index + 1}`} className="rounded-lg px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50">
+                                                                                Remove
+                                                                            </MotionButton>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                                        <div className="sm:col-span-2">
+                                                                            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Description</label>
+                                                                            <input
+                                                                                value={schedule.label}
+                                                                                onChange={event => updateSchedule(schedule._key, 'label', event.target.value)}
+                                                                                placeholder="What is this schedule for?"
+                                                                                className="h-10 w-full rounded-xl border border-slate-200 px-3 text-xs font-medium outline-none transition-colors placeholder:font-extralight focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                                                                            />
+                                                                            <InlineMessage>{scheduleError?.field === 'label' ? scheduleError.message : ''}</InlineMessage>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Nepali date (BS)</label>
+                                                                            <NepaliDateInput
+                                                                                value={schedule.bsDate}
+                                                                                onChange={value => updateSchedule(schedule._key, 'bsDate', extractBsDate(value))}
+                                                                                placeholder="Select BS date"
+                                                                            />
+                                                                            <InlineMessage>{scheduleError?.field === 'date' ? scheduleError.message : ''}</InlineMessage>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">Time (12-hour)</label>
+                                                                            <TimePickerUI
+                                                                                value={schedule.time}
+                                                                                onChange={value => updateSchedule(schedule._key, 'time', value)}
+                                                                                placeholder="Select time"
+                                                                            />
+                                                                            <InlineMessage>{scheduleError?.field === 'time' ? scheduleError.message : ''}</InlineMessage>
+                                                                        </div>
+                                                                    </div>
+                                                                </motion.div>
+                                                            );
+                                                        })}
                                                     </AnimatePresence>
-                                                    <div className="space-y-2 border-b border-slate-200 bg-slate-50 p-2" role="toolbar" aria-label="Text formatting">
-                                                        <div className="flex flex-wrap items-center gap-1">
-                                                            <select
-                                                                defaultValue=""
-                                                                aria-label="Font style"
-                                                                onChange={e => { const f = FONT_FAMILIES[Number(e.target.value)]; if (f) wrapSelection({ 'font-family': f.css }); e.target.value = ''; }}
-                                                                className="cursor-pointer rounded-md border border-slate-200 bg-white px-1.5 py-1 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                                            >
-                                                                <option value="" disabled>Font style</option>
-                                                                {FONT_FAMILIES.map((f, i) => <option key={f.label} value={i} style={{ fontFamily: f.css }}>{f.label}</option>)}
-                                                            </select>
-                                                            <MotionButton
-                                                                onClick={() => fileInputRef.current?.click()}
-                                                                disabled={(activeNote.attachments?.length || 0) >= MAX_ATTACHMENTS}
-                                                                aria-label="Attach files"
-                                                                title={`Attach files (max ${MAX_ATTACHMENTS} files, 50 MB each)`}
-                                                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors duration-300 hover:border-amber-400 hover:text-amber-700 cursor-pointer disabled:opacity-50"
-                                                            >
-                                                                <motion.svg variants={iconVariants} transition={softSpring} className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                                                </motion.svg>
-                                                                Attach ({activeNote.attachments?.length || 0}/{MAX_ATTACHMENTS})
-                                                            </MotionButton>
-                                                            <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
-                                                            {[...FORMAT_TOOLS, ...BLOCK_TOOLS].map(tool => (
-                                                                <MotionButton
-                                                                    key={tool.command}
-                                                                    aria-label={tool.label}
-                                                                    title={tool.label}
-                                                                    aria-pressed={Boolean(formattingState[tool.command])}
-                                                                    onMouseDown={e => { e.preventDefault(); exec(tool.command); }}
-                                                                    className={`rounded-md px-2 py-1 text-xs transition-colors duration-300 cursor-pointer ${formattingState[tool.command] ? 'bg-amber-100 font-bold text-amber-800' : 'font-medium text-slate-700 hover:bg-white hover:text-amber-700'} ${tool.className || ''}`}
-                                                                >
-                                                                    {tool.text}
-                                                                </MotionButton>
-                                                            ))}
-                                                        </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
 
-                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                                                            <div className="flex items-center gap-1" role="group" aria-label="Text colour">
-                                                                <span className="text-[10px] font-extralight text-slate-500">Text</span>
-                                                                {SWATCHES.map(c => (
-                                                                    <motion.button
-                                                                        key={c}
-                                                                        type="button"
-                                                                        aria-label={`Text colour ${c}`}
-                                                                        whileHover={{ scale: 1.15 }}
-                                                                        whileTap={{ scale: 0.9 }}
-                                                                        transition={softSpring}
-                                                                        onMouseDown={e => { e.preventDefault(); exec('foreColor', c); }}
-                                                                        className="h-5 w-5 cursor-pointer rounded-full ring-1 ring-slate-200"
-                                                                        style={{ backgroundColor: c }}
-                                                                    />
-                                                                ))}
-                                                                <input
-                                                                    type="color"
-                                                                    aria-label="Custom text colour"
-                                                                    onChange={e => exec('foreColor', e.target.value)}
-                                                                    className="h-5 w-6 cursor-pointer rounded border-0 bg-transparent p-0"
-                                                                />
-                                                            </div>
-                                                            <div className="flex items-center gap-1" role="group" aria-label="Highlight colour">
-                                                                <span className="text-[10px] font-extralight text-slate-500">Highlight</span>
-                                                                {HIGHLIGHTS.map(c => (
-                                                                    <motion.button
-                                                                        key={c}
-                                                                        type="button"
-                                                                        aria-label={`Highlight ${c}`}
-                                                                        whileHover={{ scale: 1.15 }}
-                                                                        whileTap={{ scale: 0.9 }}
-                                                                        transition={softSpring}
-                                                                        onMouseDown={e => { e.preventDefault(); exec('hiliteColor', c); }}
-                                                                        className="h-5 w-5 cursor-pointer rounded-md ring-1 ring-slate-200"
-                                                                        style={{ backgroundColor: c }}
-                                                                    />
-                                                                ))}
-                                                            </div>
-                                                        </div>
+                                        {/* Rich-text editor */}
+                                        <div>
+                                            <label className="mb-1.5 block text-xs font-bold text-slate-700">
+                                                Note content <span className="text-red-600">*</span>
+                                            </label>
+                                            <div
+                                                onDragEnter={event => { if (hasFiles(event)) { event.preventDefault(); setIsDragging(true); } }}
+                                                onDragOver={event => { if (hasFiles(event)) event.preventDefault(); }}
+                                                onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget)) setIsDragging(false); }}
+                                                onDrop={event => {
+                                                    if (!hasFiles(event)) return;
+                                                    event.preventDefault();
+                                                    setIsDragging(false);
+                                                    addFiles(Array.from(event.dataTransfer.files || []));
+                                                }}
+                                                className={`relative overflow-hidden rounded-xl border bg-white transition-shadow focus-within:ring-2 focus-within:ring-amber-100 ${isDragging ? 'border-amber-500 ring-2 ring-amber-200' : 'border-slate-200 focus-within:border-amber-400'}`}
+                                            >
+                                                <input
+                                                    ref={fileInputRef}
+                                                    type="file"
+                                                    multiple
+                                                    accept={ACCEPT}
+                                                    onChange={event => { addFiles(Array.from(event.target.files || [])); event.target.value = ''; }}
+                                                    className="sr-only"
+                                                    tabIndex={-1}
+                                                />
+                                                <AnimatePresence>
+                                                    {isDragging && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0 }}
+                                                            animate={{ opacity: 1 }}
+                                                            exit={{ opacity: 0 }}
+                                                            className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-amber-50/90"
+                                                        >
+                                                            <p className="text-xs font-bold text-amber-700">Drop files to attach to this note</p>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
 
-                                                        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Font effects">
-                                                            <span className="mr-1 text-[10px] font-extralight text-slate-500">Effects</span>
-                                                            {FONT_EFFECTS.map(fx => (
-                                                                <MotionButton
-                                                                    key={fx.id}
-                                                                    onMouseDown={e => { e.preventDefault(); wrapSelection(fx.styles); }}
-                                                                    className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700 transition-colors duration-300 hover:border-amber-400 hover:text-amber-700 cursor-pointer"
-                                                                >
-                                                                    {fx.label}
-                                                                </MotionButton>
-                                                            ))}
+                                                <div className="space-y-2 border-b border-slate-200 bg-slate-50 p-2" role="toolbar" aria-label="Text formatting">
+                                                    <div className="flex flex-wrap items-center gap-1">
+                                                        <MotionButton
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            disabled={draftAttachments.length >= MAX_ATTACHMENTS}
+                                                            aria-label="Attach files"
+                                                            title={`Attach files (max ${MAX_ATTACHMENTS} files, ${formatFileSize(MAX_UPLOAD_SIZE).replace('.00', '')} each · ${TYPE_HINT})`}
+                                                            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition-colors hover:border-amber-400 hover:text-amber-700"
+                                                        >
+                                                            <Paperclip className="h-3.5 w-3.5" />
+                                                            Attach ({draftAttachments.length}/{MAX_ATTACHMENTS})
+                                                        </MotionButton>
+                                                        <span className="mx-1 hidden h-5 w-px bg-slate-200 sm:block" aria-hidden="true" />
+                                                        {[...FORMAT_TOOLS, ...BLOCK_TOOLS].map(tool => (
                                                             <MotionButton
-                                                                onMouseDown={e => { e.preventDefault(); exec('removeFormat'); }}
-                                                                className="rounded-md px-2 py-0.5 text-[11px] font-medium text-red-600 transition-colors duration-300 hover:bg-red-50 cursor-pointer"
+                                                                key={tool.command}
+                                                                aria-label={tool.label}
+                                                                title={tool.label}
+                                                                aria-pressed={Boolean(formattingState[tool.command])}
+                                                                onMouseDown={event => { event.preventDefault(); exec(tool.command); }}
+                                                                className={`h-8 min-w-8 rounded-md px-2 text-xs transition-colors ${formattingState[tool.command] ? 'bg-amber-100 font-bold text-amber-800' : 'font-medium text-slate-700 hover:bg-white hover:text-amber-700'} ${tool.className || ''}`}
                                                             >
-                                                                Clear style
+                                                                {tool.text}
                                                             </MotionButton>
-                                                        </div>
-                                                        <InlineMessage tone="info">{styleHint}</InlineMessage>
+                                                        ))}
                                                     </div>
 
-                                                    <div
-                                                        ref={editorRef}
-                                                        contentEditable
-                                                        suppressContentEditableWarning
-                                                        role="textbox"
-                                                        aria-label="Note content"
-                                                        aria-multiline="true"
-                                                        data-placeholder="Start writing your note / description (required)…"
-                                                        onInput={() => {
-                                                            if (editorRef.current) {
-                                                                setDraftContent(sanitizeHtml(editorRef.current.innerHTML));
-                                                            }
-                                                        }}
-                                                        onKeyUp={readFormatting}
-                                                        onMouseUp={readFormatting}
-                                                        style={{ fontFamily: "'Poppins', 'Noto Sans Devanagari', sans-serif" }}
-                                                        className="min-h-[180px] max-h-[320px] cursor-text overflow-y-auto p-4 text-sm font-medium leading-relaxed text-slate-800 focus:outline-none empty:before:font-extralight empty:before:text-slate-300 empty:before:content-[attr(data-placeholder)] [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
-                                                    />
-
-                                                    {(uploadError || uploads.length > 0 || (activeNote.attachments?.length || 0) > 0) && (
-                                                        <div className="border-t border-slate-200 bg-slate-50/60 p-3">
-                                                            <InlineMessage>{uploadError}</InlineMessage>
-                                                            {uploads.length > 0 && (
-                                                                <ul className="mb-2 space-y-2" aria-label="Uploads in progress">
-                                                                    {uploads.map(u => (
-                                                                        <li key={u.id} className="rounded-xl border border-slate-200 bg-white p-3">
-                                                                            <div className="flex items-center justify-between gap-2">
-                                                                                <p className="truncate text-xs font-bold text-slate-700">{u.name}</p>
-                                                                                <span className="shrink-0 text-[10px] font-medium text-slate-500">
-                                                                                    {u.progress === 100 ? (
-                                                                                        <span className="inline-flex items-center gap-1 text-emerald-600">Complete <Check className="h-3.5 w-3.5 stroke-[2.5]" aria-hidden="true" /></span>
-                                                                                    ) : `${u.progress}%`}
-                                                                                </span>
-                                                                            </div>
-                                                                            <ProgressBar value={u.progress} complete={u.progress === 100} label={`Uploading ${u.name}`} />
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            )}
-                                                            {(activeNote.attachments?.length || 0) > 0 && (
-                                                                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label="Note attachments">
-                                                                    <AnimatePresence initial={false}>
-                                                                        {activeNote.attachments.map(a => (
-                                                                            <AttachmentCard key={a.id} attachment={a} onOpen={setPreviewAttachment} onRemove={removeAttachment} />
-                                                                        ))}
-                                                                    </AnimatePresence>
-                                                                </ul>
-                                                            )}
+                                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                                                        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Text colour">
+                                                            <span className="text-[11px] font-extralight text-slate-500">Text</span>
+                                                            {SWATCHES.map(color => (
+                                                                <motion.button
+                                                                    key={color}
+                                                                    type="button"
+                                                                    aria-label={`Text colour ${color}`}
+                                                                    whileHover={{ scale: 1.15 }}
+                                                                    whileTap={{ scale: 0.9 }}
+                                                                    transition={softSpring}
+                                                                    onMouseDown={event => { event.preventDefault(); exec('foreColor', color); }}
+                                                                    className="h-5 w-5 cursor-pointer rounded-full ring-1 ring-slate-200"
+                                                                    style={{ backgroundColor: color }}
+                                                                />
+                                                            ))}
+                                                            <input
+                                                                type="color"
+                                                                aria-label="Custom text colour"
+                                                                onChange={event => exec('foreColor', event.target.value)}
+                                                                className="h-5 w-6 cursor-pointer rounded border-0 bg-transparent p-0"
+                                                            />
                                                         </div>
-                                                    )}
+                                                        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Highlight colour">
+                                                            <span className="text-[11px] font-extralight text-slate-500">Highlight</span>
+                                                            {HIGHLIGHTS.map(color => (
+                                                                <motion.button
+                                                                    key={color}
+                                                                    type="button"
+                                                                    aria-label={`Highlight ${color}`}
+                                                                    whileHover={{ scale: 1.15 }}
+                                                                    whileTap={{ scale: 0.9 }}
+                                                                    transition={softSpring}
+                                                                    onMouseDown={event => { event.preventDefault(); exec('hiliteColor', color); }}
+                                                                    className="h-5 w-5 cursor-pointer rounded-md ring-1 ring-slate-200"
+                                                                    style={{ backgroundColor: color }}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Text effects">
+                                                        <span className="mr-1 text-[11px] font-extralight text-slate-500">Effects</span>
+                                                        {FONT_EFFECTS.map(effect => (
+                                                            <MotionButton
+                                                                key={effect.id}
+                                                                onMouseDown={event => { event.preventDefault(); wrapSelection(effect.styles); }}
+                                                                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:border-amber-400 hover:text-amber-700"
+                                                            >
+                                                                {effect.label}
+                                                            </MotionButton>
+                                                        ))}
+                                                        <MotionButton
+                                                            onMouseDown={event => { event.preventDefault(); exec('removeFormat'); }}
+                                                            className="rounded-md px-2 py-1 text-[11px] font-medium text-red-600 transition-colors hover:bg-red-50"
+                                                        >
+                                                            Clear style
+                                                        </MotionButton>
+                                                    </div>
+                                                    <InlineMessage tone="info">{styleHint}</InlineMessage>
                                                 </div>
-                                            </motion.div>
-                                        </motion.div>
+
+                                                <div
+                                                    ref={editorRef}
+                                                    contentEditable
+                                                    suppressContentEditableWarning
+                                                    role="textbox"
+                                                    aria-label="Note content"
+                                                    aria-multiline="true"
+                                                    data-placeholder="Start writing your note..."
+                                                    onInput={handleEditorInput}
+                                                    onPaste={handlePaste}
+                                                    onKeyUp={readFormatting}
+                                                    onMouseUp={readFormatting}
+                                                    className="min-h-[200px] max-h-[420px] cursor-text overflow-y-auto p-4 text-sm leading-relaxed text-slate-800 outline-none empty:before:font-extralight empty:before:text-slate-300 empty:before:content-[attr(data-placeholder)] [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
+                                                />
+
+                                                <InlineMessage>{validationError?.field === 'content' ? validationError.message : ''}</InlineMessage>
+
+                                                {(uploadError || validationError?.field === 'attachments' || draftAttachments.length > 0) && (
+                                                    <div className="border-t border-slate-200 bg-slate-50/60 p-3">
+                                                        <InlineMessage>{uploadError}</InlineMessage>
+                                                        <InlineMessage>{validationError?.field === 'attachments' ? validationError.message : ''}</InlineMessage>
+                                                        {draftAttachments.length > 0 && (
+                                                            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label="Note attachments">
+                                                                <AnimatePresence initial={false}>
+                                                                    {draftAttachments.map(attachment => (
+                                                                        <AttachmentCard
+                                                                            key={attachment.key}
+                                                                            attachment={attachment}
+                                                                            onOpen={setPreviewAttachment}
+                                                                            onRemove={removeAttachment}
+                                                                        />
+                                                                    ))}
+                                                                </AnimatePresence>
+                                                            </ul>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Sticky action bar */}
+                                    <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 rounded-b-2xl border-t border-slate-100 bg-white/95 px-4 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                                        <p className="text-[11px] font-extralight text-slate-500">Nothing is saved or uploaded until you click {editingId ? 'Update' : 'Create'} Note.</p>
+                                        <InlineMessage>{validationError?.field === 'form' ? validationError.message : ''}</InlineMessage>
+                                        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                                            {(editingId || isDirty) && (
+                                                <MotionButton onClick={cancelEdit} disabled={isBusy} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 sm:py-2">
+                                                    {editingId ? 'Cancel edit' : 'Clear'}
+                                                </MotionButton>
+                                            )}
+                                            <MotionButton
+                                                onClick={handleSave}
+                                                disabled={isBusy || useMe.isLoading}
+                                                className={`inline-flex min-w-36 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white sm:py-2 ${GRADIENT}`}
+                                            >
+                                                {actionPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                                {actionPending === 'update' ? 'Updating...' : actionPending === 'create' ? 'Creating...' : editingId ? 'Update Note' : 'Create Note'}
+                                            </MotionButton>
+                                        </div>
                                     </div>
                                 </>
                             )}
-                        </div>
+                        </section>
                     </div>
                 ) : (
-                    <motion.div key="schedule" variants={fadeUp} initial="hidden" animate="show" className="rounded-2xl border border-slate-200 bg-white p-6">
-                        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-900">Schedule & Countdowns</h2>
-                                <p className="text-xs font-extralight text-slate-500">All scheduled notes with live countdown timers and auto-notifications at 30m, 15m, 5m, and due time.</p>
-                            </div>
-                            {selectedScheduleIds.length > 0 && (
-                                <MotionButton
-                                    onClick={deleteSelectedSchedules}
-                                    className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-red-700 cursor-pointer"
-                                >
-                                    Delete Selected ({selectedScheduleIds.length})
-                                </MotionButton>
-                            )}
-                        </div>
-                        {isLoading ? (
-                            <div className="space-y-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}</div>
-                        ) : allSchedules.length === 0 ? (
-                            <p className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-xs font-extralight text-slate-500">No scheduled notes yet. Create a Scheduling Note to get started.</p>
-                        ) : (
-                            <motion.ul variants={listStagger} initial="hidden" animate="show" className="space-y-2">
-                                <AnimatePresence initial={false}>
-                                    {allSchedules.map(s => {
-                                        const status = scheduleStatus(s.dueAt, s.done, now);
-                                        const isChecked = selectedScheduleIds.includes(s.id || s.noteId);
-                                        return (
-                                            <motion.li
-                                                key={s.id || s.noteId}
-                                                variants={fadeUp}
-                                                exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.25 } }}
-                                                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-colors duration-300 hover:border-amber-400"
-                                            >
-                                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isChecked}
-                                                        onChange={() => toggleSelectSchedule(s.id || s.noteId)}
-                                                        aria-label={`Select schedule ${s.label}`}
-                                                        className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 shrink-0 cursor-pointer"
-                                                    />
-                                                    <button type="button" onClick={() => { setView('notes'); selectNote(s.noteId); }} className="min-w-0 flex-1 cursor-pointer text-left">
-                                                        <p className={`truncate text-xs font-bold ${s.done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{s.label}</p>
-                                                        <p className="truncate text-[10px] font-extralight text-slate-500">
-                                                            {bsStringToLabel(s.bsDate)} · {timeToLabel(s.time)} · <span className="font-semibold text-amber-600">⏳ {getRemainingTimeText(s.dueAt, now)}</span>
-                                                        </p>
-                                                    </button>
-                                                </div>
-                                                <div className="flex shrink-0 items-center gap-1">
-                                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${status.cls}`}>{status.label}</span>
-                                                    <MotionButton onClick={() => {
-                                                        if (s.isMainSchedule) toggleNoteDone(s.noteId);
-                                                    }} className="rounded-lg px-2 py-1 text-[10px] font-medium text-amber-700 transition-colors duration-300 hover:bg-amber-50 cursor-pointer">
-                                                        {s.done ? 'Reopen' : 'Mark done'}
-                                                    </MotionButton>
-                                                    <MotionButton onClick={() => {
-                                                        if (s.isMainSchedule) removeNoteSchedule(s.noteId);
-                                                    }} aria-label={`Remove schedule ${s.label}`} className="rounded-lg px-2 py-1 text-[10px] font-medium text-slate-600 transition-colors duration-300 hover:bg-slate-100 hover:text-red-600 cursor-pointer">
-                                                        Remove
-                                                    </MotionButton>
-                                                </div>
-                                            </motion.li>
-                                        );
-                                    })}
-                                </AnimatePresence>
-                            </motion.ul>
-                        )}
-                    </motion.div>
+                    <SchedulePanel
+                        entries={scheduleEntries}
+                        doneMap={scheduleState}
+                        isLoading={listLoading}
+                        isError={Boolean(ST_GetNote_?.isError)}
+                        onRetry={refreshNotes}
+                        onToggleDone={toggleScheduleDone}
+                        onOpenNote={openNote}
+                        onRemove={removeScheduleEntries}
+                        removing={removingSchedules}
+                        requestConfirm={requestConfirm}
+                    />
                 )}
             </main>
 
             <AnimatePresence>
-                {previewAttachment && <PreviewModal key={previewAttachment.id} attachment={previewAttachment} onClose={() => setPreviewAttachment(null)} />}
+                {previewAttachment && <PreviewModal key={previewAttachment.key} attachment={previewAttachment} onClose={() => setPreviewAttachment(null)} />}
             </AnimatePresence>
-
-            <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2" aria-live="polite">
-                <AnimatePresence>
-                    {toasts.map(t => (
-                        <motion.div
-                            key={t.id}
-                            initial={{ opacity: 0, y: 22 }}
-                            animate={{ opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE_OUT } }}
-                            exit={{ opacity: 0, x: 40, transition: { duration: 0.25 } }}
-                            className="pointer-events-auto flex items-start justify-between gap-3 rounded-xl border border-amber-300 bg-white p-3 shadow-lg"
-                            role="status"
-                        >
-                            <p className="text-xs font-bold text-slate-800">{t.message}</p>
-                            <button type="button" onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))} aria-label="Dismiss reminder" className="cursor-pointer text-slate-400 transition-colors duration-300 hover:text-slate-700">✕</button>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
-            </div>
+            <AnimatePresence>
+                {confirm && <ConfirmDialog key="confirm" confirm={confirm} onClose={() => setConfirm(null)} />}
+            </AnimatePresence>
+            <ToastStack toasts={toasts} onDismiss={dismissToast} />
         </div>
     );
 }

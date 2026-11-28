@@ -17,8 +17,10 @@ import {
     Target,
     AlertCircle,
     CheckSquare,
-    X
+    X,
+    LoaderCircle
 } from "lucide-react";
+import { Skeleton } from "../../skeleton";
 
 export const Policies = () => {
     // API States
@@ -297,6 +299,7 @@ export const Policies = () => {
 
     // API submission handler (ready for implementation)
     const handleSaveAll = async () => {
+        if (isLoading) return;
         const dataToSave = prepareApiData();
         // console.log('Data ready for API:', dataToSave);
         
@@ -449,9 +452,9 @@ export const Policies = () => {
                             </div>
                         </div>
                         {isLoading && (
-                            <div className="flex items-center gap-2 text-amber-600">
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-600"></div>
-                                <span className="text-sm">Loading...</span>
+                            <div className="flex items-center gap-2" aria-busy="true" aria-label="Loading policies">
+                                <Skeleton className="h-5 w-5 rounded-full" />
+                                <Skeleton className="h-3 w-16 rounded-full" />
                             </div>
                         )}
                     </div>
@@ -796,8 +799,10 @@ export const Policies = () => {
                     </button>
                     <button 
                         onClick={handleSaveAll}
-                        className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl hover:from-amber-600 hover:to-amber-700 transition-all duration-300 font-medium shadow-md hover:shadow-lg"
+                        disabled={isLoading}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl hover:from-amber-600 hover:to-amber-700 transition-all duration-300 font-medium shadow-md hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
                     >
+                        {isLoading && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
                         Save All Changes
                     </button>
                 </div>

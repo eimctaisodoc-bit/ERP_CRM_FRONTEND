@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Select from "react-select";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../component/hooks/useAuth.js";
 import { socket } from "../socket_client/scoket.js";
-import { ArrowLeft, Info, RefreshCw, ShieldBan } from "lucide-react";
+import { ArrowLeft, Info, LoaderCircle, RefreshCw, ShieldBan } from "lucide-react";
 import InputField from "../component/inputField";
 import { ErrorNotify } from "../component/hotToaster.jsx";
 import { motion, useReducedMotion } from "framer-motion";
@@ -24,23 +24,22 @@ const GRID_CELLS = [
 const GRID_EDGE_FADE = "radial-gradient(ellipse 85% 75% at 50% 45%, #000 30%, transparent 100%)";
 
 // ISO certifications advertised on the comet tails (each comet has its own colour)
-// axis: "x" = horizontal grid line, "y" = vertical grid line
-// dir:  1 = left→right / top→bottom, -1 = right→left / bottom→top
-// line: horizontal = row index from the top, vertical = column index from the centre line
+// angle: travel direction in degrees (CSS rotation: 0 = →, 90 = ↓, 180 = ←, -90 = ↑)
+//        e.g. 30 / 45 / 70 = down-right, -35 = up-right, 145 = down-left, 210 = up-left
+// x, y:  a point (in % of the screen) that the comet's path passes through
 // color = comet head and tail, ink = darker shade used for the readable letters
 const COMETS = [
-    { id: 1, code: "ISO 9001", text: "Quality Management", axis: "x", dir: 1, line: 2, color: "#f59e0b", ink: "#b45309", length: 100, duration: 16, delay: 0, pause: 2 },
-    { id: 2, code: "ISO 21001", text: "Educational Organizations", axis: "x", dir: -1, line: 5, color: "#0ea5e9", ink: "#0369a1", length: 100, duration: 19, delay: 4, pause: 1.5 },
-    { id: 3, code: "ISO 14001", text: "Environmental Management", axis: "x", dir: 1, line: 9, color: "#10b981", ink: "#047857", length: 100, duration: 17, delay: 8, pause: 2.5 },
-    { id: 4, code: "ISO 45001", text: "Occupational Health & Safety", axis: "y", dir: 1, line: -6, color: "#f43f5e", ink: "#be123c", length: 100, duration: 14, delay: 2, pause: 2 },
-    { id: 5, code: "ISO 22000", text: "Food Safety", axis: "x", dir: -1, line: 12, color: "#84cc16", ink: "#4d7c0f", length: 100, duration: 15, delay: 11, pause: 3 },
-    { id: 6, code: "ISO 27001", text: "Information Security", axis: "y", dir: -1, line: 6, color: "#8b5cf6", ink: "#6d28d9", length: 100, duration: 14, delay: 6, pause: 2.5 },
+    { id: 1, code: "ISO 9001", text: "Quality Management", angle: 0, x: 50, y: 35, color: "#f59e0b", ink: "#b45309", length: 120, duration: 18, delay: 0, pause: 2 },   // left → right
+    { id: 2, code: "ISO 21001", text: "Educational Organizations", angle: 180, x: 50, y: 70, color: "#0ea5e9", ink: "#0369a1", length: 120, duration: 20, delay: 4, pause: 1.5 }, // right → left
+    { id: 3, code: "ISO 14001", text: "Environmental Management", angle: 90, x: 22, y: 50, color: "#10b981", ink: "#047857", length: 120, duration: 16, delay: 8, pause: 2.5 }, // top → bottom
+    { id: 4, code: "ISO 45001", text: "Occupational Health & Safety", angle: -45, x: 60, y: 60, color: "#f43f5e", ink: "#be123c", length: 120, duration: 19, delay: 2, pause: 2 },   // up-right
+    { id: 5, code: "ISO 22000", text: "Food Safety", angle: 12, x: 40, y: 20, color: "#84cc16", ink: "#4d7c0f", length: 120, duration: 20, delay: 11, pause: 3 },   // shallow slope
+    { id: 6, code: "ISO 27001", text: "Information Security", random: true, color: "#8b5cf6", ink: "#6d28d9", length: 120, duration: 21, delay: 6, pause: 2.5 }, // new direction each pass
 ];
 
 // Wave that travels through the letters (pure CSS, so ~200 letters stay cheap to animate)
 const WAVE_CSS = `
 @keyframes isoWaveY { 0%, 100% { transform: translateY(0); } 25% { transform: translateY(-3px); } 75% { transform: translateY(3px); } }
-@keyframes isoWaveX { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 `;
 
 const LoginForm = () => {
@@ -188,10 +187,10 @@ const LoginForm = () => {
                 <div className="absolute -top-32 -right-32 h-80 w-80 rounded-full bg-red-100/50 blur-3xl" />
                 <div className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-amber-100/40 blur-3xl" />
 
-                <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/50 sm:p-10">
+                <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200  p-8 text-center shadow-xl shadow-slate-200/50 sm:p-10">
 
                     {/* Status Icon */}
-                    <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-red-100 bg-red-50">
+                    <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-r from-amber-600 to-amber-500">
                         <ShieldBan
                             size={30}
                             strokeWidth={1.8}
@@ -264,18 +263,23 @@ const LoginForm = () => {
     }
 
     return (
-        <div className="relative flex items-center justify-center min-h-screen bg-slate-50 overflow-hidden font-sans">
+        // Main background: smooth slate gradient
+        <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 overflow-hidden font-sans">
 
             {/* ================= PROFESSIONAL BACKGROUND ================= */}
             <LoginBackground />
             {/* ================= END BACKGROUND ================= */}
 
-            {/* Login Card - Professional / Premium UI */}
+            {/* Login Card - solid (no opacity) background with a light blur, set via style tag */}
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="relative z-10 w-full max-w-md bg-white/85 backdrop-blur-2xl rounded-[1.25rem] shadow-[0_8px_30px_rgb(0,0,0,0.08)] p-8 sm:p-10 border border-white"
+                style={{
+                    backdropFilter: "blur(10px)",
+
+                }}
+                className="relative z-10 w-full bg-white/70 max-w-md rounded-[1.25rem] shadow-[0_8px_30px_rgb(0,0,0,0.10)] p-8 sm:p-10 border border-slate-200"
             >
                 {/* Header Section */}
                 <motion.div variants={itemVariants} className="mb-8 text-center">
@@ -324,7 +328,7 @@ const LoginForm = () => {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors focus:outline-none rounded-r-md"
+                                className="absolute inset-y-0 cursor-pointer right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors focus:outline-none rounded-r-md"
                             >
                                 {showPassword ? <EyeOpenIcon /> : <EyeClosedIcon />}
                             </button>
@@ -350,19 +354,12 @@ const LoginForm = () => {
                             whileTap={{ scale: 0.985 }}
                             type="submit"
                             disabled={login.isPending}
-                            className="w-full flex justify-center items-center bg-gradient-to-r from-amber-600 to-amber-500 text-white font-semibold py-3 px-4 rounded-xl hover:from-amber-700 hover:to-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 transition-all shadow-lg shadow-amber-600/25 disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="w-full flex cursor-pointer justify-center items-center bg-gradient-to-r from-amber-600 to-amber-500 text-white font-semibold py-3 px-4 rounded-xl hover:from-amber-700 hover:to-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 transition-all shadow-lg shadow-amber-600/25 disabled:opacity-70 disabled:cursor-not-allowed"
                         >
-                            {login.isPending ? (
-                                <>
-                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Authenticating...
-                                </>
-                            ) : (
-                                "Sign In"
+                            {login.isPending && (
+                                <LoaderCircle className="mr-2 h-3 w-3 animate-spin text-white" strokeWidth={2.5} />
                             )}
+                            Sign In
                         </motion.button>
                     </motion.div>
                 </form>
@@ -371,49 +368,39 @@ const LoginForm = () => {
     );
 };
 
-// One comet travelling along a single grid line. Its tail dissolves into wavy letters
+// One comet flying across the screen at any angle. Its tail dissolves into wavy letters
 // (an ISO certification), like a banner trailing behind it.
-const GridComet = ({ code, text, axis, dir, line, color, ink, length, duration, delay, pause }) => {
-    const horizontal = axis === "x";
-    const reverse = dir === -1;
+//
+// How it works: a zero-size anchor is placed at (x%, y%) and rotated by `angle`.
+// In that rotated space the comet simply slides along its local X axis, so any angle
+// (30°, 45°, 70°, -35°, 145° ...) works with the same code.
+const TRAVEL = "120vmax"; // far enough to enter and leave the screen fully
 
-    // ISO code in bold, then the scope in medium weight
+const pick = (min, max) => min + Math.random() * (max - min);
+
+// Fixed pose from config, or a fresh random pose (any angle, any point on screen)
+const makePose = ({ random, angle, x, y }) =>
+    random ? { angle: pick(-180, 180), x: pick(10, 90), y: pick(10, 90) } : { angle, x, y };
+
+const GridComet = ({ code, text, angle, x, y, random, color, ink, length, duration, delay, pause }) => {
+    const [run, setRun] = useState(0);
+    const timer = useRef(null);
+
+    // New pose on every pass (only changes when `random` is true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const pose = useMemo(() => makePose({ random, angle, x, y }), [run]);
+
+    useEffect(() => () => clearTimeout(timer.current), []);
+
+    // Comets heading left would show upside-down text, so flip the label 180° for them
+    const flip = Math.cos((pose.angle * Math.PI) / 180) < -0.001;
+
     const chars = [
         ...Array.from(code).map((ch) => ({ ch, bold: true })),
         ...Array.from(` – ${text}`).map((ch) => ({ ch, bold: false })),
     ];
     const last = chars.length - 1;
-    // Letters nearest the comet are strongest and fade out along the tail
-    const nearestIsLast = !(horizontal && reverse);
-
-    // Track sits exactly on the grid line (line is 1px wide, track is 2px)
-    const trackStyle = horizontal
-        ? { top: line * GRID_CELL - 0.5, left: 0, right: 0, height: 2 }
-        : { left: `calc(50% - ${GRID_CELL / 2 + 0.5}px + ${line * GRID_CELL}px)`, top: 0, bottom: 0, width: 2 };
-
-    // Same duration + linear easing on both movers: the outer one covers the track,
-    // the inner one covers the comet's own length, so it enters and leaves fully off-screen
-    const slide = reverse ? ["0%", "-100%"] : ["0%", "100%"];
-    const motionProps = horizontal ? { x: slide } : { y: slide };
-    const transition = { duration, delay, repeat: Infinity, repeatDelay: pause, ease: "linear" };
-
-    const cometStyle = horizontal
-        ? {
-            top: 0,
-            height: "100%",
-            ...(reverse ? { left: "100%" } : { right: "100%" }),
-            display: "flex",
-            flexDirection: reverse ? "row-reverse" : "row",
-            alignItems: "center",
-        }
-        : {
-            left: 0,
-            width: "100%",
-            ...(reverse ? { top: "100%" } : { bottom: "100%" }),
-            display: "flex",
-            flexDirection: reverse ? "column-reverse" : "column",
-            alignItems: "center",
-        };
+    const nearestIsLast = !flip;
 
     const labelStyle = {
         whiteSpace: "nowrap",
@@ -424,37 +411,61 @@ const GridComet = ({ code, text, axis, dir, line, color, ink, length, duration, 
         textShadow: "0 0 6px rgba(255, 255, 255, 0.95)",
         position: "relative",
         flexShrink: 0,
-        ...(horizontal
-            ? { top: -10 }
-            : { writingMode: "vertical-rl", left: 10, transform: reverse ? "rotate(180deg)" : undefined }),
+        top: flip ? 10 : -10,
+        transform: flip ? "rotate(180deg)" : undefined,
     };
 
-    const tailStyle = horizontal
-        ? { width: length, height: 2, flexShrink: 0, background: `linear-gradient(${reverse ? "to left" : "to right"}, transparent, ${color})` }
-        : { width: 2, height: length, flexShrink: 0, background: `linear-gradient(${reverse ? "to top" : "to bottom"}, transparent, ${color})` };
+    const tailStyle = {
+        width: length,
+        height: 2,
+        flexShrink: 0,
+        background: `linear-gradient(to right, transparent, ${color})`,
+    };
 
     const headStyle = {
         width: 6,
         height: 6,
         flexShrink: 0,
+        marginLeft: -3,
         borderRadius: "9999px",
         background: color,
         boxShadow: `0 0 10px 3px ${color}`,
-        ...(horizontal
-            ? (reverse ? { marginRight: -3 } : { marginLeft: -3 })
-            : (reverse ? { marginBottom: -3 } : { marginTop: -3 })),
     };
 
     return (
-        <div className="absolute" style={trackStyle}>
+        <div
+            className="absolute"
+            style={{
+                left: `${pose.x}%`,
+                top: `${pose.y}%`,
+                width: 0,
+                height: 0,
+                transform: `rotate(${pose.angle}deg)`,
+                transformOrigin: "0 0",
+            }}
+        >
             <motion.div
-                className="absolute top-0 left-0"
-                style={{ width: "100%", height: "100%" }}
-                animate={motionProps}
-                transition={transition}
+                key={run}
+                className="absolute"
+                style={{ top: 0, left: 0, width: 0, height: 0 }}
+                initial={{ x: `-${TRAVEL}` }}
+                animate={{ x: TRAVEL }}
+                // first pass uses the start delay; later passes wait `pause` below
+                transition={{ duration, delay: run === 0 ? delay : 0, ease: "linear" }}
+                onAnimationComplete={() => {
+                    timer.current = setTimeout(() => setRun((r) => r + 1), pause * 1000);
+                }}
             >
-                <motion.div className="absolute" style={cometStyle} animate={motionProps} transition={transition}>
-                    {/* DOM order is tail-end → head; flex direction mirrors it for reversed comets */}
+                <div
+                    style={{
+                        position: "absolute",
+                        right: 0,
+                        top: 0,
+                        transform: "translateY(-50%)",
+                        display: "flex",
+                        alignItems: "center",
+                    }}
+                >
                     <div style={labelStyle}>
                         {chars.map((c, i) => {
                             const d = nearestIsLast ? last - i : i;
@@ -466,7 +477,7 @@ const GridComet = ({ code, text, axis, dir, line, color, ink, length, duration, 
                                         whiteSpace: "pre",
                                         fontWeight: c.bold ? 700 : 500,
                                         opacity: 1 - 0.55 * (d / last),
-                                        animation: `${horizontal ? "isoWaveY" : "isoWaveX"} 1.8s ease-in-out ${(i * 0.12).toFixed(2)}s infinite`,
+                                        animation: `isoWaveY 1.8s ease-in-out ${(i * 0.12).toFixed(2)}s infinite`,
                                     }}
                                 >
                                     {c.ch}
@@ -476,13 +487,12 @@ const GridComet = ({ code, text, axis, dir, line, color, ink, length, duration, 
                     </div>
                     <div style={tailStyle} />
                     <div style={headStyle} />
-                </motion.div>
+                </div>
             </motion.div>
         </div>
     );
 };
-
-// Professional background: quiet ledger grid, amber cell highlights and comets running along the grid lines
+// Professional background: quiet ledger grid, amber cell highlights and comets flying at free angles
 const LoginBackground = () => {
     const reduceMotion = useReducedMotion();
 
@@ -497,8 +507,8 @@ const LoginBackground = () => {
                 className="absolute inset-0"
                 style={{
                     backgroundImage: [
-                        "radial-gradient(60rem 40rem at 0% 0%, rgba(251, 191, 36, 0.14), transparent 60%)",
-                        "radial-gradient(52rem 38rem at 100% 100%, rgba(217, 119, 6, 0.10), transparent 60%)",
+                        "radial-gradient(60rem 40rem at 0% 0%, rgba(251, 191, 36, 0.12), transparent 60%)",
+                        "radial-gradient(52rem 38rem at 100% 100%, rgba(217, 119, 6, 0.08), transparent 60%)",
                     ].join(", "),
                 }}
             />
@@ -512,7 +522,7 @@ const LoginBackground = () => {
                     className="absolute inset-0"
                     style={{
                         backgroundImage:
-                            "linear-gradient(to right, rgba(148, 163, 184, 0.22) 1px, transparent 1px), linear-gradient(to bottom, rgba(148, 163, 184, 0.22) 1px, transparent 1px)",
+                            "linear-gradient(to right, rgba(100, 116, 139, 0.20) 1px, transparent 1px), linear-gradient(to bottom, rgba(100, 116, 139, 0.20) 1px, transparent 1px)",
                         backgroundSize: `${GRID_CELL}px ${GRID_CELL}px`,
                         backgroundPosition: "50% 0",
                     }}
@@ -543,11 +553,11 @@ const LoginBackground = () => {
                             }}
                         />
                     ))}
-
-                {/* Comets travelling along the grid lines */}
-                {!reduceMotion &&
-                    COMETS.map((c) => <GridComet key={c.id} {...c} />)}
             </div>
+
+            {/* Comets fly at free angles, so they live outside the grid mask */}
+            {!reduceMotion &&
+                COMETS.map((c) => <GridComet key={c.id} {...c} />)}
         </div>
     );
 };

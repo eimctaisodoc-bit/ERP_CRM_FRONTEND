@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { LoaderCircle } from "lucide-react";
 // ... your existing imports (Lucide icons, images, etc.)
 
 // Import the generator function you just created
@@ -68,6 +69,8 @@ export const DownloadTestFront = () => {
         <button
           onClick={handleDownloadDocx}
           disabled={isGenerating}
+          aria-busy={isGenerating}
+          aria-label={isGenerating ? "Generating document" : undefined}
           style={{
             display: "flex",
             alignItems: "center",
@@ -83,7 +86,8 @@ export const DownloadTestFront = () => {
             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
           }}
         >
-          {isGenerating ? "Generating DOCX..." : "Download Word Document"}
+          {isGenerating && <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />}
+          Download Word Document
         </button>
       </div>
       {/* --------------------------------------- */}

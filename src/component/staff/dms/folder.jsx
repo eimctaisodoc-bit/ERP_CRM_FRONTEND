@@ -1,7 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { File, FileArchive, FileAudio, FileCode, FileImage, FileSpreadsheet, FileText, FileVideo } from 'lucide-react';
+import Select from 'react-select';
+import {
+  File,
+  FileArchive,
+  FileAudio,
+  FileCode,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  FileVideo,
+  FolderInput,
+  Copy,
+  Trash2,
+  Download,
+  Check,
+  LoaderCircle,
+} from 'lucide-react';
 import NotifyDrawer from './notifydrawer';
+import { useAuth } from '../../hooks/useAuth';
+import { useGet } from '../../hooks/useGet';
+import { Skeleton } from '../../skeleton';
+
 
 /* ------------------------------------------------------------------ */
 /* Motion presets                                                      */
@@ -48,10 +68,89 @@ const GRADIENT = 'bg-gradient-to-r from-amber-500 to-orange-500';
 const DROP_ZONE_ACTIVE = ['border-amber-500', 'bg-amber-50/50', 'ring-2', 'ring-orange-400/60'];
 
 /* ------------------------------------------------------------------ */
+/* React-Select Theme Styles (Amber / Orange Brand)                    */
+/* ------------------------------------------------------------------ */
+const reactSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: '42px',
+    borderRadius: '0.75rem',
+    borderColor: state.isFocused ? '#f59e0b' : '#e2e8f0',
+    backgroundColor: state.isFocused ? '#ffffff' : '#f8fafc',
+    boxShadow: state.isFocused ? '0 0 0 3px rgba(254, 243, 199, 0.9)' : 'none',
+    fontSize: '0.75rem',
+    fontWeight: 500,
+    transition: 'all 0.2s ease',
+    cursor: 'pointer',
+    '&:hover': {
+      borderColor: '#f59e0b',
+    },
+  }),
+  menu: (base) => ({
+    ...base,
+    borderRadius: '0.75rem',
+    border: '1px solid #e2e8f0',
+    boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.12)',
+    overflow: 'hidden',
+    zIndex: 60,
+  }),
+  menuList: (base) => ({
+    ...base,
+    padding: '4px',
+    maxHeight: '210px',
+  }),
+  option: (base, state) => ({
+    ...base,
+    borderRadius: '0.5rem',
+    fontSize: '0.75rem',
+    fontWeight: state.isSelected ? 700 : 500,
+    backgroundColor: state.isSelected
+      ? '#f59e0b'
+      : state.isFocused
+        ? '#fffbeb'
+        : 'transparent',
+    color: state.isSelected ? '#ffffff' : '#1e293b',
+    cursor: 'pointer',
+    padding: '8px 10px',
+    marginBottom: '2px',
+    '&:active': {
+      backgroundColor: '#fef3c7',
+    },
+  }),
+  multiValue: (base) => ({
+    ...base,
+    backgroundColor: '#fffbeb',
+    border: '1px solid #fcd34d',
+    borderRadius: '0.5rem',
+    padding: '1px 2px',
+  }),
+  multiValueLabel: (base) => ({
+    ...base,
+    color: '#b45309',
+    fontSize: '0.7rem',
+    fontWeight: 700,
+  }),
+  multiValueRemove: (base) => ({
+    ...base,
+    color: '#d97706',
+    borderRadius: '0.375rem',
+    cursor: 'pointer',
+    ':hover': {
+      backgroundColor: '#f59e0b',
+      color: '#ffffff',
+    },
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: '#94a3b8',
+    fontWeight: 400,
+  }),
+};
+
+/* ------------------------------------------------------------------ */
 /* Small shared building blocks                                        */
 /* ------------------------------------------------------------------ */
 
-// Button with the shared press feedback.
 const MotionButton = ({ className = '', disabled, children, ...props }) => (
   <motion.button
     type="button"
@@ -84,6 +183,54 @@ const IconButton = ({ onClick, title, danger, disabled, className = '', children
   </motion.button>
 );
 
+const AnimatedCheckbox = ({ checked, onChange, disabled = false, label }) => (
+  <motion.button
+    type="button"
+    role="checkbox"
+    aria-checked={checked}
+    aria-label={label}
+    disabled={disabled}
+    whileHover={disabled ? undefined : { scale: 1.08 }}
+    whileTap={disabled ? undefined : { scale: 0.9 }}
+    transition={softSpring}
+    onClick={(e) => {
+      e.stopPropagation();
+      if (!disabled) onChange?.(!checked);
+    }}
+    className={`relative flex h-4.5 w-4.5 shrink-0 cursor-pointer items-center justify-center rounded-md border transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${checked
+      ? 'border-amber-500 text-white shadow-xs'
+      : 'border-slate-300 bg-white hover:border-amber-400'
+      }`}
+  >
+    <motion.span
+      initial={false}
+      animate={{
+        scale: checked ? 1 : 0.4,
+        opacity: checked ? 1 : 0,
+      }}
+      transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+      className={`absolute inset-0 rounded-[5px] ${GRADIENT}`}
+    />
+    <motion.svg
+      viewBox="0 0 16 16"
+      fill="none"
+      className="relative z-10 h-3 w-3 text-white"
+      aria-hidden="true"
+    >
+      <motion.path
+        d="M3.5 8.5L6.5 11.5L12.5 4.5"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        initial={false}
+        animate={{ pathLength: checked ? 1 : 0, opacity: checked ? 1 : 0 }}
+        transition={{ duration: 0.22, ease: EASE_OUT }}
+      />
+    </motion.svg>
+  </motion.button>
+);
+
 // Shared overlay: click-outside + Escape to close, black/60 blur backdrop.
 const Modal = ({ onClose, children }) => {
   useEffect(() => {
@@ -112,19 +259,10 @@ const modalPanel = {
   exit: { opacity: 0, y: 12, scale: 0.98, transition: { duration: 0.25, ease: EASE_OUT } },
 };
 
-// Pulsing skeleton block.
-const Skeleton = ({ className = '' }) => (
-  <motion.div
-    aria-hidden="true"
-    className={`rounded-md bg-slate-200 ${className}`}
-    animate={{ opacity: [0.45, 0.9, 0.45] }}
-    transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-  />
-);
-
 const DocCardSkeleton = () => (
   <div className="rounded-xl border border-slate-200 bg-white p-3">
     <div className="flex items-start gap-2.5">
+      <Skeleton className="mt-1 h-4.5 w-4.5 shrink-0 rounded-md" />
       <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
       <div className="flex-1 space-y-2">
         <Skeleton className="h-3 w-3/4" />
@@ -180,14 +318,7 @@ const TableRowSkeleton = () => (
   </tr>
 );
 
-const OperationSpinner = () => (
-  <motion.span
-    aria-hidden="true"
-    className="mb-2 block h-5 w-5 rounded-full border-2 border-slate-200 border-t-amber-500"
-    animate={{ rotate: 360 }}
-    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-  />
-);
+const OperationSkeleton = () => <Skeleton className="mb-2 h-5 w-5 rounded-full" />;
 
 const ProgressBar = ({ value, danger, className = 'h-1.5', label }) => (
   <div
@@ -292,8 +423,8 @@ const LEGACY_WORKSPACE_COLUMN = {
   writers: 'document-writer'
 };
 
-const VIEW_MODES = ['me', 'internal', 'headquarter', 'client'];
-const VIEW_LABELS = { me: 'Me', internal: 'Internal Office', headquarter: 'Headquarter', client: 'Client' };
+const VIEW_MODES = ['me', 'internal', 'headquarter', 'client', 'sample'];
+const VIEW_LABELS = { me: 'Me', internal: 'Internal Office', headquarter: 'Headquarter', client: 'Client', sample: 'Sample' };
 
 const CLIENT_FILTERS = [
   { id: 'all', label: 'All Client Campuses' },
@@ -318,6 +449,15 @@ const formatFileSize = (bytes) => {
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 export default function FolderView() {
+
+  const { useMe } = useAuth();
+  const { role, id } = useMe?.data?.user?.decoded || {};
+  const { GetMeDetails_ ,GETEACHRECRUITMENTDETAILS_} = useGet({
+    currentUser: { role, id },
+    isAuthLoading: useMe.isLoading,
+    staffRecruitmentDetailsId: id
+  })
+
   const [currentViewMode, setCurrentViewMode] = useState('internal');
   const [activeClientFilter, setActiveClientFilter] = useState('all');
   const [clientSearch, setClientSearch] = useState('');
@@ -325,6 +465,13 @@ export default function FolderView() {
   const [expandedUploadColumn, setExpandedUploadColumn] = useState(null);
   const [isNotifyDrawerOpen, setIsNotifyDrawerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Selected document IDs via checkboxes
+  const [selectedDocIds, setSelectedDocIds] = useState([]);
+
+  // Destination Workspace modal state: { mode: 'move' | 'copy', docIds: string[] }
+  const [transferModal, setTransferModal] = useState(null);
+  const [selectedDestinations, setSelectedDestinations] = useState([]);
 
   // TODO: Integrate backend API call to fetch initial documents list
   const [documents, setDocuments] = useState(() => {
@@ -350,15 +497,29 @@ export default function FolderView() {
   const [uploadQueue, setUploadQueue] = useState([]);
   const [uploadError, setUploadError] = useState(null);
 
-  // Per-file operation progress: { [docId]: { type: 'download' | 'delete' | 'move', progress } }
+  // Per-file operation progress: { [docId]: { type: 'download' | 'delete' | 'move' | 'copy', progress } }
   const [fileOperations, setFileOperations] = useState({});
 
-  const draggedCardId = useRef(null);
+  const draggedCardIds = useRef([]);
   const activeDropColumn = useRef(null);
   const uploadTimers = useRef({ interval: null, completion: null });
   const operationTimers = useRef({});
   const moveTimers = useRef({ interval: null, completion: null });
   const autoScrollInterval = useRef(null);
+
+  // React-Select options for Destination Workspace (Staff Workspaces or Client Institutions)
+  const workspaceDestinationOptions = OFFICE_STAFF.map(member => ({
+    value: member.id,
+    label: `${member.name} — ${member.jobrole}`,
+    jobrole: member.jobrole
+  }));
+
+  const clientDestinationOptions = CLIENT_FILTERS
+    .filter(c => c.id !== 'all')
+    .map(inst => ({
+      value: inst.id,
+      label: inst.label
+    }));
 
   // Initial skeleton phase. Replace with the real fetch's loading flag once the API is wired.
   useEffect(() => {
@@ -371,6 +532,12 @@ export default function FolderView() {
     try {
       localStorage.setItem('nexus_dms_documents', JSON.stringify(documents));
     } catch { /* storage unavailable */ }
+  }, [documents]);
+
+  // Keep selectedDocIds clean if documents are removed
+  useEffect(() => {
+    const validIds = new Set(documents.map(d => d.id));
+    setSelectedDocIds(prev => prev.filter(id => validIds.has(id)));
   }, [documents]);
 
   useEffect(() => {
@@ -458,8 +625,149 @@ export default function FolderView() {
     };
   }, []);
 
+  const toggleSelectDoc = (docId) => {
+    setSelectedDocIds(prev => (
+      prev.includes(docId) ? prev.filter(id => id !== docId) : [...prev, docId]
+    ));
+  };
+
+  const toggleSelectMany = (ids, forceSelect = null) => {
+    setSelectedDocIds(prev => {
+      const allAlreadySelected = ids.length > 0 && ids.every(id => prev.includes(id));
+      const shouldSelect = forceSelect !== null ? forceSelect : !allAlreadySelected;
+      if (shouldSelect) {
+        return Array.from(new Set([...prev, ...ids]));
+      }
+      const removeSet = new Set(ids);
+      return prev.filter(id => !removeSet.has(id));
+    });
+  };
+
+  // Resolve which files a card-level action should apply to.
+  // - Clicked file is part of the current selection -> the WHOLE selection  [id, id, id]
+  // - Clicked file is not selected                  -> just that file       [id]
+  // Stale ids (already removed) and files with an operation in progress are filtered out.
+  const getActionTargetIds = (doc) => {
+    const validIds = new Set(documents.map(d => d.id));
+    const baseIds = selectedDocIds.includes(doc.id) ? selectedDocIds : [doc.id];
+    return baseIds.filter(id => validIds.has(id) && !fileOperations[id]);
+  };
+
+  // Opens the Destination Workspace modal for copy / move using the resolved target ids.
+  const openCardTransfer = (mode, doc, defaultOptionValue = null) => {
+    const ids = getActionTargetIds(doc);
+    // Only preselect the current workspace when a single file is targeted;
+    // a multi-selection may span several workspaces.
+    openDestinationWorkspace(mode, ids, ids.length === 1 ? defaultOptionValue : null);
+  };
+
+  const runBatchOperation = (docIds, type, options = {}) => {
+    const targetIds = docIds.filter(id => !fileOperations[id]);
+    if (targetIds.length === 0) return;
+
+    const batchKey = `batch-${Date.now()}-${type}`;
+    setFileOperations(prev => {
+      const next = { ...prev };
+      targetIds.forEach(id => {
+        next[id] = { type, progress: 0 };
+      });
+      return next;
+    });
+
+    let progress = 0;
+    const intervalId = setInterval(() => {
+      progress = Math.min(progress + 20, 100);
+      setFileOperations(prev => {
+        const next = { ...prev };
+        targetIds.forEach(id => {
+          if (next[id]) next[id] = { type, progress };
+        });
+        return next;
+      });
+
+      if (progress === 100) {
+        clearInterval(intervalId);
+        const nowIso = new Date().toISOString();
+        const destinations = options.destinations || [];
+
+        if (type === 'delete') {
+          // TODO: Integrate batch file deletion API endpoint
+          const removeSet = new Set(targetIds);
+          setDocuments(prev => prev.filter(item => !removeSet.has(item.id)));
+          setPreviewDoc(current => (current && removeSet.has(current.id) ? null : current));
+          setSelectedDocIds(prev => prev.filter(id => !removeSet.has(id)));
+        } else if (type === 'move' && destinations.length > 0) {
+          // TODO: Integrate batch document move API endpoint
+          const moveSet = new Set(targetIds);
+          const [primaryDest, ...extraDests] = destinations;
+
+          setDocuments(prev => {
+            const sourceDocs = prev.filter(doc => moveSet.has(doc.id));
+
+            // Move original files to the primary selected destination
+            const movedDocs = prev.map(doc => {
+              if (!moveSet.has(doc.id)) return doc;
+              return currentViewMode === 'client'
+                ? { ...doc, institution: primaryDest, updatedAt: nowIso }
+                : { ...doc, column: primaryDest, updatedAt: nowIso };
+            });
+
+            // If user selected multiple destinations during move, copy to the remaining destinations
+            const extraCopies = extraDests.flatMap((dest, destIdx) =>
+              sourceDocs.map((doc, docIdx) => ({
+                ...doc,
+                id: `doc-move-copy-${Date.now()}-${destIdx}-${docIdx}-${Math.random().toString(36).slice(2, 6)}`,
+                ...(currentViewMode === 'client' ? { institution: dest } : { column: dest }),
+                updatedAt: nowIso,
+              }))
+            );
+
+            return [...extraCopies, ...movedDocs];
+          });
+          setSelectedDocIds(prev => prev.filter(id => !moveSet.has(id)));
+        } else if (type === 'copy' && destinations.length > 0) {
+          // TODO: Integrate batch document copy API endpoint
+          const copySet = new Set(targetIds);
+          setDocuments(prev => {
+            const sourceDocs = prev.filter(doc => copySet.has(doc.id));
+            const clonedDocs = destinations.flatMap((dest, destIdx) =>
+              sourceDocs.map((doc, docIdx) => ({
+                ...doc,
+                id: `doc-copy-${Date.now()}-${destIdx}-${docIdx}-${Math.random().toString(36).slice(2, 6)}`,
+                ...(currentViewMode === 'client' ? { institution: dest } : { column: dest }),
+                updatedAt: nowIso
+              }))
+            );
+            return [...clonedDocs, ...prev];
+          });
+          setSelectedDocIds([]);
+        }
+
+        const completionTimeout = setTimeout(() => {
+          setFileOperations(prev => {
+            const next = { ...prev };
+            targetIds.forEach(id => {
+              delete next[id];
+            });
+            return next;
+          });
+          delete operationTimers.current[batchKey];
+        }, 350);
+
+        operationTimers.current[batchKey] = { interval: null, completion: completionTimeout };
+      }
+    }, 65);
+
+    operationTimers.current[batchKey] = { interval: intervalId, completion: null };
+  };
+
   const handleDocumentOperation = (doc, type) => {
     if (fileOperations[doc.id]) return;
+
+    if (type === 'delete') {
+      runBatchOperation(getActionTargetIds(doc), 'delete');
+      return;
+    }
 
     if (operationTimers.current[doc.id]) {
       clearInterval(operationTimers.current[doc.id].interval);
@@ -484,10 +792,6 @@ export default function FolderView() {
           document.body.appendChild(link);
           link.click();
           link.remove();
-        } else if (type === 'delete') {
-          // TODO: Integrate file deletion API endpoint
-          setDocuments(prev => prev.filter(item => item.id !== doc.id));
-          setPreviewDoc(current => (current?.id === doc.id ? null : current));
         }
 
         const completionTimeout = setTimeout(() => {
@@ -504,6 +808,27 @@ export default function FolderView() {
     }, 70);
 
     operationTimers.current[doc.id] = { interval: intervalId, completion: null };
+  };
+
+  // Opens Destination Workspace modal for either 'copy' or 'move'
+  const openDestinationWorkspace = (mode, docIds, defaultOptionValue = null) => {
+    if (!docIds || docIds.length === 0) return;
+    const optionsList = currentViewMode === 'client' ? clientDestinationOptions : workspaceDestinationOptions;
+    const preselected = defaultOptionValue
+      ? optionsList.filter(opt => opt.value === defaultOptionValue)
+      : [];
+    setSelectedDestinations(preselected);
+    setTransferModal({ mode, docIds });
+  };
+
+  const confirmDestinationWorkspace = (e) => {
+    e.preventDefault();
+    if (!transferModal || selectedDestinations.length === 0) return;
+    const { mode, docIds } = transferModal;
+    const destinations = selectedDestinations.map(opt => opt.value);
+    setTransferModal(null);
+    setSelectedDestinations([]);
+    runBatchOperation(docIds, mode, { destinations });
   };
 
   const triggerUploadSimulation = (files, targetColumn) => {
@@ -549,7 +874,7 @@ export default function FolderView() {
             column: file.targetColumn,
             size: file.size,
             type: file.filename.split('.').pop()?.toLowerCase() || 'file',
-            institution: 'chaturbhujeshwar',
+            institution: activeClientFilter !== 'all' ? activeClientFilter : 'chaturbhujeshwar',
             dataUrl: 'data:application/octet-stream;base64,UklGRq...',
             updatedAt: new Date().toISOString()
           })),
@@ -574,36 +899,54 @@ export default function FolderView() {
     const effectiveColumn = activeDropColumn.current || targetColumn;
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      draggedCardId.current = null;
+      draggedCardIds.current = [];
       activeDropColumn.current = null;
       triggerUploadSimulation(Array.from(e.dataTransfer.files), effectiveColumn);
-    } else if (draggedCardId.current) {
-      const id = draggedCardId.current;
-      draggedCardId.current = null;
+    } else if (draggedCardIds.current.length > 0) {
+      const idsToMove = [...draggedCardIds.current];
+      draggedCardIds.current = [];
       activeDropColumn.current = null;
 
-      const current = documents.find(d => d.id === id);
-      if (!current || current.column === effectiveColumn || fileOperations[id]) return;
+      const movableIds = idsToMove.filter(id => {
+        const current = documents.find(d => d.id === id);
+        return current && current.column !== effectiveColumn && !fileOperations[id];
+      });
+      if (movableIds.length === 0) return;
 
       clearInterval(moveTimers.current.interval);
       clearTimeout(moveTimers.current.completion);
 
-      setFileOperations(prev => ({ ...prev, [id]: { type: 'move', progress: 0 } }));
+      setFileOperations(prev => {
+        const next = { ...prev };
+        movableIds.forEach(id => {
+          next[id] = { type: 'move', progress: 0 };
+        });
+        return next;
+      });
+
       let moveProgress = 0;
       moveTimers.current.interval = setInterval(() => {
         moveProgress = Math.min(moveProgress + 20, 100);
-        setFileOperations(prev => ({ ...prev, [id]: { type: 'move', progress: moveProgress } }));
+        setFileOperations(prev => {
+          const next = { ...prev };
+          movableIds.forEach(id => {
+            if (next[id]) next[id] = { type: 'move', progress: moveProgress };
+          });
+          return next;
+        });
 
         if (moveProgress === 100) {
           clearInterval(moveTimers.current.interval);
           // TODO: Integrate document move / reassign column API endpoint
+          const moveSet = new Set(movableIds);
           setDocuments(prev => prev.map(d => (
-            d.id === id ? { ...d, column: effectiveColumn, updatedAt: new Date().toISOString() } : d
+            moveSet.has(d.id) ? { ...d, column: effectiveColumn, updatedAt: new Date().toISOString() } : d
           )));
+          setSelectedDocIds(prev => prev.filter(id => !moveSet.has(id)));
           moveTimers.current.completion = setTimeout(() => {
             setFileOperations(prev => {
               const copy = { ...prev };
-              delete copy[id];
+              movableIds.forEach(id => delete copy[id]);
               return copy;
             });
           }, 350);
@@ -615,7 +958,8 @@ export default function FolderView() {
   const visibleStaff = OFFICE_STAFF.filter(member => (
     `${member.name} ${member.jobrole} ${member.role}`.toLowerCase().includes(staffSearch.trim().toLowerCase())
   ));
-  const visibleWorkspaces = currentViewMode === 'client'
+  const isFileListView = currentViewMode === 'client' || currentViewMode === 'sample';
+  const visibleWorkspaces = isFileListView
     ? [{ id: 'all', title: 'Files', dot: 'bg-orange-600' }]
     : visibleStaff.map(member => ({
       id: member.id,
@@ -627,6 +971,7 @@ export default function FolderView() {
 
   const meDocs = documents.filter(d => d.title.toLowerCase().includes(meSearch.toLowerCase()));
   const isStaffView = currentViewMode === 'internal' || currentViewMode === 'headquarter';
+  const selectedCount = selectedDocIds.length;
 
   return (
     <div className="flex min-h-screen flex-col bg-white font-sans text-slate-800">
@@ -683,6 +1028,75 @@ export default function FolderView() {
           </div>
         </div>
       </header>
+
+      {/* Bulk Selection Action Bar */}
+      <AnimatePresence>
+        {selectedCount > 0 && currentViewMode !== 'me' && (
+          <motion.div
+            key="bulk-action-bar"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.3, ease: EASE_OUT }}
+            className="sticky top-16 z-20 border-b border-amber-200 bg-amber-50/95 backdrop-blur-sm"
+          >
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-8">
+              <div className="flex items-center gap-3">
+                <AnimatedCheckbox
+                  checked={true}
+                  onChange={() => setSelectedDocIds([])}
+                  label="Clear selected files"
+                />
+                <span className="text-xs font-bold text-slate-900">
+                  {selectedCount} {selectedCount === 1 ? 'file' : 'files'} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggleSelectMany(documents.map(d => d.id), true)}
+                  className="cursor-pointer text-[11px] font-semibold text-amber-700 underline-offset-2 hover:underline"
+                >
+                  Select all ({documents.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDocIds([])}
+                  className="cursor-pointer text-[11px] font-medium text-slate-500 hover:text-slate-800"
+                >
+                  Clear
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Copy opens Destination Workspace modal */}
+                <MotionButton
+                  onClick={() => openDestinationWorkspace('copy', selectedDocIds)}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white ${GRADIENT}`}
+                >
+                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Copy ({selectedCount})</span>
+                </MotionButton>
+
+                {/* Move opens Destination Workspace modal */}
+                <MotionButton
+                  onClick={() => openDestinationWorkspace('move', selectedDocIds)}
+                  className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100/60"
+                >
+                  <FolderInput className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Move ({selectedCount})</span>
+                </MotionButton>
+
+                <MotionButton
+                  onClick={() => runBatchOperation(selectedDocIds, 'delete')}
+                  className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Delete ({selectedCount})</span>
+                </MotionButton>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Client Filter Bar */}
       <AnimatePresence initial={false}>
@@ -752,6 +1166,13 @@ export default function FolderView() {
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <th className="w-10 p-3.5">
+                      <AnimatedCheckbox
+                        checked={meDocs.length > 0 && meDocs.every(d => selectedDocIds.includes(d.id))}
+                        onChange={(val) => toggleSelectMany(meDocs.map(d => d.id), val)}
+                        label="Select all evidence logs"
+                      />
+                    </th>
                     <th className="p-3.5">Document Title</th>
                     <th className="p-3.5">Department</th>
                     <th className="p-3.5">Date Modified</th>
@@ -764,20 +1185,28 @@ export default function FolderView() {
                     [0, 1, 2, 3].map(i => <TableRowSkeleton key={i} />)
                   ) : meDocs.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-xs font-extralight text-slate-500">No evidence logs found.</td>
+                      <td colSpan={6} className="p-8 text-center text-xs font-extralight text-slate-500">No evidence logs found.</td>
                     </tr>
                   ) : (
                     <AnimatePresence initial>
                       {meDocs.map((doc, index) => {
                         const op = fileOperations[doc.id];
+                        const isChecked = selectedDocIds.includes(doc.id);
                         return (
                           <motion.tr
                             key={doc.id}
                             initial={{ opacity: 0, y: 12 }}
                             animate={{ opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE_OUT, delay: index * 0.06 } }}
                             exit={{ opacity: 0, transition: { duration: 0.2 } }}
-                            className="border-b border-slate-100 transition-colors duration-300 hover:bg-slate-50"
+                            className={`border-b border-slate-100 transition-colors duration-300 ${isChecked ? 'bg-amber-50/40' : 'hover:bg-slate-50'}`}
                           >
+                            <td className="p-3.5">
+                              <AnimatedCheckbox
+                                checked={isChecked}
+                                onChange={() => toggleSelectDoc(doc.id)}
+                                label={`Select ${doc.title}`}
+                              />
+                            </td>
                             <td className="p-3.5 font-bold text-slate-800">{doc.title}</td>
                             <td className="p-3.5 text-[10px] font-medium uppercase text-amber-600">{doc.column}</td>
                             <td className="p-3.5 font-extralight text-slate-500">{new Date(doc.updatedAt).toLocaleString()}</td>
@@ -806,17 +1235,17 @@ export default function FolderView() {
             variants={stagger}
             initial="hidden"
             animate="show"
-            className={`grid grid-cols-1 items-start gap-6 ${currentViewMode === 'client' ? '' : 'md:grid-cols-2 xl:grid-cols-3'}`}
+            className={`grid grid-cols-1 items-start gap-6 ${isFileListView ? '' : 'md:grid-cols-2 xl:grid-cols-3'}`}
           >
             {isLoading ? (
-              (currentViewMode === 'client' ? [0] : [0, 1, 2]).map(i => (
+              (isFileListView ? [0] : [0, 1, 2]).map(i => (
                 <motion.div key={i} variants={fadeUp}>
-                  <ColumnSkeleton withMembers={currentViewMode !== 'client'} />
+                  <ColumnSkeleton withMembers={!isFileListView} />
                 </motion.div>
               ))
             ) : (
               <>
-                {currentViewMode !== 'client' && visibleStaff.length === 0 && (
+                {!isFileListView && visibleStaff.length === 0 && (
                   <motion.p variants={fadeUp} className="col-span-full rounded-xl border border-slate-200 bg-white p-8 text-center text-sm font-extralight text-slate-500">
                     No staff match “{staffSearch}”.
                   </motion.p>
@@ -831,12 +1260,13 @@ export default function FolderView() {
                   }
                   const searchTerm = String((col.id === 'all' ? clientSearch : columnSearches[col.id]) ?? '');
                   const filteredDocs = colDocs.filter(d => String(d?.title ?? '').toLowerCase().includes(searchTerm.toLowerCase()));
+                  const allColumnSelected = filteredDocs.length > 0 && filteredDocs.every(d => selectedDocIds.includes(d.id));
 
                   return (
                     <motion.div
                       key={col.id}
                       variants={fadeUp}
-                      className={`flex flex-col rounded-2xl border border-slate-200 bg-white ${currentViewMode === 'client' ? 'min-h-0' : 'h-[70vh] min-h-0 overflow-hidden sm:h-[80vh] xl:h-[85vh]'}`}
+                      className={`flex flex-col rounded-2xl border border-slate-200 bg-white ${isFileListView ? 'min-h-0' : 'h-[70vh] min-h-0 overflow-hidden sm:h-[80vh] xl:h-[85vh]'}`}
                     >
                       {col.members?.length > 0 && (
                         <div className="border-b border-slate-100 p-3">
@@ -878,19 +1308,28 @@ export default function FolderView() {
                       )}
 
                       <div className="space-y-2.5 border-b border-slate-100 bg-white p-3">
-                        <div className="relative">
-                          <SearchIcon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                          <input
-                            type="search"
-                            value={searchTerm}
-                            onChange={(e) => {
-                              if (col.id === 'all') setClientSearch(e.target.value);
-                              else setColumnSearches(prev => ({ ...prev, [col.id]: e.target.value }));
-                            }}
-                            placeholder="Search docs..."
-                            aria-label="Search documents"
-                            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs font-medium transition-all duration-300 placeholder:font-extralight focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                          />
+                        <div className="flex items-center gap-2">
+                          {filteredDocs.length > 0 && (
+                            <AnimatedCheckbox
+                              checked={allColumnSelected}
+                              onChange={(val) => toggleSelectMany(filteredDocs.map(d => d.id), val)}
+                              label={`Select all files in ${col.title}`}
+                            />
+                          )}
+                          <div className="relative flex-1">
+                            <SearchIcon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                            <input
+                              type="search"
+                              value={searchTerm}
+                              onChange={(e) => {
+                                if (col.id === 'all') setClientSearch(e.target.value);
+                                else setColumnSearches(prev => ({ ...prev, [col.id]: e.target.value }));
+                              }}
+                              placeholder="Search docs..."
+                              aria-label="Search documents"
+                              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs font-medium transition-all duration-300 placeholder:font-extralight focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
                         </div>
 
                         <div className="flex items-center justify-between gap-1 rounded-lg bg-slate-100 p-0.5 text-xs">
@@ -917,7 +1356,7 @@ export default function FolderView() {
                         </div>
                       </div>
 
-                      {currentViewMode !== 'client' && (
+                      {!isFileListView && (
                         <div className="shrink-0 p-3">
                           <div
                             data-drop-zone="true"
@@ -947,7 +1386,7 @@ export default function FolderView() {
                                 </svg>
                                 <span className="min-w-0">
                                   <span className="block truncate text-xs font-medium text-slate-600">
-                                    Drop files or <span className="font-bold text-amber-600">browse</span>
+                                    Drop or move files here, or <span className="font-bold text-amber-600">browse</span>
                                   </span>
                                   <AnimatePresence initial={false}>
                                     {expandedUploadColumn === col.id && (
@@ -1003,8 +1442,8 @@ export default function FolderView() {
                         data-drop-zone="true"
                         data-column-id={col.id}
                         onDragOver={(e) => e.preventDefault()}
-                        onDrop={currentViewMode === 'client' ? undefined : (e) => handleDrop(e, col.id)}
-                        className={`flex-1 rounded-b-2xl transition-colors duration-300 ${currentViewMode === 'client' ? 'p-3' : 'min-h-0 overflow-y-auto p-3 scrollbar-thin [scrollbar-color:#cbd5e1_transparent]'}`}
+                        onDrop={isFileListView ? undefined : (e) => handleDrop(e, col.id)}
+                        className={`flex-1 rounded-b-2xl transition-colors duration-300 ${isFileListView ? 'p-3' : 'min-h-0 overflow-y-auto p-3 scrollbar-thin [scrollbar-color:#cbd5e1_transparent]'}`}
                       >
                         <motion.div variants={listStagger} initial="hidden" animate="show" className="space-y-3">
                           {filteredDocs.length === 0 && (
@@ -1013,14 +1452,23 @@ export default function FolderView() {
                           <AnimatePresence initial={false}>
                             {filteredDocs.map(doc => {
                               const op = fileOperations[doc.id];
+                              const isSelected = selectedDocIds.includes(doc.id);
+                              const isBulkTarget = isSelected && selectedCount > 1;
                               const { Icon, color } = getFileIcon(doc.title);
+
                               return (
                                 // Native-draggable wrapper: framer's own onDragStart would clash with HTML5 drag.
                                 <div
                                   key={doc.id}
-                                  draggable={currentViewMode !== 'client' && !op}
-                                  onDragStart={() => { draggedCardId.current = doc.id; }}
-                                  onDragEnd={() => { draggedCardId.current = null; }}
+                                  draggable={!isFileListView && !op}
+                                  onDragStart={() => {
+                                    draggedCardIds.current = selectedDocIds.includes(doc.id)
+                                      ? selectedDocIds
+                                      : [doc.id];
+                                  }}
+                                  onDragEnd={() => {
+                                    draggedCardIds.current = [];
+                                  }}
                                 >
                                   <motion.div
                                     variants={fadeUp}
@@ -1028,7 +1476,10 @@ export default function FolderView() {
                                     whileHover={op ? undefined : { y: -2 }}
                                     transition={softSpring}
                                     onClick={() => setPreviewDoc(doc)}
-                                    className={`group relative cursor-pointer rounded-xl border border-slate-200 bg-white p-3 transition-colors duration-300 hover:border-amber-400 ${currentViewMode === 'client' ? '' : 'active:cursor-grabbing'}`}
+                                    className={`group relative cursor-pointer rounded-xl border p-3 transition-colors duration-300 ${isSelected
+                                      ? 'border-amber-400 bg-amber-50/35 ring-1 ring-amber-400/40'
+                                      : 'border-slate-200 bg-white hover:border-amber-400'
+                                      } ${isFileListView ? '' : 'active:cursor-grabbing'}`}
                                   >
                                     <AnimatePresence>
                                       {op && (
@@ -1038,11 +1489,15 @@ export default function FolderView() {
                                           exit={{ opacity: 0 }}
                                           transition={{ duration: 0.2 }}
                                           className="absolute inset-0 z-10 flex cursor-wait flex-col items-center justify-center rounded-xl bg-white/95 p-3 text-center backdrop-blur-sm"
+                                          role="status"
+                                          aria-live="polite"
+                                          aria-label={`${op.type} ${doc.title}, ${op.progress}%`}
                                           onClick={(e) => e.stopPropagation()}
                                         >
-                                          <OperationSpinner />
-                                          <span className="mb-1.5 text-[11px] font-bold text-slate-800">
-                                            {op.type === 'download' ? 'Downloading' : op.type === 'delete' ? 'Deleting' : 'Moving'}… {op.progress}%
+                                          <OperationSkeleton />
+                                          <span className="mb-1.5 inline-flex items-center gap-2 text-[11px] font-bold text-slate-800">
+                                            <Skeleton className="h-3 w-20 rounded-full" />
+                                            <span>{op.progress}%</span>
                                           </span>
                                           <ProgressBar value={op.progress} danger={op.type === 'delete'} label={`${op.type} ${doc.title}`} />
                                         </motion.div>
@@ -1050,6 +1505,14 @@ export default function FolderView() {
                                     </AnimatePresence>
 
                                     <div className="flex items-start gap-2.5">
+                                      <div className="pt-1.5">
+                                        <AnimatedCheckbox
+                                          checked={isSelected}
+                                          onChange={() => toggleSelectDoc(doc.id)}
+                                          disabled={!!op}
+                                          label={`Select ${doc.title}`}
+                                        />
+                                      </div>
                                       <div className={`shrink-0 rounded-lg bg-slate-100 p-2 transition-colors duration-300 group-hover:bg-amber-50 group-hover:text-amber-600 ${color}`}>
                                         <Icon className="h-5 w-5" aria-hidden="true" />
                                       </div>
@@ -1062,14 +1525,47 @@ export default function FolderView() {
                                         </div>
                                       </div>
                                     </div>
+
                                     <div className="mt-2.5 flex items-center justify-between border-t border-slate-100 pt-2 text-[10px] font-extralight text-slate-500">
                                       <span>{new Date(doc.updatedAt).toLocaleDateString()}</span>
                                       <div className="-mr-1 flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                                        <IconButton onClick={() => handleDocumentOperation(doc, 'download')} title={`Download ${doc.title}`} disabled={!!op}>
-                                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                        {/* Copy opens Destination Workspace modal */}
+                                        <IconButton
+                                          onClick={() => openCardTransfer('copy', doc, col.id === 'all' ? doc.institution : col.id)}
+                                          title={isBulkTarget ? `Copy ${selectedCount} selected files` : `Copy ${doc.title}`}
+                                          disabled={!!op}
+                                          className="p-1.5"
+                                        >
+                                          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                                         </IconButton>
-                                        <IconButton onClick={() => handleDocumentOperation(doc, 'delete')} title={`Delete ${doc.title}`} danger disabled={!!op}>
-                                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+
+                                        {/* Move opens Destination Workspace modal */}
+                                        <IconButton
+                                          onClick={() => openCardTransfer('move', doc, col.id === 'all' ? doc.institution : col.id)}
+                                          title={isBulkTarget ? `Move ${selectedCount} selected files` : `Move ${doc.title}`}
+                                          disabled={!!op}
+                                          className="p-1.5"
+                                        >
+                                          <FolderInput className="h-3.5 w-3.5" aria-hidden="true" />
+                                        </IconButton>
+
+                                        <IconButton
+                                          onClick={() => handleDocumentOperation(doc, 'download')}
+                                          title={`Download ${doc.title}`}
+                                          disabled={!!op}
+                                          className="p-1.5"
+                                        >
+                                          <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                                        </IconButton>
+
+                                        <IconButton
+                                          onClick={() => handleDocumentOperation(doc, 'delete')}
+                                          title={isBulkTarget ? `Delete ${selectedCount} selected files` : `Delete ${doc.title}`}
+                                          danger
+                                          disabled={!!op}
+                                          className="p-1.5"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                                         </IconButton>
                                       </div>
                                     </div>
@@ -1089,6 +1585,114 @@ export default function FolderView() {
         )}
       </main>
 
+      {/* Destination Workspace Modal (React-Select Multi-Select for Copy & Move) */}
+      <AnimatePresence>
+        {transferModal && (
+          <Modal
+            onClose={() => {
+              setTransferModal(null);
+              setSelectedDestinations([]);
+            }}
+          >
+            <motion.form
+              {...modalPanel}
+              onSubmit={confirmDestinationWorkspace}
+              className="relative w-full max-w-md space-y-4 rounded-2xl bg-white p-5 sm:p-6"
+            >
+              <IconButton
+                onClick={() => {
+                  setTransferModal(null);
+                  setSelectedDestinations([]);
+                }}
+                title="Close destination workspace"
+                className="absolute right-3 top-3"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </IconButton>
+
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-white ${GRADIENT}`}>
+                    {transferModal.mode === 'copy' ? <Copy className="h-3.5 w-3.5" /> : <FolderInput className="h-3.5 w-3.5" />}
+                  </span>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Destination Workspace
+                  </h3>
+                </div>
+                <p className="mt-1.5 text-xs font-extralight text-slate-500">
+                  {transferModal.mode === 'copy' ? (
+                    <>
+                      Select one or more workspaces to <span className="font-semibold text-amber-700">copy</span>{' '}
+                      <span className="font-bold text-slate-800">{transferModal.docIds.length}</span>{' '}
+                      {transferModal.docIds.length === 1 ? 'selected file' : 'selected files'} into.
+                    </>
+                  ) : (
+                    <>
+                      Select destination workspace(s) to <span className="font-semibold text-amber-700">move</span>{' '}
+                      <span className="font-bold text-slate-800">{transferModal.docIds.length}</span>{' '}
+                      {transferModal.docIds.length === 1 ? 'selected file' : 'selected files'} into.
+                    </>
+                  )}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="destination-workspace-select" className="block text-xs font-bold text-slate-700">
+                  {currentViewMode === 'client' ? 'Select Target Institutions (Multi-select)' : 'Select Destination Workspaces (Multi-select)'}
+                </label>
+                <Select
+                  inputId="destination-workspace-select"
+                  isMulti
+                  closeMenuOnSelect={false}
+                  options={currentViewMode === 'client' ? clientDestinationOptions : workspaceDestinationOptions}
+                  value={selectedDestinations}
+                  onChange={(selected) => setSelectedDestinations(selected || [])}
+                  placeholder={
+                    currentViewMode === 'client'
+                      ? 'Choose one or more institutions...'
+                      : 'Choose one or more staff workspaces...'
+                  }
+                  styles={reactSelectStyles}
+                  noOptionsMessage={() => 'No matching workspaces'}
+                />
+                {selectedDestinations.length > 1 && transferModal.mode === 'move' && (
+                  <p className="text-[11px] font-extralight text-slate-500">
+                    Files will move to <span className="font-semibold text-slate-700">{selectedDestinations[0].label}</span> and copy to the remaining {selectedDestinations.length - 1} destination{selectedDestinations.length - 1 === 1 ? '' : 's'}.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-col-reverse justify-end gap-2 pt-2 sm:flex-row">
+                <MotionButton
+                  type="button"
+                  onClick={() => {
+                    setTransferModal(null);
+                    setSelectedDestinations([]);
+                  }}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-medium transition-colors duration-300 hover:bg-slate-50 sm:py-2"
+                >
+                  Cancel
+                </MotionButton>
+                <MotionButton
+                  type="submit"
+                  disabled={selectedDestinations.length === 0}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold text-white sm:py-2 ${GRADIENT}`}
+                >
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>
+                    {transferModal.mode === 'copy'
+                      ? `Copy to ${selectedDestinations.length || ''} Destination${selectedDestinations.length === 1 ? '' : 's'}`
+                      : `Move to ${selectedDestinations.length || ''} Destination${selectedDestinations.length === 1 ? '' : 's'}`}
+                  </span>
+                </MotionButton>
+              </div>
+            </motion.form>
+          </Modal>
+        )}
+      </AnimatePresence>
+
       {/* Upload Progress Modal */}
       <AnimatePresence>
         {uploadQueue.length > 0 && (
@@ -1099,8 +1703,13 @@ export default function FolderView() {
               aria-label="Upload progress"
             >
               <header className="border-b border-slate-100 px-5 py-4">
-                <h3 className="text-base font-bold text-slate-900">
-                  Uploading {uploadQueue.length} file{uploadQueue.length === 1 ? '' : 's'}
+                <h3
+                  role="status"
+                  aria-label={`Upload in progress for ${uploadQueue.length} file${uploadQueue.length === 1 ? '' : 's'}`}
+                  className="flex items-center gap-2 text-base font-bold text-slate-900"
+                >
+                  <Skeleton className="h-4 w-24 rounded-full" />
+                  <span>{uploadQueue.length} file{uploadQueue.length === 1 ? '' : 's'}</span>
                 </h3>
                 <p className="mt-1 text-xs font-extralight text-slate-500">Each file uploads separately · maximum 50 MB per file</p>
               </header>
@@ -1116,7 +1725,7 @@ export default function FolderView() {
                     </div>
                     <ProgressBar value={file.progress} className="h-2" label={`Uploading ${file.filename}`} />
                     <p className="text-right text-[10px] font-medium text-slate-500">
-                      {file.progress === 100 ? 'Complete' : 'Uploading…'}
+                      {file.progress === 100 ? 'Complete' : <Skeleton className="ml-auto h-2.5 w-14 rounded-full" />}
                     </p>
                   </div>
                 ))}
@@ -1155,7 +1764,13 @@ export default function FolderView() {
                   onClick={() => handleDocumentOperation(previewDoc, 'download')}
                   className={`rounded-xl px-4 py-2.5 text-xs font-bold text-white sm:py-2 ${GRADIENT}`}
                 >
-                  {fileOperations[previewDoc.id]?.type === 'download' ? `Downloading ${fileOperations[previewDoc.id].progress}%` : 'Download'}
+                  {fileOperations[previewDoc.id]?.type === 'download' && (
+                    <LoaderCircle className="h-3 w-3 animate-spin text-white" strokeWidth={2.5} />
+                  )}
+                  Download
+                  {fileOperations[previewDoc.id]?.type === 'download' && (
+                    <span>{fileOperations[previewDoc.id].progress}%</span>
+                  )}
                 </MotionButton>
               </div>
             </motion.div>
